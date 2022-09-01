@@ -1,0 +1,31 @@
+[package]
+name = "tests"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+publish = false
+
+[lib]
+doctest = false
+test = true
+doc = false
+
+[dev-dependencies.git-ext-test]
+path = "../git-ext/t"
+features = ["test"]
+
+[dev-dependencies.git-ref-format-test]
+path = "../git-ref-format/t"
+features = ["test"]
+
+[dev-dependencies.git-trailers-test]
+path = "../git-trailers/t"
+features = ["test"]
+
+# [dev-dependencies.gitd-lib-test]
+# path = "../cli/gitd-lib/t"
+
+[dev-dependencies.link-git-test]
+path = "../link-git/t"
+features = ["test"]

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -eoux pipefail
+
+cargo nextest run --no-fail-fast tests properties

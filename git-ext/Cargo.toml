@@ -1,0 +1,41 @@
+[package]
+name = "radicle-git-ext"
+version = "0.1.0"
+authors = ["The Radicle Team <dev@radicle.xyz>"]
+edition = "2018"
+license = "GPL-3.0-or-later"
+description = "Utilities and extensions to the git2 crate"
+
+[lib]
+doctest = false
+test = false
+
+[dependencies]
+multihash = "0.11"
+percent-encoding = "2"
+thiserror = "1"
+
+[dependencies.git2]
+version = "0.13.24"
+default-features = false
+features = ["vendored-libgit2"]
+
+[dependencies.git-ref-format]
+path = "../git-ref-format"
+
+[dependencies.link-git]
+path = "../link-git"
+optional = true
+
+[dependencies.minicbor]
+version = "0.13"
+features = ["std"]
+optional = true
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+optional = true
+
+[dependencies.radicle-std-ext]
+path = "../std-ext"

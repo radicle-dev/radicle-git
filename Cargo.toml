@@ -1,0 +1,12 @@
+[workspace]
+members = [
+  "git-ext",
+  "git-ref-format",
+  "git-trailers",
+  "link-git",
+  "macros",
+  # TODO: port gitd-lib over
+  # "cli/gitd-lib",
+  "std-ext",
+  "test",
+]
