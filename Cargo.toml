@@ -3,6 +3,7 @@ members = [
   "git-ext",
   "git-ref-format",
   "git-trailers",
+  "git-types",
   "link-git",
   "macros",
   # TODO: port gitd-lib over
