@@ -1,0 +1,12 @@
+refs/namespaces/golden/refs/heads/master,refs/heads/master
+refs/namespaces/golden/refs/heads/banana,refs/heads/dev
+refs/namespaces/golden/refs/tags/v0.1.0,refs/tags/v0.1.0
+refs/namespaces/golden/refs/tags/v0.2.0,refs/tags/v0.2.0
+refs/namespaces/golden/refs/remotes/kickflip/heads/heelflip,refs/heads/dev
+refs/namespaces/golden/refs/remotes/kickflip/heads/fakie/bigspin,refs/heads/dev
+refs/namespaces/golden/refs/remotes/kickflip/tags/v0.1.0,refs/tags/v0.1.0
+refs/namespaces/golden/refs/namespaces/silver/refs/heads/master,refs/heads/dev
+refs/remotes/banana/pineapple,refs/remotes/origin/master
+refs/remotes/banana/orange/pineapple,refs/remotes/origin/master
+refs/namespaces/me/refs/heads/feature/#1194,refs/heads/master
+refs/namespaces/me/refs/remotes/fein/heads/feature/#1194,refs/heads/dev

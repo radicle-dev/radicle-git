@@ -82,6 +82,13 @@ jobs:
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
     steps:
       - uses: actions/checkout@master
+        with:
+          fetch-depth: 0
+      # The 'main' branch is needed for radicle-surf vcs::git::tests::test_submodule_failure,
+      # however actions/checkout uses the default branch 'master' at this moment.
+      # We will improve the test soon to remove this need.
+      - run: git branch main
+      - run: git branch -u origin/main main
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -111,6 +118,10 @@ jobs:
     needs: build-macos
     steps:
       - uses: actions/checkout@master
+        with:
+          fetch-depth: 0
+      - run: git branch main
+      - run: git branch -u origin/main main
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
