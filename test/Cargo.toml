@@ -12,7 +12,7 @@ test = true
 doc = false
 
 [dev-dependencies.git-ext-test]
-path = "../git-ext/t"
+path = "../radicle-git-ext/t"
 features = ["test"]
 
 [dev-dependencies.git-ref-format-test]

@@ -17,4 +17,4 @@ quote = "1"
 syn = "1"
 
 [dependencies.radicle-git-ext]
-path = "../git-ext"
+path = "../radicle-git-ext"

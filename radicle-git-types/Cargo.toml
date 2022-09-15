@@ -27,13 +27,13 @@ version = "0.13"
 features = ["std", "derive"]
 
 [dependencies.radicle-git-ext]
-path = "../git-ext"
+path = "../radicle-git-ext"
 
 [dependencies.radicle-macros]
-path = "../macros"
+path = "../radicle-macros"
 
 [dependencies.radicle-std-ext]
-path = "../std-ext"
+path = "../radicle-std-ext"
 
 [dependencies.serde]
 version = "1.0"

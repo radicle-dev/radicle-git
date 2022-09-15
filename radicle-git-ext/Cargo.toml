@@ -38,4 +38,4 @@ features = ["derive"]
 optional = true
 
 [dependencies.radicle-std-ext]
-path = "../std-ext"
+path = "../radicle-std-ext"
