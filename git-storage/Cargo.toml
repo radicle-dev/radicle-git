@@ -1,0 +1,38 @@
+[package]
+name = "git-storage"
+version = "0.1.0"
+authors = ["Kim Altintop <kim@eagain.st>", "Fintan Halpenny <fintan.halpenny@gmail.com>"]
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+async-trait = "0.1"
+globset = "0.4"
+libc = "0.2"
+parking_lot = "0.12"
+thiserror = "1"
+either = "1.8.0"
+
+[dependencies.deadpool]
+version = "0.7"
+default-features = false
+features = ["managed"]
+
+[dependencies.git2]
+version = "0.15.0"
+default-features = false
+features = ["vendored-libgit2"]
+
+[dependencies.git-ref-format]
+path = "../git-ref-format"
+
+[dependencies.libgit2-sys]
+version = ">= 0.12.24"
+default-features = false
+features = ["vendored"]
+
+[dependencies.radicle-git-ext]
+path = "../radicle-git-ext"
+
+[dependencies.radicle-std-ext]
+path = "../radicle-std-ext"
