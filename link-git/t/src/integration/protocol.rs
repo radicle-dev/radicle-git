@@ -354,6 +354,7 @@ where
 }
 
 #[test]
+#[ignore]
 fn thin_pack_libgit() {
     let remote = upstream();
     let local = tempdir().unwrap();
