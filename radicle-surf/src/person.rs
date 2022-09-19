@@ -15,11 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Represents a person in a repo.
+
+#[cfg(feature = "serialize")]
 use serde::Serialize;
 
 /// Representation of a person (e.g. committer, author, signer) from a
 /// repository. Usually extracted from a signature.
-#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[derive(Clone, Debug)]
 pub struct Person {
     /// Name part of the commit signature.
     pub name: String,

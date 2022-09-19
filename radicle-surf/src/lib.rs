@@ -86,6 +86,23 @@ pub mod diff;
 pub mod file_system;
 pub mod vcs;
 
+pub mod commit;
+pub use commit::{commit, commits, Commit};
+
+pub mod object;
+pub use object::{blob, tree as objectTree, Blob, BlobContent, Info, ObjectType, Tree};
+
+pub mod person;
+pub use person::Person;
+
+pub mod revision;
+pub use revision::Revision;
+
+#[cfg(feature = "syntax")]
+pub mod syntax;
+#[cfg(feature = "syntax")]
+pub use syntax::SYNTAX_SET;
+
 // Private modules
 mod nonempty;
 mod tree;

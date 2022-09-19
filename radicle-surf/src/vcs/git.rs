@@ -616,6 +616,24 @@ impl<'a> Browser<'a> {
         self.repository.list_branches(filter)
     }
 
+    /// Given a project id to a repo returns the list of branches.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`Error`] if the project doesn't exist or the surf
+    /// interaction fails.
+    pub fn branch_names(&self, filter: RefScope) -> Result<Vec<BranchName>, Error> {
+        let mut branches = self
+            .list_branches(filter)?
+            .into_iter()
+            .map(|b| b.name)
+            .collect::<Vec<BranchName>>();
+
+        branches.sort();
+
+        Ok(branches)
+    }
+
     /// List the names of the _tags_ that are contained in the underlying
     /// [`Repository`].
     ///
@@ -711,6 +729,23 @@ impl<'a> Browser<'a> {
     /// ```
     pub fn list_tags(&self, scope: RefScope) -> Result<Vec<Tag>, Error> {
         self.repository.list_tags(scope)
+    }
+
+    /// Returns a sorted list of [`TagName`] from the browser.
+    ///
+    /// # Errors
+    ///
+    /// * [`error::Error::Git`]
+    pub fn tag_names(&self) -> Result<Vec<TagName>, Error> {
+        let tag_names = self.list_tags(RefScope::Local)?;
+        let mut tags: Vec<TagName> = tag_names
+            .into_iter()
+            .map(|tag_name| tag_name.name())
+            .collect();
+
+        tags.sort();
+
+        Ok(tags)
     }
 
     /// List the namespaces within a `Browser`, filtering out ones that do not
