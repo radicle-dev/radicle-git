@@ -19,7 +19,11 @@ use crate::vcs::git::error::Error;
 use git2::Oid;
 use std::{convert::TryFrom, str};
 
+#[cfg(feature = "serialize")]
+use serde::{de, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+
 /// `Author` is the static information of a [`git2::Signature`].
+#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Author {
     /// Name of the author.
@@ -27,7 +31,28 @@ pub struct Author {
     /// Email of the author.
     pub email: String,
     /// Time the action was taken, e.g. time of commit.
+    #[serde(
+        serialize_with = "serialize_time",
+        deserialize_with = "deserialize_time"
+    )]
     pub time: git2::Time,
+}
+
+#[cfg(feature = "serialize")]
+fn deserialize_time<'de, D>(deserializer: D) -> Result<git2::Time, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let seconds: i64 = Deserialize::deserialize(deserializer)?;
+    Ok(git2::Time::new(seconds, 0))
+}
+
+#[cfg(feature = "serialize")]
+fn serialize_time<S>(t: &git2::Time, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_i64(t.seconds())
 }
 
 impl std::fmt::Debug for Author {
@@ -61,9 +86,12 @@ impl<'repo> TryFrom<git2::Signature<'repo>> for Author {
 /// `Commit` is the static information of a [`git2::Commit`]. To get back the
 /// original `Commit` in the repository we can use the [`Oid`] to retrieve
 /// it.
+#[cfg_attr(feature = "serialize", derive(Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Commit {
+    // TODO: Replace git2::Oid with git_ext::Oid (https://github.com/radicle-dev/radicle-git/issues/5)
     /// Object ID of the Commit, i.e. the SHA1 digest.
+    #[serde(deserialize_with = "deserialize_oid")]
     pub id: Oid,
     /// The author of the commit.
     pub author: Author,
@@ -74,7 +102,71 @@ pub struct Commit {
     /// The summary message of the commit.
     pub summary: String,
     /// The parents of this commit.
+    #[serde(deserialize_with = "deserialize_vec_oid")]
     pub parents: Vec<Oid>,
+}
+
+impl Commit {
+    /// Returns the commit description text. This is the text after the one-line
+    /// summary.
+    #[must_use]
+    pub fn description(&self) -> &str {
+        self.message
+            .strip_prefix(&self.summary)
+            .unwrap_or(&self.message)
+            .trim()
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl Serialize for Commit {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Commit", 7)?;
+        state.serialize_field("id", &self.id.to_string())?;
+        state.serialize_field("author", &self.author)?;
+        state.serialize_field("committer", &self.committer)?;
+        state.serialize_field("summary", &self.summary)?;
+        state.serialize_field("message", &self.message)?;
+        state.serialize_field("description", &self.description())?;
+        state.serialize_field(
+            "parents",
+            &self
+                .parents
+                .iter()
+                .map(|oid| oid.to_string())
+                .collect::<Vec<String>>(),
+        )?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "serialize")]
+fn deserialize_oid<'de, D>(deserializer: D) -> Result<Oid, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let oid: &str = Deserialize::deserialize(deserializer)?;
+    Oid::from_str(oid).map_err(|_| {
+        serde::de::Error::invalid_type(
+            serde::de::Unexpected::Str(oid),
+            &"a SHA1 hash not longer than 40 hex characters",
+        )
+    })
+}
+
+#[cfg(feature = "serialize")]
+fn deserialize_vec_oid<'de, D>(deserializer: D) -> Result<Vec<Oid>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let oids: Vec<&str> = Deserialize::deserialize(deserializer)?;
+    oids.iter()
+        .map(|key| Oid::from_str(key))
+        .collect::<Result<Vec<Oid>, _>>()
+        .map_err(de::Error::custom)
 }
 
 impl<'repo> TryFrom<git2::Commit<'repo>> for Commit {
@@ -97,6 +189,42 @@ impl<'repo> TryFrom<git2::Commit<'repo>> for Commit {
             message,
             summary,
             parents,
+        })
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use git2::Oid;
+    use proptest::prelude::*;
+    use test_helpers::roundtrip;
+
+    use super::{Author, Commit};
+
+    #[cfg(feature = "serialize")]
+    proptest! {
+        #[test]
+        fn prop_test_commits(commit in commits_strategy()) {
+            roundtrip::json(commit)
+        }
+    }
+
+    fn commits_strategy() -> impl Strategy<Value = Commit> {
+        ("[a-fA-F0-9]{40}", any::<String>(), any::<i64>()).prop_map(|(id, text, time)| Commit {
+            id: Oid::from_str(&id).unwrap(),
+            author: Author {
+                name: text.clone(),
+                email: text.clone(),
+                time: git2::Time::new(time, 0),
+            },
+            committer: Author {
+                name: text.clone(),
+                email: text.clone(),
+                time: git2::Time::new(time, 0),
+            },
+            message: text.clone(),
+            summary: text,
+            parents: vec![Oid::from_str(&id).unwrap(), Oid::from_str(&id).unwrap()],
         })
     }
 }
