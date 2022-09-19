@@ -19,7 +19,12 @@ use crate::vcs::git::{self, error::Error, ext, reference::Ref};
 use std::{cmp::Ordering, convert::TryFrom, fmt, str};
 
 #[cfg(feature = "serialize")]
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{Deserializer, Visitor},
+    ser::Serializer,
+    Deserialize,
+    Serialize,
+};
 
 /// The branch type we want to filter on.
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
@@ -94,13 +99,55 @@ impl BranchName {
 ///
 /// **Note**: The `PartialOrd` and `Ord` implementations compare on `BranchName`
 /// only.
-#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Branch {
     /// Name identifier of the `Branch`.
     pub name: BranchName,
     /// Whether the `Branch` is `Remote` or `Local`.
     pub locality: BranchType,
+}
+
+#[cfg(feature = "serialize")]
+impl Serialize for Branch {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_newtype_struct("Branch", &self.name)
+    }
+}
+
+// We deserialize all branches to local branches, if we want to deserialize the
+// Branch struct taking their locality into account, we would need to change its
+// serialization
+#[cfg(feature = "serialize")]
+impl<'de> Deserialize<'de> for Branch {
+    fn deserialize<D>(deserializer: D) -> Result<Branch, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct BranchVisitor;
+
+        impl<'de> Visitor<'de> for BranchVisitor {
+            type Value = Branch;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a object corresponding to a Branch")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(Branch {
+                    name: BranchName::new(v),
+                    locality: BranchType::Local,
+                })
+            }
+        }
+
+        deserializer.deserialize_identifier(BranchVisitor)
+    }
 }
 
 impl PartialOrd for Branch {
@@ -219,12 +266,13 @@ pub mod tests {
                 name: BranchName::new(&name),
                 locality: BranchType::Local
             }),
-            (any::<String>(), any::<String>()).prop_map(|(name, remote_name)| Branch {
-                name: BranchName::new(&name),
-                locality: BranchType::Remote {
-                    name: Some(remote_name),
-                },
-            })
+            // We exclude remote branches from the prop testing for now, due to roundtrip testing
+            // ("[a-zA-Z]{10}", any::<String>()).prop_map(|(name,
+            // remote_name)| Branch {     name: BranchName::new(&name),
+            //     locality: BranchType::Remote {
+            //         name: Some(remote_name),
+            //     },
+            // })
         ]
     }
 }
