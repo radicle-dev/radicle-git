@@ -121,6 +121,22 @@ pub enum FileDiff {
     },
 }
 
+/// Statistics describing a particular [`Diff`].
+#[cfg_attr(
+    feature = "serialize",
+    derive(Serialize),
+    serde(rename_all = "camelCase")
+)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Stats {
+    /// Get the total number of files changed in a diff.
+    pub files_changed: usize,
+    /// Get the total number of insertions in a diff.
+    pub insertions: usize,
+    /// Get the total number of deletions in a diff.
+    pub deletions: usize,
+}
+
 /// A set of line changes.
 #[cfg_attr(
     feature = "serialize",
@@ -527,6 +543,55 @@ impl Diff {
                 },
             });
         self.deleted.append(&mut new_files);
+    }
+
+    pub fn stats(&self) -> Stats {
+        let mut deletions = 0;
+        let mut insertions = 0;
+
+        for file in &self.modified {
+            if let self::FileDiff::Plain { ref hunks } = file.diff {
+                for hunk in hunks.iter() {
+                    for line in &hunk.lines {
+                        match line {
+                            self::LineDiff::Addition { .. } => insertions += 1,
+                            self::LineDiff::Deletion { .. } => deletions += 1,
+                            _ => {},
+                        }
+                    }
+                }
+            }
+        }
+
+        for file in &self.created {
+            if let self::FileDiff::Plain { ref hunks } = file.diff {
+                for hunk in hunks.iter() {
+                    for line in &hunk.lines {
+                        if let self::LineDiff::Addition { .. } = line {
+                            insertions += 1
+                        }
+                    }
+                }
+            }
+        }
+
+        for file in &self.deleted {
+            if let self::FileDiff::Plain { ref hunks } = file.diff {
+                for hunk in hunks.iter() {
+                    for line in &hunk.lines {
+                        if let self::LineDiff::Deletion { .. } = line {
+                            deletions += 1
+                        }
+                    }
+                }
+            }
+        }
+
+        Stats {
+            files_changed: self.modified.len() + self.created.len() + self.deleted.len(),
+            insertions,
+            deletions,
+        }
     }
 }
 
