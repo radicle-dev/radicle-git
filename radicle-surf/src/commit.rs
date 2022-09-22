@@ -33,6 +33,8 @@ use crate::{
     vcs::git::{self, BranchName, Browser, Rev},
 };
 
+use radicle_git_ext::Oid;
+
 /// Commit statistics.
 #[cfg_attr(feature = "serialize", derive(Serialize))]
 #[derive(Clone)]
@@ -62,7 +64,7 @@ pub struct Commit {
 pub struct Header {
     /// Identifier of the commit in the form of a sha1 hash. Often referred to
     /// as oid or object id.
-    pub sha1: git2::Oid,
+    pub sha1: Oid,
     /// The author of the commit.
     pub author: Person,
     /// The summary of the commit message body.
@@ -139,7 +141,7 @@ pub struct Commits {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commit(browser: &mut Browser<'_>, sha1: git2::Oid) -> Result<Commit, Error> {
+pub fn commit(browser: &mut Browser<'_>, sha1: Oid) -> Result<Commit, Error> {
     browser.commit(sha1)?;
 
     let history = browser.get();
@@ -215,7 +217,7 @@ pub fn commit(browser: &mut Browser<'_>, sha1: git2::Oid) -> Result<Commit, Erro
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn header(browser: &mut Browser<'_>, sha1: git2::Oid) -> Result<Header, Error> {
+pub fn header(browser: &mut Browser<'_>, sha1: Oid) -> Result<Header, Error> {
     browser.commit(sha1)?;
 
     let history = browser.get();

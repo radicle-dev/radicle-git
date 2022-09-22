@@ -16,8 +16,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::vcs::git::error::Error;
-pub use git2::Oid;
 use nonempty::NonEmpty;
+pub use radicle_git_ext::Oid;
 use std::{convert::TryFrom, fmt, str};
 
 /// A `Namespace` value allows us to switch the git namespace of

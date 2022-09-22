@@ -21,6 +21,7 @@
 //! use radicle_surf::file_system::unsound;
 //! use radicle_surf::vcs::git::*;
 //! use std::collections::HashMap;
+//! use std::str::FromStr;
 //! # use std::error::Error;
 //!
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -63,7 +64,8 @@
 //! ```
 
 // Re-export git2 as sub-module
-pub use git2::{self, Error as Git2Error, Oid, Time};
+pub use git2::{self, Error as Git2Error, Time};
+pub use radicle_git_ext::Oid;
 
 /// Provides ways of selecting a particular reference/revision.
 mod reference;
@@ -387,6 +389,7 @@ impl<'a> Browser<'a> {
     /// use nonempty::NonEmpty;
     /// use radicle_surf::vcs::History;
     /// use radicle_surf::vcs::git::{TagName, Branch, Browser, Oid, Repository};
+    /// use std::str::FromStr;
     /// # use std::error::Error;
     ///
     /// # fn main() -> Result<(), Box<dyn Error>> {
@@ -646,6 +649,7 @@ impl<'a> Browser<'a> {
     /// ```
     /// use radicle_surf::vcs::git::{Branch, RefScope, Browser, Namespace, Oid, Repository, Tag, TagName, Author, Time};
     /// use std::convert::TryFrom;
+    /// use std::str::FromStr;
     /// # use std::error::Error;
     ///
     /// # fn main() -> Result<(), Box<dyn Error>> {
@@ -915,6 +919,7 @@ impl<'a> Browser<'a> {
     ///
     /// ```
     /// use radicle_surf::vcs::git::{Branch, Browser, Repository, Oid, error};
+    /// use std::str::FromStr;
     /// # use std::error::Error;
     ///
     /// # fn main() -> Result<(), Box<dyn Error>> {
@@ -967,6 +972,7 @@ impl<'a> Browser<'a> {
     /// ```
     /// use radicle_surf::vcs::git::{Browser, Repository, Branch, BranchName, Namespace, Oid};
     /// use std::convert::TryFrom;
+    /// use std::str::FromStr;
     /// # use std::error::Error;
     ///
     /// # fn main() -> Result<(), Box<dyn Error>> {
@@ -1017,7 +1023,7 @@ impl<'a> Browser<'a> {
     /// ```
     pub fn revision_branches(&self, rev: impl Into<Rev>) -> Result<Vec<Branch>, Error> {
         let commit = self.repository.rev_to_commit(&rev.into())?;
-        self.repository.revision_branches(&commit.id())
+        self.repository.revision_branches(&commit.id().into())
     }
 
     /// Get the [`Stats`] of the underlying [`Repository`].
@@ -1078,7 +1084,7 @@ impl<'a> Browser<'a> {
             Error,
         > = Ok(HashMap::new());
 
-        let commit = repo.find_commit(commit.id)?;
+        let commit = repo.find_commit(commit.id.into())?;
         let tree = commit.as_object().peel_to_tree()?;
 
         tree.walk(
@@ -1117,8 +1123,8 @@ impl<'a> Browser<'a> {
     ///
     /// See [`git2::Repository::merge_base`] for details.
     pub fn merge_base(&self, one: Oid, two: Oid) -> Result<Option<Oid>, Error> {
-        match self.repository.repo_ref.merge_base(one, two) {
-            Ok(merge_base) => Ok(Some(merge_base)),
+        match self.repository.repo_ref.merge_base(one.into(), two.into()) {
+            Ok(merge_base) => Ok(Some(merge_base.into())),
             Err(err) => {
                 if err.code() == git2::ErrorCode::NotFound {
                     Ok(None)
@@ -1317,6 +1323,7 @@ mod tests {
     #[cfg(test)]
     mod rev {
         use super::{Branch, Browser, Error, Oid, Repository, TagName};
+        use std::str::FromStr;
 
         // **FIXME**: This seems to break occasionally on
         // buildkite. For some reason the commit
@@ -1440,6 +1447,7 @@ mod tests {
             file_system::{unsound, Path},
             vcs::git::{Branch, Browser, Oid, Repository},
         };
+        use std::str::FromStr;
 
         #[test]
         fn readme_missing_and_memory() {
@@ -1571,6 +1579,7 @@ mod tests {
     #[cfg(test)]
     mod diff {
         use crate::{diff::*, vcs::git::*};
+        use std::str::FromStr;
 
         #[test]
         fn test_initial_diff() -> Result<(), Error> {
@@ -1579,7 +1588,7 @@ mod tests {
 
             let oid = Oid::from_str("d3464e33d75c75c99bfb90fa2e9d16efc0b7d0e3")?;
             let repo = Repository::new("./data/git-platinum")?;
-            let commit = repo.0.find_commit(oid).unwrap();
+            let commit = repo.0.find_commit(oid.into()).unwrap();
 
             assert!(commit.parents().count() == 0);
             assert!(commit.parent(0).is_err());
@@ -1617,13 +1626,15 @@ mod tests {
             let repo = Repository::new("./data/git-platinum")?;
             let commit = repo
                 .0
-                .find_commit(Oid::from_str("80bacafba303bf0cdf6142921f430ff265f25095")?)
+                .find_commit(git2::Oid::from_str(
+                    "80bacafba303bf0cdf6142921f430ff265f25095",
+                )?)
                 .unwrap();
             let parent = commit.parent(0)?;
 
             let bro = Browser::new(&repo, Branch::local("master"))?;
 
-            let diff = bro.diff(parent.id(), commit.id())?;
+            let diff = bro.diff(parent.id().into(), commit.id().into())?;
 
             let expected_diff = Diff {
                 created: vec![],

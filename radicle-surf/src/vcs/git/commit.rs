@@ -16,7 +16,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::vcs::git::error::Error;
-use git2::Oid;
+use radicle_git_ext::Oid;
 use std::{convert::TryFrom, str};
 
 #[cfg(feature = "serialize")]
@@ -92,9 +92,7 @@ impl<'repo> TryFrom<git2::Signature<'repo>> for Author {
 #[cfg_attr(feature = "serialize", derive(Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Commit {
-    // TODO: Replace git2::Oid with git_ext::Oid (https://github.com/radicle-dev/radicle-git/issues/5)
-    /// Object ID of the Commit, i.e. the SHA1 digest.
-    #[cfg_attr(feature = "serialize", serde(deserialize_with = "deserialize_oid"))]
+    /// Object Id
     pub id: Oid,
     /// The author of the commit.
     pub author: Author,
@@ -105,7 +103,6 @@ pub struct Commit {
     /// The summary message of the commit.
     pub summary: String,
     /// The parents of this commit.
-    #[cfg_attr(feature = "serialize", serde(deserialize_with = "deserialize_vec_oid"))]
     pub parents: Vec<Oid>,
 }
 
@@ -146,44 +143,18 @@ impl Serialize for Commit {
     }
 }
 
-#[cfg(feature = "serialize")]
-fn deserialize_oid<'de, D>(deserializer: D) -> Result<Oid, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let oid: &str = Deserialize::deserialize(deserializer)?;
-    Oid::from_str(oid).map_err(|_| {
-        serde::de::Error::invalid_type(
-            serde::de::Unexpected::Str(oid),
-            &"a SHA1 hash not longer than 40 hex characters",
-        )
-    })
-}
-
-#[cfg(feature = "serialize")]
-fn deserialize_vec_oid<'de, D>(deserializer: D) -> Result<Vec<Oid>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let oids: Vec<&str> = Deserialize::deserialize(deserializer)?;
-    oids.iter()
-        .map(|key| Oid::from_str(key))
-        .collect::<Result<Vec<Oid>, _>>()
-        .map_err(de::Error::custom)
-}
-
 impl<'repo> TryFrom<git2::Commit<'repo>> for Commit {
     type Error = Error;
 
     fn try_from(commit: git2::Commit) -> Result<Self, Self::Error> {
-        let id = commit.id();
+        let id = commit.id().into();
         let author = Author::try_from(commit.author())?;
         let committer = Author::try_from(commit.committer())?;
         let message_raw = commit.message_bytes();
         let message = str::from_utf8(message_raw)?.into();
         let summary_raw = commit.summary_bytes().ok_or(Error::MissingSummary)?;
         let summary = str::from_utf8(summary_raw)?.into();
-        let parents = commit.parent_ids().collect();
+        let parents = commit.parent_ids().map(|oid| oid.into()).collect();
 
         Ok(Commit {
             id,
@@ -199,8 +170,8 @@ impl<'repo> TryFrom<git2::Commit<'repo>> for Commit {
 #[cfg(feature = "serialize")]
 #[cfg(test)]
 pub mod tests {
-    use git2::Oid;
     use proptest::prelude::*;
+    use radicle_git_ext::Oid;
     use test_helpers::roundtrip;
 
     use super::{Author, Commit};

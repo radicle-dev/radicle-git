@@ -17,11 +17,11 @@
 
 extern crate radicle_surf;
 
-use std::{env::Args, time::Instant};
+use std::{env::Args, str::FromStr, time::Instant};
 
-use git2::Oid;
 use nonempty::NonEmpty;
 
+use radicle_git_ext::Oid;
 use radicle_surf::{
     diff::Diff,
     file_system::Directory,
