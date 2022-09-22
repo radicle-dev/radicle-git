@@ -34,9 +34,9 @@ serde = { features = ["serde_derive"], optional = true, version = "1" }
 thiserror = "1.0"
 
 [dependencies.git2]
-version = ">= 0.12"
+version = "0.15.0"
 default-features = false
-features = []
+features = ["vendored-libgit2"]
 
 [dev-dependencies]
 criterion = "0.3"
