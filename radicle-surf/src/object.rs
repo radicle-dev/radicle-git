@@ -15,6 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Common definitions for git objects (blob and tree).
+//! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
+
+#[cfg(feature = "serialize")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
@@ -26,7 +30,7 @@ pub use blob::{blob, Blob, BlobContent};
 pub mod tree;
 pub use tree::{tree, Tree, TreeEntry};
 
-use crate::commit;
+use crate::{commit, file_system, git};
 
 /// Git object types.
 ///
@@ -39,6 +43,7 @@ pub enum ObjectType {
     Blob,
 }
 
+#[cfg(feature = "serialize")]
 impl Serialize for ObjectType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -62,6 +67,7 @@ pub struct Info {
     pub last_commit: Option<commit::Header>,
 }
 
+#[cfg(feature = "serialize")]
 impl Serialize for Info {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -73,4 +79,20 @@ impl Serialize for Info {
         state.serialize_field("lastCommit", &self.last_commit)?;
         state.end()
     }
+}
+
+/// An error reported by object types.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// An error occurred during a file system operation.
+    #[error(transparent)]
+    FileSystem(#[from] file_system::Error),
+
+    /// An error occurred during a git operation.
+    #[error(transparent)]
+    Git(#[from] git::error::Error),
+
+    /// Trying to find a file path which could not be found.
+    #[error("the path '{0}' was not found")]
+    PathNotFound(file_system::Path),
 }

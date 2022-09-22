@@ -24,9 +24,11 @@ serialize = ["serde"]
 gh-actions = []
 
 [dependencies]
+base64 = "0.13"
 either = "1.5"
 nom = "6"
 nonempty = "0.5"
+radicle-git-ext = { path = "../radicle-git-ext", features = ["serde"] }
 regex = ">= 1.5.5"
 serde = { features = ["serde_derive"], optional = true, version = "1" }
 thiserror = "1.0"

@@ -15,26 +15,26 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Represents git object type 'blob', i.e. actual file contents.
+//! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
+
 use std::{
     convert::TryFrom as _,
     str::{self, FromStr as _},
 };
 
+#[cfg(feature = "serialize")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
 };
 
-use radicle_surf::{
-    file_system,
-    vcs::git::{Browser, Rev},
-};
-
 use crate::{
     commit,
-    error::Error,
-    object::{Info, ObjectType},
+    file_system,
+    object::{Error, Info, ObjectType},
     revision::Revision,
+    vcs::git::{Browser, Rev},
 };
 
 #[cfg(feature = "syntax")]
@@ -64,6 +64,7 @@ impl Blob {
     }
 }
 
+#[cfg(feature = "serialize")]
 impl Serialize for Blob {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -94,6 +95,7 @@ pub enum BlobContent {
     Binary(Vec<u8>),
 }
 
+#[cfg(feature = "serialize")]
 impl Serialize for BlobContent {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

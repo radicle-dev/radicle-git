@@ -85,9 +85,9 @@ jobs:
         with:
           fetch-depth: 0
       # The 'main' branch is needed for radicle-surf vcs::git::tests::test_submodule_failure,
-      # however actions/checkout uses the default branch 'master' at this moment.
+      # however actions/checkout uses the init.defaultBranch 'master' at this moment.
       # We will improve the test soon to remove this need.
-      - run: git branch main
+      - run: git branch -f main  # -f in case of running against 'main' branch.
       - run: git branch -u origin/main main
       - uses: actions-rs/toolchain@v1
         with:
@@ -120,7 +120,7 @@ jobs:
       - uses: actions/checkout@master
         with:
           fetch-depth: 0
-      - run: git branch main
+      - run: git branch -f main
       - run: git branch -u origin/main main
       - uses: actions-rs/toolchain@v1
         with:

@@ -15,22 +15,27 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Represents a commit.
+
 use std::convert::TryFrom as _;
 
+#[cfg(feature = "serialize")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
 };
 
-use radicle_surf::{
+use crate::{
     diff,
-    vcs::git::{self, Browser, Rev},
+    file_system,
+    person::Person,
+    revision::Revision,
+    vcs::git::{self, BranchName, Browser, Rev},
 };
 
-use crate::{branch::Branch, error::Error, person::Person, revision::Revision};
-
 /// Commit statistics.
-#[derive(Clone, Serialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[derive(Clone)]
 pub struct Stats {
     /// Additions.
     pub additions: u64,
@@ -39,7 +44,8 @@ pub struct Stats {
 }
 
 /// Representation of a changeset between two revs.
-#[derive(Clone, Serialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[derive(Clone)]
 pub struct Commit {
     /// The commit header.
     pub header: Header,
@@ -48,7 +54,7 @@ pub struct Commit {
     /// The changeset introduced by this commit.
     pub diff: diff::Diff,
     /// The list of branches this commit belongs to.
-    pub branches: Vec<Branch>,
+    pub branches: Vec<BranchName>,
 }
 
 /// Representation of a code commit.
@@ -101,6 +107,7 @@ impl From<&git::Commit> for Header {
     }
 }
 
+#[cfg(feature = "serialize")]
 impl Serialize for Header {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -118,12 +125,12 @@ impl Serialize for Header {
 }
 
 /// A selection of commit headers and their statistics.
-#[derive(Serialize)]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub struct Commits {
     /// The commit headers
     pub headers: Vec<Header>,
     /// The statistics for the commit headers
-    pub stats: radicle_surf::vcs::git::Stats,
+    pub stats: git::Stats,
 }
 
 /// Retrieves a [`Commit`].
@@ -188,7 +195,7 @@ pub fn commit(browser: &mut Browser<'_>, sha1: git2::Oid) -> Result<Commit, Erro
     let branches = browser
         .revision_branches(sha1)?
         .into_iter()
-        .map(Branch::from)
+        .map(|b| b.name)
         .collect();
 
     Ok(Commit {
@@ -240,4 +247,20 @@ where
     let stats = browser.get_stats()?;
 
     Ok(Commits { headers, stats })
+}
+
+/// An error reported by commit API.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// An error occurred during a file system operation.
+    #[error(transparent)]
+    FileSystem(#[from] file_system::Error),
+
+    /// An error occurred during a git operation.
+    #[error(transparent)]
+    Git(#[from] git::error::Error),
+
+    /// Trying to find a file path which could not be found.
+    #[error("the path '{0}' was not found")]
+    PathNotFound(file_system::Path),
 }

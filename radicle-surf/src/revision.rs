@@ -15,37 +15,56 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Represents revisions
+
 use std::convert::TryFrom;
 
 use nonempty::NonEmpty;
+
+#[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
-use radicle_surf::vcs::git::{self, Browser, RefScope, Rev};
+use radicle_git_ext::Oid;
 
 use crate::{
-    branch::{branches, Branch},
-    error::Error,
-    oid::Oid,
-    tag::{tags, Tag},
+    git::BranchName,
+    vcs::git::{self, error::Error, Browser, RefScope, Rev, TagName},
 };
 
+/// Types of a peer.
 pub enum Category<P, U> {
-    Local { peer_id: P, user: U },
-    Remote { peer_id: P, user: U },
+    /// Local peer.
+    Local {
+        /// Peer Id
+        peer_id: P,
+        /// User name
+        user: U,
+    },
+    /// Remote peer.
+    Remote {
+        /// Peer Id
+        peer_id: P,
+        /// User name
+        user: U,
+    },
 }
 
 /// A revision selector for a `Browser`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "type")]
+#[cfg_attr(
+    feature = "serialize",
+    derive(Deserialize, Serialize),
+    serde(rename_all = "camelCase", tag = "type")
+)]
+#[derive(Debug, Clone)]
 pub enum Revision<P> {
     /// Select a tag under the name provided.
-    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
     Tag {
         /// Name of the tag.
         name: String,
     },
     /// Select a branch under the name provided.
-    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
     Branch {
         /// Name of the branch.
         name: String,
@@ -53,7 +72,7 @@ pub enum Revision<P> {
         peer_id: Option<P>,
     },
     /// Select a SHA1 under the name provided.
-    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
     Sha {
         /// The SHA1 value.
         sha: Oid,
@@ -83,18 +102,18 @@ where
     }
 }
 
-/// Bundled response to retrieve both [`Branch`]es and [`Tag`]s for a user's
-/// repo.
+/// Bundled response to retrieve both [`BranchName`]es and [`TagName`]s for
+/// a user's repo.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Revisions<P, U> {
     /// The peer peer_id for the user.
     pub peer_id: P,
     /// The user who owns these revisions.
     pub user: U,
-    /// List of [`git::Branch`].
-    pub branches: NonEmpty<Branch>,
-    /// List of [`git::Tag`].
-    pub tags: Vec<Tag>,
+    /// List of [`git::BranchName`].
+    pub branches: NonEmpty<BranchName>,
+    /// List of [`git::TagName`].
+    pub tags: Vec<TagName>,
 }
 
 /// Provide the [`Revisions`] for the given `peer_id`, looking for the
@@ -113,7 +132,7 @@ pub fn remote<P, U>(
 where
     P: Clone + ToString,
 {
-    let remote_branches = branches(browser, Some(peer_id.clone()).into())?;
+    let remote_branches = browser.branch_names(Some(peer_id.clone()).into())?;
     Ok(
         NonEmpty::from_vec(remote_branches).map(|branches| Revisions {
             peer_id,
@@ -138,8 +157,8 @@ pub fn local<P, U>(browser: &Browser, peer_id: P, user: U) -> Result<Option<Revi
 where
     P: Clone + ToString,
 {
-    let local_branches = branches(browser, RefScope::Local)?;
-    let tags = tags(browser)?;
+    let local_branches = browser.branch_names(RefScope::Local)?;
+    let tags = browser.tag_names()?;
     Ok(
         NonEmpty::from_vec(local_branches).map(|branches| Revisions {
             peer_id,

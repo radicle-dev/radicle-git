@@ -15,23 +15,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Represents git object type 'tree', i.e. like directory entries in Unix.
+//! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
+
 use std::{convert::TryFrom as _, str::FromStr as _};
 
+#[cfg(feature = "serialize")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
 };
 
-use radicle_surf::{
-    file_system,
-    vcs::git::{Browser, Rev},
-};
-
 use crate::{
     commit,
-    error::Error,
-    object::{Info, ObjectType},
+    file_system,
+    object::{Error, Info, ObjectType},
     revision::Revision,
+    vcs::git::{Browser, Rev},
 };
 
 /// Result of a directory listing, carries other trees and blobs.
@@ -44,6 +44,7 @@ pub struct Tree {
     pub info: Info,
 }
 
+#[cfg(feature = "serialize")]
 impl Serialize for Tree {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -66,6 +67,7 @@ pub struct TreeEntry {
     pub path: String,
 }
 
+#[cfg(feature = "serialize")]
 impl Serialize for TreeEntry {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -31,9 +31,12 @@ pub struct Author {
     /// Email of the author.
     pub email: String,
     /// Time the action was taken, e.g. time of commit.
-    #[serde(
-        serialize_with = "serialize_time",
-        deserialize_with = "deserialize_time"
+    #[cfg_attr(
+        feature = "serialize",
+        serde(
+            serialize_with = "serialize_time",
+            deserialize_with = "deserialize_time"
+        )
     )]
     pub time: git2::Time,
 }
@@ -91,7 +94,7 @@ impl<'repo> TryFrom<git2::Signature<'repo>> for Author {
 pub struct Commit {
     // TODO: Replace git2::Oid with git_ext::Oid (https://github.com/radicle-dev/radicle-git/issues/5)
     /// Object ID of the Commit, i.e. the SHA1 digest.
-    #[serde(deserialize_with = "deserialize_oid")]
+    #[cfg_attr(feature = "serialize", serde(deserialize_with = "deserialize_oid"))]
     pub id: Oid,
     /// The author of the commit.
     pub author: Author,
@@ -102,7 +105,7 @@ pub struct Commit {
     /// The summary message of the commit.
     pub summary: String,
     /// The parents of this commit.
-    #[serde(deserialize_with = "deserialize_vec_oid")]
+    #[cfg_attr(feature = "serialize", serde(deserialize_with = "deserialize_vec_oid"))]
     pub parents: Vec<Oid>,
 }
 
@@ -193,6 +196,7 @@ impl<'repo> TryFrom<git2::Commit<'repo>> for Commit {
     }
 }
 
+#[cfg(feature = "serialize")]
 #[cfg(test)]
 pub mod tests {
     use git2::Oid;
