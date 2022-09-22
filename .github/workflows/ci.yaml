@@ -85,10 +85,13 @@ jobs:
         with:
           fetch-depth: 0
       # The 'main' branch is needed for radicle-surf vcs::git::tests::test_submodule_failure,
-      # however actions/checkout uses the init.defaultBranch 'master' at this moment.
-      # We will improve the test soon to remove this need.
-      - run: git branch -f main  # -f in case of running against 'main' branch.
-      - run: git branch -u origin/main main
+      # however actions/checkout uses the init.defaultBranch 'master' at this moment, even if
+      # the repo does not use 'master' branch. We create 'main' branch as needed for the test.
+      #
+      # awk magic: create 'main' branch only if not exist yet.
+      #  END: do things at the end of the input.
+      #  NR: Number of Records in the input.
+      - run: git branch --list main | awk 'END { if (NR == 0) system("git branch main; git branch -u origin/main main"); }'
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -120,8 +123,7 @@ jobs:
       - uses: actions/checkout@master
         with:
           fetch-depth: 0
-      - run: git branch -f main
-      - run: git branch -u origin/main main
+      - run: git branch --list main | awk 'END { if (NR == 0) system("git branch main; git branch -u origin/main main"); }'
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
