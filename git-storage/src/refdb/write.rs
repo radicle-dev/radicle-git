@@ -99,7 +99,6 @@ pub struct SymrefTarget<'a> {
     pub target: Oid,
 }
 
-// TODO: include the previous values
 /// The successful result of an [`Update`] applied to the refdb.
 #[derive(Debug, Clone)]
 pub enum Updated {
@@ -109,6 +108,8 @@ pub enum Updated {
         name: RefString,
         /// The new `target` of the reference that was updated.
         target: Oid,
+        /// The previous target of the reference, if it existed.
+        previous: Option<Oid>,
     },
     /// The [`Update::Symbolic`] was succesful.
     Symbolic {
@@ -116,6 +117,8 @@ pub enum Updated {
         name: RefString,
         /// The new `target` of the reference that was updated.
         target: RefString,
+        /// The previous peeled target of the reference, if it existed.
+        previous: Option<Oid>,
     },
     /// The [`Update::Remove`] was succesful.
     Removed {

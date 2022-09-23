@@ -290,10 +290,14 @@ impl<'a, S> Transaction<'a, S> {
                     previous,
                     reflog,
                 })),
-                Policy::Allow => Ok(Either::Right(self.direct_edit(&name, target, &reflog)?)),
+                Policy::Allow => Ok(Either::Right(
+                    self.direct_edit(&name, target, given, &reflog)?,
+                )),
             },
             // It was an fast-forward so we go ahead and make the edit
-            None => Ok(Either::Right(self.direct_edit(&name, target, &reflog)?)),
+            None => Ok(Either::Right(
+                self.direct_edit(&name, target, given, &reflog)?,
+            )),
         }
     }
 
@@ -314,7 +318,7 @@ impl<'a, S> Transaction<'a, S> {
     ///   a. if it's direct then make the edit depending on the fast-forward
     ///      status.
     ///   b. if it's symbolic then this is an error.
-    pub fn symbolic<'b>(
+    pub fn symbolic<'b: 'a>(
         &mut self,
         name: Qualified<'b>,
         target: SymrefTarget<'b>,
@@ -323,6 +327,10 @@ impl<'a, S> Transaction<'a, S> {
         reflog: String,
     ) -> Result<Either<Update<'b>, Vec<Updated>>, error::Update> {
         let src = self.refdb.find_reference(&name)?;
+        let prev = src
+            .as_ref()
+            .map(|src| refdb::resolve(self.refdb.as_raw(), src))
+            .transpose()?;
         match src {
             Some(src) => match src.target {
                 Target::Direct { .. } if matches!(type_change, Policy::Abort) => {
@@ -345,19 +353,19 @@ impl<'a, S> Transaction<'a, S> {
                                 let is_ff = target.target != dst
                                     && self.is_ff(&target.name, target.target, dst)?;
                                 Ok(Either::Right(
-                                    self.symbolic_edit(name, target, &reflog, is_ff)?,
+                                    self.symbolic_edit(name, target, prev, &reflog, is_ff)?,
                                 ))
                             },
                             Target::Symbolic { .. } => Err(error::Update::TargetSymbolic(dst.name)),
                         },
                         None => Ok(Either::Right(
-                            self.symbolic_edit(name, target, &reflog, true)?,
+                            self.symbolic_edit(name, target, prev, &reflog, true)?,
                         )),
                     }
                 },
             },
             None => Ok(Either::Right(
-                self.symbolic_edit(name, target, &reflog, true)?,
+                self.symbolic_edit(name, target, prev, &reflog, true)?,
             )),
         }
     }
@@ -422,6 +430,7 @@ impl<'a, S> Transaction<'a, S> {
         &mut self,
         reference: R,
         target: Oid,
+        prev: Option<Oid>,
         reflog: &str,
     ) -> Result<Updated, error::Transaction>
     where
@@ -448,13 +457,15 @@ impl<'a, S> Transaction<'a, S> {
         Ok(Updated::Direct {
             name: reference.to_owned(),
             target,
+            previous: prev,
         })
     }
 
     pub fn symbolic_edit<R>(
         &mut self,
         reference: R,
-        target: SymrefTarget,
+        target: SymrefTarget<'a>,
+        prev: Option<Oid>,
         reflog: &str,
         is_ff: bool,
     ) -> Result<Vec<Updated>, error::Transaction>
@@ -465,7 +476,10 @@ impl<'a, S> Transaction<'a, S> {
         self.lock(reference)?;
         self.lock(&target.name)?;
 
-        let SymrefTarget { name: dst, target } = target;
+        let SymrefTarget {
+            name: dst,
+            target: dst_target,
+        } = target;
 
         let mut edits = Vec::with_capacity(2);
         let info = self.refdb.info();
@@ -477,7 +491,7 @@ impl<'a, S> Transaction<'a, S> {
                 source: err,
             })?;
         if is_ff {
-            let direct = self.direct_edit(&dst, target, reflog)?;
+            let direct = self.direct_edit(&dst, dst_target, prev, reflog)?;
             edits.push(direct);
         }
 
@@ -491,6 +505,7 @@ impl<'a, S> Transaction<'a, S> {
         edits.push(Updated::Symbolic {
             name: reference.to_owned(),
             target: dst.into(),
+            previous: prev,
         });
         Ok(edits)
     }
