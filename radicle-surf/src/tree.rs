@@ -318,15 +318,15 @@ impl<K, A> Tree<K, A> {
         self.0.clone().flat_map(|sub_tree| sub_tree.to_nonempty())
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &A> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = &A> {
         self.0.iter().flat_map(|tree| tree.iter())
     }
 
-    pub fn iter_keys<'a>(&'a self) -> impl Iterator<Item = &K> + 'a {
+    pub fn iter_keys(&self) -> impl Iterator<Item = &K> {
         self.0.iter().flat_map(|tree| tree.iter_keys())
     }
 
-    pub fn iter_subtrees<'a>(&'a self) -> impl Iterator<Item = &SubTree<K, A>> + 'a {
+    pub fn iter_subtrees(&self) -> impl Iterator<Item = &SubTree<K, A>> {
         self.0.iter()
     }
 
@@ -490,12 +490,12 @@ impl<K, A> Forest<K, A> {
         self.0.as_ref().map(|trees| trees.maximum_by(&f))
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &A> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = &A> {
         self.0.iter().flat_map(|trees| trees.iter())
     }
 
     #[allow(dead_code)]
-    pub fn iter_keys<'a>(&'a self) -> impl Iterator<Item = &K> + 'a {
+    pub fn iter_keys(&self) -> impl Iterator<Item = &K> {
         self.0.iter().flat_map(|trees| trees.iter_keys())
     }
 }

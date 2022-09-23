@@ -41,7 +41,7 @@ impl<A> History<A> {
     }
 
     /// Iterator over the artifacts.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &A> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = &A> {
         self.0.iter()
     }
 
