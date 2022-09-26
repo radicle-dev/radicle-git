@@ -31,3 +31,67 @@ pub use read::Read;
 
 pub mod write;
 pub use write::Write;
+
+/// Find the [`Object`] corresponding to the given `oid`.
+///
+/// Will fail if the object does not exist.
+pub fn object<S>(storage: &S, oid: Oid) -> Result<Object, S::FindObj>
+where
+    S: Read<FindObj = git2::Error>,
+{
+    storage
+        .find_object(oid)?
+        .ok_or_else(|| not_found("object", oid))
+}
+
+/// Find the [`Blob`] corresponding to the given `oid`.
+///
+/// Will fail if the blob does not exist.
+pub fn blob<S>(storage: &S, oid: Oid) -> Result<Blob, S::FindBlob>
+where
+    S: Read<FindBlob = git2::Error>,
+{
+    storage
+        .find_blob(oid)?
+        .ok_or_else(|| not_found("blob", oid))
+}
+
+/// Find the [`Commit`] corresponding to the given `oid`.
+///
+/// Will fail if the commit does not exist.
+pub fn commit<S>(storage: &S, oid: Oid) -> Result<Commit, S::FindCommit>
+where
+    S: Read<FindCommit = git2::Error>,
+{
+    storage
+        .find_commit(oid)?
+        .ok_or_else(|| not_found("commit", oid))
+}
+
+/// Find the [`Tag`] corresponding to the given `oid`.
+///
+/// Will fail if the tag does not exist.
+pub fn tag<S>(storage: &S, oid: Oid) -> Result<Tag, S::FindTag>
+where
+    S: Read<FindTag = git2::Error>,
+{
+    storage.find_tag(oid)?.ok_or_else(|| not_found("tag", oid))
+}
+
+/// Find the [`Tree`] corresponding to the given `oid`.
+///
+/// Will fail if the tree does not exist.
+pub fn tree<S>(storage: &S, oid: Oid) -> Result<Tree, S::FindTree>
+where
+    S: Read<FindTree = git2::Error>,
+{
+    storage
+        .find_tree(oid)?
+        .ok_or_else(|| not_found("tree", oid))
+}
+
+fn not_found(kind: &str, oid: Oid) -> git2::Error {
+    use git2::{ErrorClass::*, ErrorCode::*};
+
+    git2::Error::new(NotFound, Object, format!("could not find {kind} {oid}"))
+}
