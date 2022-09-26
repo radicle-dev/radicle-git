@@ -157,6 +157,11 @@ impl<Repo, A, Error> Browser<Repo, A, Error> {
         self.history.clone()
     }
 
+    /// Get the current `History` the `Browser` is viewing as a ref.
+    pub fn as_history(&self) -> &History<A> {
+        &self.history
+    }
+
     /// Set the `History` the `Browser` should view.
     pub fn set(&mut self, history: History<A>) {
         self.history = history;

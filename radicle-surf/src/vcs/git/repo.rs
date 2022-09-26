@@ -182,8 +182,8 @@ impl<'a> RepositoryRef<'a> {
         Ok(self.repo_ref.set_namespace(namespace)?)
     }
 
-    /// Get a particular `Commit`.
-    pub(super) fn get_commit(&self, oid: Oid) -> Result<git2::Commit<'a>, Error> {
+    /// Get a particular `git2::Commit` of `oid`.
+    pub fn get_git2_commit(&self, oid: Oid) -> Result<git2::Commit<'a>, Error> {
         let commit = self.repo_ref.find_commit(oid.into())?;
         Ok(commit)
     }
@@ -365,7 +365,7 @@ impl<'a> Vcs<Commit, Error> for RepositoryRef<'a> {
         match history_id {
             Rev::Ref(reference) => self.reference(reference, |_| None),
             Rev::Oid(oid) => {
-                let commit = self.get_commit(oid)?;
+                let commit = self.get_git2_commit(oid)?;
                 self.commit_to_history(commit)
             },
         }

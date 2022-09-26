@@ -118,8 +118,10 @@ impl fmt::Display for Ref {
     }
 }
 
+/// Error when parsing a ref.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ParseError {
+    /// The parsed ref is malformed.
     #[error("the ref provided '{0}' was malformed")]
     MalformedRef(String),
 }
@@ -194,109 +196,5 @@ impl str::FromStr for Ref {
 
     fn from_str(reference: &str) -> Result<Self, Self::Err> {
         parser::parse(reference).map_err(|_| ParseError::MalformedRef(reference.to_owned()))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::str::FromStr;
-
-    #[test]
-    fn parse_ref() -> Result<(), ParseError> {
-        assert_eq!(
-            Ref::from_str("refs/remotes/origin/master"),
-            Ok(Ref::RemoteBranch {
-                remote: "origin".to_string(),
-                name: BranchName::new("master")
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/heads/master"),
-            Ok(Ref::LocalBranch {
-                name: BranchName::new("master"),
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/heads/i-am-hyphenated"),
-            Ok(Ref::LocalBranch {
-                name: BranchName::new("i-am-hyphenated"),
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/heads/prefix/i-am-hyphenated"),
-            Ok(Ref::LocalBranch {
-                name: BranchName::new("prefix/i-am-hyphenated"),
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/tags/v0.0.1"),
-            Ok(Ref::Tag {
-                name: TagName::new("v0.0.1")
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/moi/refs/remotes/origin/master"),
-            Ok(Ref::Namespace {
-                namespace: "moi".to_string(),
-                reference: Box::new(Ref::RemoteBranch {
-                    remote: "origin".to_string(),
-                    name: BranchName::new("master")
-                })
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/moi/refs/namespaces/toi/refs/tags/v1.0.0"),
-            Ok(Ref::Namespace {
-                namespace: "moi".to_string(),
-                reference: Box::new(Ref::Namespace {
-                    namespace: "toi".to_string(),
-                    reference: Box::new(Ref::Tag {
-                        name: TagName::new("v1.0.0")
-                    })
-                })
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/me/refs/heads/feature/#1194"),
-            Ok(Ref::Namespace {
-                namespace: "me".to_string(),
-                reference: Box::new(Ref::LocalBranch {
-                    name: BranchName::new("feature/#1194"),
-                })
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/me/refs/remotes/fein/heads/feature/#1194"),
-            Ok(Ref::Namespace {
-                namespace: "me".to_string(),
-                reference: Box::new(Ref::RemoteBranch {
-                    remote: "fein".to_string(),
-                    name: BranchName::new("heads/feature/#1194"),
-                })
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/remotes/master"),
-            Err(ParseError::MalformedRef("refs/remotes/master".to_owned())),
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/refs/remotes/origin/master"),
-            Err(ParseError::MalformedRef(
-                "refs/namespaces/refs/remotes/origin/master".to_owned()
-            )),
-        );
-
-        Ok(())
     }
 }

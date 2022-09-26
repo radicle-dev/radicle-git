@@ -197,34 +197,3 @@ impl<'repo> TryFrom<git2::Reference<'repo>> for Branch {
         }
     }
 }
-
-#[cfg(feature = "serialize")]
-#[cfg(test)]
-pub mod tests {
-    use proptest::prelude::*;
-    use test_helpers::roundtrip;
-
-    use super::{Branch, BranchName, BranchType};
-
-    proptest! {
-        #[test]
-        fn prop_test_branch(branch in branch_strategy()) {
-            roundtrip::json(branch)
-        }
-    }
-
-    fn branch_strategy() -> impl Strategy<Value = Branch> {
-        prop_oneof![
-            any::<String>().prop_map(|name| Branch {
-                name: BranchName::new(&name),
-                locality: BranchType::Local
-            }),
-            (any::<String>(), any::<String>()).prop_map(|(name, remote_name)| Branch {
-                name: BranchName::new(&name),
-                locality: BranchType::Remote {
-                    name: Some(remote_name),
-                },
-            })
-        ]
-    }
-}

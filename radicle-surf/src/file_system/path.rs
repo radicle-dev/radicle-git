@@ -440,31 +440,3 @@ impl TryFrom<path::PathBuf> for Path {
         Ok(path)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[cfg(test)]
-    mod path {
-        use crate::file_system::unsound;
-
-        #[test]
-        fn split_last_root_and_foo() {
-            let path = unsound::path::new("foo");
-            assert_eq!(path.split_last(), (vec![], unsound::label::new("foo")));
-        }
-
-        #[test]
-        fn split_last_same_labels() {
-            // An interesting case for when first == last, but doesn't imply a singleton
-            // Path.
-            let path = unsound::path::new("foo/bar/foo");
-            assert_eq!(
-                path.split_last(),
-                (
-                    vec![unsound::label::new("foo"), unsound::label::new("bar")],
-                    unsound::label::new("foo")
-                )
-            );
-        }
-    }
-}

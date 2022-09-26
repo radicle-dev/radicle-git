@@ -103,8 +103,9 @@ pub mod syntax;
 #[cfg(feature = "syntax")]
 pub use syntax::SYNTAX_SET;
 
+pub mod tree;
+
 // Private modules
 mod nonempty;
-mod tree;
 
 pub use crate::vcs::git;
