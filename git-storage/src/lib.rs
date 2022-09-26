@@ -3,12 +3,9 @@
 
 //! # `git-storage`
 //!
-//! This crate provides access to git [references][refs] and [objects][objs], in
-//! a Radicle context. The particular difference for Radicle is that a storage
-//! must be *owned*, generally using a signing key.
+//! This crate provides access to git [references][refs] and [objects][objs].
 //!
-//! To first initialise the storage use [`Write::open`]. This will intialise the
-//! underlying git repository and its [`config`].
+//! To first initialise the storage use [`Write::open`].
 //!
 //! After the storage is initialised, use [`Write::open`] or [`Read::open`] for
 //! read-write or read-only access to the underlying storage. These structs will
@@ -44,7 +41,6 @@ extern crate async_trait;
 extern crate radicle_git_ext as git_ext;
 extern crate radicle_std_ext as std_ext;
 
-pub mod config;
 pub mod glob;
 
 pub mod pool;

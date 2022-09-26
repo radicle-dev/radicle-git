@@ -3,13 +3,12 @@
 // This file is part of radicle-link, distributed under the GPLv3 with Radicle
 // Linking Exception. For full terms see the included LICENSE file.
 
-use std::{path::Path, str::FromStr};
+use std::path::Path;
 
 use git_ext::{error::is_not_found_err, Oid};
 use std_ext::result::ResultExt as _;
 
 use crate::{
-    config::Config,
     glob,
     odb::{self, Blob, Commit, Object, Tag, Tree},
     refdb::{self, Reference, References, ReferencesGlob},
@@ -45,25 +44,12 @@ impl Read {
 
         Ok(Self { raw })
     }
-
-    /// Read the identifier from the underlying [`Config`]. The identifier is
-    /// expected to exist already.
-    ///
-    /// See [`crate::config::Owner`] for more information on the identifier.
-    pub fn rad_identifier<Id>(&self) -> Result<Id, error::Identifier>
-    where
-        Id: FromStr,
-        Id::Err: std::error::Error + Send + Sync + 'static,
-    {
-        let config = Config::try_from(&self.raw)?;
-        Ok(config.rad_identifier::<Id>()?)
-    }
 }
 
 pub mod error {
     use thiserror::Error;
 
-    use crate::{config, refdb::error::ParseReference};
+    use crate::refdb::error::ParseReference;
 
     #[derive(Debug, Error)]
     pub enum Init {
@@ -73,8 +59,6 @@ pub mod error {
 
     #[derive(Debug, Error)]
     pub enum Identifier {
-        #[error(transparent)]
-        Config(#[from] config::Error),
         #[error(transparent)]
         Git(#[from] git2::Error),
     }

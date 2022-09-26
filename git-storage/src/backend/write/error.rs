@@ -10,11 +10,7 @@ use super::*;
 #[derive(Debug, Error)]
 pub enum Init {
     #[error(transparent)]
-    Config(#[from] config::Error),
-    #[error(transparent)]
     Git(#[from] git2::Error),
-    #[error("the current identifier '{current}' does not match the identifier used to create the storage '{actual}'")]
-    OwnerMismatch { current: String, actual: String },
 }
 
 #[derive(Debug, Error)]

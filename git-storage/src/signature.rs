@@ -5,9 +5,9 @@
 pub struct UserInfo {
     /// Provided `name` of the user.
     pub name: String,
-    /// Proivded `email` of the user. Note that this does not necessarily have
-    /// to be an email, but will be used as the email field in [`crate::config`]
-    /// and the [`git2::Signature`].
+    /// Proivded `email` of the user. Note that this does not
+    /// necessarily have to be an email, but will be used as the email
+    /// field in the [`git2::Signature`].
     pub email: String,
 }
 

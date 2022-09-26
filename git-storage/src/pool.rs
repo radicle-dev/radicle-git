@@ -7,7 +7,6 @@ use std::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
     path::PathBuf,
-    str::FromStr,
     sync::Arc,
 };
 
@@ -16,7 +15,7 @@ use parking_lot::RwLock;
 use std_ext::Void;
 use thiserror::Error;
 
-use crate::{config, read, signature::UserInfo, write, Read, Write};
+use crate::{read, signature::UserInfo, write, Read, Write};
 
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -75,11 +74,7 @@ impl<S> AsMut<S> for PooledRef<S> {
     }
 }
 
-impl<S> AsRef<Read> for PooledRef<Write<S>>
-where
-    S: config::Owner,
-    <S::RadIdentifier as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-{
+impl AsRef<Read> for PooledRef<Write> {
     fn as_ref(&self) -> &Read {
         self.0.read_only()
     }
@@ -100,8 +95,7 @@ impl Initialised {
     }
 }
 
-pub struct Writer<S> {
-    signer: S,
+pub struct Writer {
     init: Initialised,
 }
 
@@ -113,7 +107,7 @@ pub struct Config<W> {
 }
 
 pub type ReadConfig = Config<PhantomData<Void>>;
-pub type WriteConfig<S> = Config<Writer<S>>;
+pub type WriteConfig = Config<Writer>;
 
 impl ReadConfig {
     pub fn new(root: PathBuf, info: UserInfo) -> Self {
@@ -124,11 +118,11 @@ impl ReadConfig {
         }
     }
 
-    pub fn write<S>(self, signer: S, init: Initialised) -> WriteConfig<S> {
+    pub fn write(self, init: Initialised) -> WriteConfig {
         Config {
             root: self.root,
             info: self.info,
-            write: Writer { signer, init },
+            write: Writer { init },
         }
     }
 }
@@ -144,36 +138,23 @@ impl Manager<Read, InitError> for ReadConfig {
     }
 }
 
-impl<S> WriteConfig<S>
-where
-    S: config::Owner,
-    <S::RadIdentifier as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-{
-    pub fn new(root: PathBuf, info: UserInfo, signer: S, init: Initialised) -> Self {
+impl WriteConfig {
+    pub fn new(root: PathBuf, info: UserInfo, init: Initialised) -> Self {
         Self {
             root,
             info,
-            write: Writer { signer, init },
+            write: Writer { init },
         }
     }
 
-    fn mk_storage(&self) -> Result<Write<S>, InitError>
-    where
-        S: Clone,
-    {
-        Write::open(&self.root, self.info.clone(), self.write.signer.clone())
-            .map_err(InitError::from)
+    fn mk_storage(&self) -> Result<Write, InitError> {
+        Write::open(&self.root, self.info.clone()).map_err(InitError::from)
     }
 }
 
 #[async_trait]
-impl<S> Manager<Write<S>, InitError> for WriteConfig<S>
-where
-    S: Clone + Send + Sync + 'static,
-    S: config::Owner,
-    <S::RadIdentifier as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-{
-    async fn create(&self) -> Result<Write<S>, InitError> {
+impl Manager<Write, InitError> for WriteConfig {
+    async fn create(&self) -> Result<Write, InitError> {
         let initialised = self.write.init.0.read();
         if *initialised {
             self.mk_storage()
@@ -189,7 +170,7 @@ where
         }
     }
 
-    async fn recycle(&self, _: &mut Write<S>) -> RecycleResult<InitError> {
+    async fn recycle(&self, _: &mut Write) -> RecycleResult<InitError> {
         Ok(())
     }
 }

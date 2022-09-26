@@ -3,20 +3,14 @@
 // This file is part of radicle-link, distributed under the GPLv3 with Radicle
 // Linking Exception. For full terms see the included LICENSE file.
 
-use std::{
-    marker::PhantomData,
-    path::{Path, PathBuf},
-    str::FromStr,
-};
+use std::path::Path;
 
 use either::Either;
 
 use git_ext::{error::is_not_found_err, Oid};
 use git_ref_format::{Qualified, RefStr, RefString};
-use std_ext::Void;
 
 use crate::{
-    config::{self, Config},
     odb,
     refdb::{
         self,
@@ -42,22 +36,13 @@ pub mod error;
 /// For write access to the refdb see [`refdb::Write`].
 ///
 /// To construct the `Write` storage use [`Read::open`].
-pub struct Write<Owner> {
+pub struct Write {
     inner: Read,
-    owner: Owner,
     info: UserInfo,
 }
 
-impl<O> Write<O>
-where
-    O: config::Owner,
-    <O::RadIdentifier as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-{
+impl Write {
     /// Open the [`Write`] storage, initialising it if it doesn't exist.
-    ///
-    /// Note that a [`Write`] is tied to the [`config::Owner`] with which it was
-    /// initialised, attempting to open it with a different one (that is, a
-    /// different owner) will return an error.
     ///
     /// # Concurrency
     ///
@@ -66,69 +51,36 @@ where
     /// the same way two `git` processes can access the same repository.
     /// However, if you need multiple [`Write`]s to be shared between
     /// threads, use a [`crate::Pool`] instead.
-    pub fn open<P: AsRef<Path>>(path: P, info: UserInfo, owner: O) -> Result<Self, error::Init> {
+    pub fn open<P: AsRef<Path>>(path: P, info: UserInfo) -> Result<Self, error::Init> {
         crate::init();
 
         let path = path.as_ref();
         let raw = match git2::Repository::open_bare(path) {
             Err(e) if is_not_found_err(&e) => {
-                let mut backend = git2::Repository::init_opts(
+                let backend = git2::Repository::init_opts(
                     path,
                     git2::RepositoryInitOptions::new()
                         .bare(true)
                         .no_reinit(true)
                         .external_template(false),
                 )?;
-                Config::init(&mut backend, &owner, info.clone())?;
-
                 Ok(backend)
             },
             Ok(repo) => Ok(repo),
             Err(e) => Err(e),
         }?;
 
-        let config = Config::try_from(&raw)?;
-        let actual = config.rad_identifier::<O::RadIdentifier>()?;
-        let current = owner.rad_identifier();
-
-        if actual != current {
-            return Err(error::Init::OwnerMismatch {
-                current: current.to_string(),
-                actual: actual.to_string(),
-            });
-        }
-
         Ok(Self {
             inner: Read { raw },
-            owner,
             info,
         })
     }
-
-    /// Get the underlying [`Config`] of the [`Write`] storage.
-    pub fn config(&self) -> Result<Config<O>, config::Error> {
-        Config::try_from(self)
-    }
-
-    /// Get the read-only [`Config`] of the [`Write`] storage.
-    pub fn config_readonly(&self) -> Result<Config<PhantomData<Void>>, git2::Error> {
-        Config::try_from(&self.inner.raw)
-    }
-
-    pub(crate) fn config_path(&self) -> PathBuf {
-        config::path(&self.inner.raw)
-    }
 }
 
-impl<O> Write<O> {
+impl Write {
     /// Return a read-only handle of the storage.
     pub fn read_only(&self) -> &Read {
         &self.inner
-    }
-
-    /// Return the owner of the storage.
-    pub fn owner(&self) -> &O {
-        &self.owner
     }
 
     /// Return the [`UserInfo`] of the storage.
@@ -143,7 +95,7 @@ impl<O> Write<O> {
 
 // refdb impls
 
-impl<'a, S> refdb::Read for &'a Write<S> {
+impl<'a> refdb::Read for &'a Write {
     type FindRef = <&'a Read as refdb::Read>::FindRef;
     type FindRefs = <&'a Read as refdb::Read>::FindRefs;
     type FindRefOid = <&'a Read as refdb::Read>::FindRefOid;
@@ -172,7 +124,7 @@ impl<'a, S> refdb::Read for &'a Write<S> {
     }
 }
 
-impl<'a, S> refdb::Write for &'a Write<S> {
+impl<'a> refdb::Write for &'a Write {
     type UpdateError = error::Update;
 
     fn update<'b, U>(&mut self, updates: U) -> Result<refdb::write::Applied<'b>, Self::UpdateError>
@@ -217,13 +169,13 @@ impl<'a, S> refdb::Write for &'a Write<S> {
 
 /// An internal struct combining a [`Write`] and [`git2::Transaction`].
 // TODO: include optional namespace
-struct Transaction<'a, O> {
-    refdb: &'a Write<O>,
+struct Transaction<'a> {
+    refdb: &'a Write,
     txn: git2::Transaction<'a>,
 }
 
-impl<'a, S> Transaction<'a, S> {
-    pub fn new(refdb: &'a Write<S>) -> Result<Self, git2::Error> {
+impl<'a> Transaction<'a> {
+    pub fn new(refdb: &'a Write) -> Result<Self, git2::Error> {
         let txn = refdb.inner.raw.transaction()?;
         Ok(Self { refdb, txn })
     }
@@ -551,7 +503,7 @@ impl<'a, S> Transaction<'a, S> {
 
 // odb impls
 
-impl<S> odb::Read for Write<S> {
+impl odb::Read for Write {
     type FindObj = <Read as odb::Read>::FindObj;
     type FindBlob = <Read as odb::Read>::FindBlob;
     type FindCommit = <Read as odb::Read>::FindCommit;
@@ -579,7 +531,7 @@ impl<S> odb::Read for Write<S> {
     }
 }
 
-impl<S> odb::Write for Write<S> {
+impl odb::Write for Write {
     type WriteBlob = git2::Error;
     type WriteCommit = git2::Error;
     type WriteTag = git2::Error;
