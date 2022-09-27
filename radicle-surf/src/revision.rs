@@ -94,10 +94,7 @@ where
                 },
                 None => git::Branch::local(&name).into(),
             }),
-            Revision::Sha { sha } => {
-                let oid: git2::Oid = sha.into();
-                Ok(oid.into())
-            },
+            Revision::Sha { sha } => Ok(sha.into()),
         }
     }
 }

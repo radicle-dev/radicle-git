@@ -33,8 +33,8 @@ use crate::{
         Vcs,
     },
 };
-use git2::Oid;
 use nonempty::NonEmpty;
+use radicle_git_ext::Oid;
 use std::{collections::HashSet, convert::TryFrom, str};
 
 /// This is for flagging to the `file_history` function that it should
@@ -156,24 +156,24 @@ impl<'a> RepositoryRef<'a> {
 
     /// Get the [`Diff`] between two commits.
     pub fn diff(&self, from: Oid, to: Oid) -> Result<Diff, Error> {
-        self.diff_commits(None, Some(from), to)
+        self.diff_commits(None, Some(from.into()), to.into())
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
 
     /// Get the [`Diff`] of a commit with no parents.
     pub fn initial_diff(&self, oid: Oid) -> Result<Diff, Error> {
-        self.diff_commits(None, None, oid)
+        self.diff_commits(None, None, oid.into())
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
 
     /// Parse an [`Oid`] from the given string.
     pub fn oid(&self, oid: &str) -> Result<Oid, Error> {
-        Ok(self.repo_ref.revparse_single(oid)?.id())
+        Ok(self.repo_ref.revparse_single(oid)?.id().into())
     }
 
     pub(super) fn rev_to_commit(&self, rev: &Rev) -> Result<git2::Commit, Error> {
         match rev {
-            Rev::Oid(oid) => Ok(self.repo_ref.find_commit(*oid)?),
+            Rev::Oid(oid) => Ok(self.repo_ref.find_commit((*oid).into())?),
             Rev::Ref(reference) => Ok(reference.find_ref(self)?.peel_to_commit()?),
         }
     }
@@ -184,7 +184,7 @@ impl<'a> RepositoryRef<'a> {
 
     /// Get a particular `Commit`.
     pub(super) fn get_commit(&self, oid: Oid) -> Result<git2::Commit<'a>, Error> {
-        let commit = self.repo_ref.find_commit(oid)?;
+        let commit = self.repo_ref.find_commit(oid.into())?;
         Ok(commit)
     }
 
@@ -214,7 +214,7 @@ impl<'a> RepositoryRef<'a> {
         for commit_result_id in revwalk {
             // The revwalk iter returns results so
             // we unpack these and push them to the history
-            let commit_id: Oid = commit_result_id?;
+            let commit_id = commit_result_id?;
 
             // Skip the head commit since we have processed it
             if commit_id == head_id {
@@ -278,10 +278,11 @@ impl<'a> RepositoryRef<'a> {
     }
 
     fn reachable_from(&self, reference: &git2::Reference, oid: &Oid) -> Result<bool, Error> {
+        let git2_oid = (*oid).into();
         let other = reference.peel_to_commit()?.id();
-        let is_descendant = self.repo_ref.graph_descendant_of(other, *oid)?;
+        let is_descendant = self.repo_ref.graph_descendant_of(other, git2_oid)?;
 
-        Ok(other == *oid || is_descendant)
+        Ok(other == git2_oid || is_descendant)
     }
 
     /// Get the history of the file system where the head of the [`NonEmpty`] is
@@ -296,10 +297,10 @@ impl<'a> RepositoryRef<'a> {
         let mut commits = vec![];
 
         // Set the revwalk to the head commit
-        revwalk.push(commit.id)?;
+        revwalk.push(commit.id.into())?;
 
         for commit in revwalk {
-            let parent_id: Oid = commit?;
+            let parent_id = commit?;
             let parent = self.repo_ref.find_commit(parent_id)?;
             let paths = self.diff_commit_and_parents(path, &parent)?;
             if let Some(_path) = paths {
@@ -333,8 +334,8 @@ impl<'a> RepositoryRef<'a> {
     fn diff_commits(
         &self,
         path: Option<&file_system::Path>,
-        from: Option<Oid>,
-        to: Oid,
+        from: Option<git2::Oid>,
+        to: git2::Oid,
     ) -> Result<git2::Diff, Error> {
         let new_tree = self.repo_ref.find_commit(to)?.tree()?;
         let old_tree = from.map_or(Ok(None), |oid| {

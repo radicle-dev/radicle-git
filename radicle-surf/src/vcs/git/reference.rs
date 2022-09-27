@@ -20,7 +20,7 @@ use std::{fmt, str};
 use thiserror::Error;
 
 use crate::vcs::git::{repo::RepositoryRef, BranchName, Namespace, TagName};
-
+use radicle_git_ext::Oid;
 pub(super) mod glob;
 
 /// A revision within the repository.
@@ -29,7 +29,7 @@ pub enum Rev {
     /// A reference to a branch or tag.
     Ref(Ref),
     /// A particular commit identifier.
-    Oid(git2::Oid),
+    Oid(Oid),
 }
 
 impl<R> From<R> for Rev
@@ -41,8 +41,8 @@ where
     }
 }
 
-impl From<git2::Oid> for Rev {
-    fn from(other: git2::Oid) -> Self {
+impl From<Oid> for Rev {
+    fn from(other: Oid) -> Self {
         Self::Oid(other)
     }
 }

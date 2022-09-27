@@ -16,7 +16,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::vcs::git::{self, error::Error, reference::Ref, Author};
-use git2::Oid;
+use radicle_git_ext::Oid;
 use std::{convert::TryFrom, fmt, str};
 
 /// A newtype wrapper over `String` to separate out the fact that a caller wants
@@ -112,9 +112,9 @@ impl<'repo> TryFrom<git2::Tag<'repo>> for Tag {
     type Error = str::Utf8Error;
 
     fn try_from(tag: git2::Tag) -> Result<Self, Self::Error> {
-        let id = tag.id();
+        let id = tag.id().into();
 
-        let target_id = tag.target_id();
+        let target_id = tag.target_id().into();
 
         let name = TagName::try_from(tag.name_bytes())?;
 
@@ -163,7 +163,7 @@ impl<'repo> TryFrom<git2::Reference<'repo>> for Tag {
                 {
                     let commit = reference.peel_to_commit()?;
                     Ok(Tag::Light {
-                        id: commit.id(),
+                        id: commit.id().into(),
                         name,
                         remote,
                     })
