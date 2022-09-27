@@ -14,13 +14,21 @@ doc = false
 [features]
 test = []
 
+[dependencies]
+proptest = "1"
+
 [dev-dependencies]
 assert_matches = "1.5"
 minicbor = "0.13"
 serde = "1"
 serde_json = "1"
 
-[dev-dependencies.radicle-git-ext]
+[dependencies.git2]
+version = "0.15.0"
+default-features = false
+features = ["vendored-libgit2"]
+
+[dependencies.radicle-git-ext]
 path = ".."
 features = ["minicbor", "serde"]
 
