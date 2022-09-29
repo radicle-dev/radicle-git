@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 use radicle_git_ext::Oid;
 
 use crate::{
-    git::BranchName,
-    vcs::git::{self, error::Error, Browser, RefScope, Rev, TagName},
+    git::{BranchName, RepositoryRef},
+    vcs::git::{self, error::Error, RefScope, Rev, TagName},
 };
 
 /// Types of a peer.
@@ -122,14 +122,14 @@ pub struct Revisions<P, U> {
 ///
 ///   * If we cannot get the branches from the `Browser`
 pub fn remote<P, U>(
-    browser: &Browser,
+    repo: &RepositoryRef,
     peer_id: P,
     user: U,
 ) -> Result<Option<Revisions<P, U>>, Error>
 where
     P: Clone + ToString,
 {
-    let remote_branches = browser.branch_names(Some(peer_id.clone()).into())?;
+    let remote_branches = repo.branch_names(Some(peer_id.clone()).into())?;
     Ok(
         NonEmpty::from_vec(remote_branches).map(|branches| Revisions {
             peer_id,
@@ -150,12 +150,16 @@ where
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn local<P, U>(browser: &Browser, peer_id: P, user: U) -> Result<Option<Revisions<P, U>>, Error>
+pub fn local<P, U>(
+    repo: &RepositoryRef,
+    peer_id: P,
+    user: U,
+) -> Result<Option<Revisions<P, U>>, Error>
 where
     P: Clone + ToString,
 {
-    let local_branches = browser.branch_names(RefScope::Local)?;
-    let tags = browser.tag_names()?;
+    let local_branches = repo.branch_names(RefScope::Local)?;
+    let tags = repo.tag_names()?;
     Ok(
         NonEmpty::from_vec(local_branches).map(|branches| Revisions {
             peer_id,
@@ -178,14 +182,14 @@ where
 ///
 ///   * If we cannot get the branches from the `Browser`
 pub fn revisions<P, U>(
-    browser: &Browser,
+    repo: &RepositoryRef,
     peer: Category<P, U>,
 ) -> Result<Option<Revisions<P, U>>, Error>
 where
     P: Clone + ToString,
 {
     match peer {
-        Category::Local { peer_id, user } => local(browser, peer_id, user),
-        Category::Remote { peer_id, user } => remote(browser, peer_id, user),
+        Category::Local { peer_id, user } => local(repo, peer_id, user),
+        Category::Remote { peer_id, user } => remote(repo, peer_id, user),
     }
 }

@@ -30,7 +30,10 @@ use crate::{
     file_system,
     person::Person,
     revision::Revision,
-    vcs::git::{self, BranchName, Browser, Rev},
+    vcs::{
+        git::{self, BranchName, RepositoryRef, Rev},
+        Vcs,
+    },
 };
 
 use radicle_git_ext::Oid;
@@ -141,16 +144,12 @@ pub struct Commits {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commit(browser: &mut Browser<'_>, sha1: Oid) -> Result<Commit, Error> {
-    browser.commit(sha1)?;
-
-    let history = browser.get();
-    let commit = history.first();
-
+pub fn commit(repo: &RepositoryRef, sha1: Oid) -> Result<Commit, Error> {
+    let commit = repo.get_commit(sha1)?;
     let diff = if let Some(parent) = commit.parents.first() {
-        browser.diff(*parent, sha1)?
+        repo.diff(*parent, sha1)?
     } else {
-        browser.initial_diff(sha1)?
+        repo.initial_diff(sha1)?
     };
 
     let mut deletions = 0;
@@ -194,14 +193,14 @@ pub fn commit(browser: &mut Browser<'_>, sha1: Oid) -> Result<Commit, Error> {
         }
     }
 
-    let branches = browser
-        .revision_branches(sha1)?
+    let branches = repo
+        .revision_branches(&sha1)?
         .into_iter()
         .map(|b| b.name)
         .collect();
 
     Ok(Commit {
-        header: Header::from(commit),
+        header: Header::from(&commit),
         stats: Stats {
             additions,
             deletions,
@@ -217,13 +216,9 @@ pub fn commit(browser: &mut Browser<'_>, sha1: Oid) -> Result<Commit, Error> {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn header(browser: &mut Browser<'_>, sha1: Oid) -> Result<Header, Error> {
-    browser.commit(sha1)?;
-
-    let history = browser.get();
-    let commit = history.first();
-
-    Ok(Header::from(commit))
+pub fn header(repo: &RepositoryRef, sha1: Oid) -> Result<Header, Error> {
+    let commit = repo.get_commit(sha1)?;
+    Ok(Header::from(&commit))
 }
 
 /// Retrieves the [`Commit`] history for the given `revision`.
@@ -233,7 +228,7 @@ pub fn header(browser: &mut Browser<'_>, sha1: Oid) -> Result<Header, Error> {
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
 pub fn commits<P>(
-    browser: &mut Browser<'_>,
+    repo: &RepositoryRef,
     maybe_revision: Option<Revision<P>>,
 ) -> Result<Commits, Error>
 where
@@ -241,12 +236,13 @@ where
 {
     let maybe_revision = maybe_revision.map(Rev::try_from).transpose()?;
 
-    if let Some(revision) = maybe_revision {
-        browser.rev(revision)?;
-    }
+    let rev: Rev = match maybe_revision {
+        Some(revision) => revision,
+        None => repo.head_oid()?.into(),
+    };
 
-    let headers = browser.get().iter().map(Header::from).collect();
-    let stats = browser.get_stats()?;
+    let stats = repo.get_stats(&rev)?;
+    let headers = repo.get_history(rev)?.iter().map(Header::from).collect();
 
     Ok(Commits { headers, stats })
 }

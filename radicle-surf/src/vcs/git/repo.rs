@@ -18,29 +18,37 @@
 use crate::{
     diff::*,
     file_system,
+    file_system::directory,
     vcs,
     vcs::{
         git::{
             error::*,
             reference::{glob::RefGlob, Ref, Rev},
             Branch,
+            BranchName,
             Commit,
             Namespace,
             RefScope,
             Signature,
+            Stats,
             Tag,
+            TagName,
         },
         Vcs,
     },
 };
 use nonempty::NonEmpty;
 use radicle_git_ext::Oid;
-use std::{collections::HashSet, convert::TryFrom, str};
+use std::{
+    collections::{BTreeSet, HashMap, HashSet},
+    convert::TryFrom,
+    str,
+};
 
 /// This is for flagging to the `file_history` function that it should
 /// stop at the first (i.e. Last) commit it finds for a file.
 pub(super) enum CommitHistory {
-    Full,
+    _Full,
     Last,
 }
 
@@ -171,6 +179,81 @@ impl<'a> RepositoryRef<'a> {
         Ok(self.repo_ref.revparse_single(oid)?.id().into())
     }
 
+    /// Gets a snapshot of the repo as a Directory.
+    pub fn snapshot(&self, rev: &Rev) -> Result<directory::Directory, Error> {
+        let commit = self.rev_to_commit(rev)?;
+        let oid: Oid = commit.id().into();
+        let tree = self.get_tree(&oid)?;
+        Ok(directory::Directory::from_hash_map(tree))
+    }
+
+    /// Returns the last commit, if exists, for a `path` in the history of
+    /// `rev`.
+    pub fn last_commit(&self, path: file_system::Path, rev: &Rev) -> Result<Option<Commit>, Error> {
+        let git2_commit = self.rev_to_commit(rev)?;
+        let commit = Commit::try_from(git2_commit)?;
+        let file_history = self.file_history(&path, CommitHistory::Last, commit)?;
+        Ok(file_history.first().cloned())
+    }
+
+    /// Retrieves `Commit` identified by `oid`.
+    pub fn get_commit(&self, oid: Oid) -> Result<Commit, Error> {
+        let git2_commit = self.get_git2_commit(oid)?;
+        Commit::try_from(git2_commit)
+    }
+
+    /// Gets stats of `rev`.
+    pub fn get_stats(&self, rev: &Rev) -> Result<Stats, Error> {
+        let branches = self.list_branches(RefScope::Local)?.len();
+        let history = self.get_history(rev.clone())?;
+        let commits = history.len();
+
+        let contributors = history
+            .iter()
+            .cloned()
+            .map(|commit| (commit.author.name, commit.author.email))
+            .collect::<BTreeSet<_>>();
+
+        Ok(Stats {
+            branches,
+            commits,
+            contributors: contributors.len(),
+        })
+    }
+
+    /// Lists branch names with `filter`.
+    pub fn branch_names(&self, filter: RefScope) -> Result<Vec<BranchName>, Error> {
+        let mut branches = self
+            .list_branches(filter)?
+            .into_iter()
+            .map(|b| b.name)
+            .collect::<Vec<BranchName>>();
+
+        branches.sort();
+
+        Ok(branches)
+    }
+
+    /// Lists tag names in the local RefScope.
+    pub fn tag_names(&self) -> Result<Vec<TagName>, Error> {
+        let tag_names = self.list_tags(RefScope::Local)?;
+        let mut tags: Vec<TagName> = tag_names
+            .into_iter()
+            .map(|tag_name| tag_name.name())
+            .collect();
+
+        tags.sort();
+
+        Ok(tags)
+    }
+
+    /// Returns the Oid of the current HEAD
+    pub fn head_oid(&self) -> Result<Oid, Error> {
+        let head = self.repo_ref.head()?;
+        let head_commit = head.peel_to_commit()?;
+        Ok(head_commit.id().into())
+    }
+
     pub(super) fn rev_to_commit(&self, rev: &Rev) -> Result<git2::Commit, Error> {
         match rev {
             Rev::Oid(oid) => Ok(self.repo_ref.find_commit((*oid).into())?),
@@ -178,7 +261,8 @@ impl<'a> RepositoryRef<'a> {
         }
     }
 
-    pub(super) fn switch_namespace(&self, namespace: &str) -> Result<(), Error> {
+    /// Switch to a `namespace`
+    pub fn switch_namespace(&self, namespace: &str) -> Result<(), Error> {
         Ok(self.repo_ref.set_namespace(namespace)?)
     }
 
@@ -189,7 +273,7 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Build a [`History`] using the `head` reference.
-    pub(super) fn head(&self) -> Result<History, Error> {
+    pub fn head_history(&self) -> Result<History, Error> {
         let head = self.repo_ref.head()?;
         self.to_history(&head)
     }
@@ -235,7 +319,7 @@ impl<'a> RepositoryRef<'a> {
     /// `commit_oid` - The object ID of the commit
     /// `field` - the name of the header field containing the signature block;
     ///           pass `None` to extract the default 'gpgsig'
-    pub(super) fn extract_signature(
+    pub fn extract_signature(
         &self,
         commit_oid: &Oid,
         field: Option<&str>,
@@ -256,7 +340,8 @@ impl<'a> RepositoryRef<'a> {
         }
     }
 
-    pub(crate) fn revision_branches(&self, oid: &Oid) -> Result<Vec<Branch>, Error> {
+    /// Lists branches that are reachable from `oid`.
+    pub fn revision_branches(&self, oid: &Oid) -> Result<Vec<Branch>, Error> {
         let local = RefGlob::LocalBranch.references(self)?;
         let remote = RefGlob::RemoteBranch { remote: None }.references(self)?;
         let mut references = local.iter().chain(remote.iter());
@@ -307,7 +392,7 @@ impl<'a> RepositoryRef<'a> {
                 commits.push(Commit::try_from(parent)?);
                 match &commit_history {
                     CommitHistory::Last => break,
-                    CommitHistory::Full => {},
+                    CommitHistory::_Full => {},
                 }
             }
         }
@@ -354,6 +439,99 @@ impl<'a> RepositoryRef<'a> {
                 .diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), Some(&mut opts))?;
 
         Ok(diff)
+    }
+
+    fn update_file_map(
+        path: file_system::Path,
+        name: file_system::Label,
+        file: directory::File,
+        files: &mut HashMap<file_system::Path, NonEmpty<(file_system::Label, directory::File)>>,
+    ) {
+        files
+            .entry(path)
+            .and_modify(|entries| entries.push((name.clone(), file.clone())))
+            .or_insert_with(|| NonEmpty::new((name, file)));
+    }
+
+    /// Do a pre-order TreeWalk of the given commit. This turns a Tree
+    /// into a HashMap of Paths and a list of Files. We can then turn that
+    /// into a Directory.
+    fn get_tree(
+        &self,
+        oid: &Oid,
+    ) -> Result<HashMap<file_system::Path, NonEmpty<(file_system::Label, directory::File)>>, Error>
+    {
+        let mut file_paths_or_error: Result<
+            HashMap<file_system::Path, NonEmpty<(file_system::Label, directory::File)>>,
+            Error,
+        > = Ok(HashMap::new());
+
+        let commit = self.repo_ref.find_commit((*oid).into())?;
+        let tree = commit.as_object().peel_to_tree()?;
+
+        tree.walk(git2::TreeWalkMode::PreOrder, |s, entry| {
+            match self.tree_entry_to_file_and_path(s, entry) {
+                Ok((path, name, file)) => {
+                    match file_paths_or_error.as_mut() {
+                        Ok(files) => Self::update_file_map(path, name, file, files),
+
+                        // We don't need to update, we want to keep the error.
+                        Err(_err) => {},
+                    }
+                    git2::TreeWalkResult::Ok
+                },
+                Err(err) => match err {
+                    // We want to continue if the entry was not a Blob.
+                    TreeWalkError::NotBlob => git2::TreeWalkResult::Ok,
+
+                    // We found a ObjectType::Commit (likely a submodule) and
+                    // so we can skip it.
+                    TreeWalkError::Commit => git2::TreeWalkResult::Ok,
+
+                    // But we want to keep the error and abort otherwise.
+                    TreeWalkError::Git(err) => {
+                        file_paths_or_error = Err(err);
+                        git2::TreeWalkResult::Abort
+                    },
+                },
+            }
+        })?;
+
+        file_paths_or_error
+    }
+
+    fn tree_entry_to_file_and_path(
+        &self,
+        tree_path: &str,
+        entry: &git2::TreeEntry,
+    ) -> Result<(file_system::Path, file_system::Label, directory::File), TreeWalkError> {
+        // Account for the "root" of git being the empty string
+        let path = if tree_path.is_empty() {
+            Ok(file_system::Path::root())
+        } else {
+            file_system::Path::try_from(tree_path)
+        }?;
+
+        // We found a Commit object in the Tree, likely a submodule.
+        // We will skip this entry.
+        if let Some(git2::ObjectType::Commit) = entry.kind() {
+            return Err(TreeWalkError::Commit);
+        }
+
+        let object = entry.to_object(self.repo_ref)?;
+        let blob = object.as_blob().ok_or(TreeWalkError::NotBlob)?;
+        let name = str::from_utf8(entry.name_bytes())?;
+
+        let name = file_system::Label::try_from(name).map_err(Error::FileSystem)?;
+
+        Ok((
+            path,
+            name,
+            directory::File {
+                contents: blob.content().to_owned(),
+                size: blob.size(),
+            },
+        ))
     }
 }
 
