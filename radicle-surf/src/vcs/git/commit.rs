@@ -20,7 +20,7 @@ use radicle_git_ext::Oid;
 use std::{convert::TryFrom, str};
 
 #[cfg(feature = "serialize")]
-use serde::{de, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 /// `Author` is the static information of a [`git2::Signature`].
 #[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
@@ -163,43 +163,6 @@ impl<'repo> TryFrom<git2::Commit<'repo>> for Commit {
             message,
             summary,
             parents,
-        })
-    }
-}
-
-#[cfg(feature = "serialize")]
-#[cfg(test)]
-pub mod tests {
-    use proptest::prelude::*;
-    use radicle_git_ext::Oid;
-    use test_helpers::roundtrip;
-
-    use super::{Author, Commit};
-
-    #[cfg(feature = "serialize")]
-    proptest! {
-        #[test]
-        fn prop_test_commits(commit in commits_strategy()) {
-            roundtrip::json(commit)
-        }
-    }
-
-    fn commits_strategy() -> impl Strategy<Value = Commit> {
-        ("[a-fA-F0-9]{40}", any::<String>(), any::<i64>()).prop_map(|(id, text, time)| Commit {
-            id: Oid::from_str(&id).unwrap(),
-            author: Author {
-                name: text.clone(),
-                email: text.clone(),
-                time: git2::Time::new(time, 0),
-            },
-            committer: Author {
-                name: text.clone(),
-                email: text.clone(),
-                time: git2::Time::new(time, 0),
-            },
-            message: text.clone(),
-            summary: text,
-            parents: vec![Oid::from_str(&id).unwrap(), Oid::from_str(&id).unwrap()],
         })
     }
 }

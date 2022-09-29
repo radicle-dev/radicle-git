@@ -29,3 +29,7 @@ features = ["test"]
 [dev-dependencies.link-git-test]
 path = "../link-git/t"
 features = ["test"]
+
+[dev-dependencies.radicle-surf-test]
+path = "../radicle-surf/t"
+features = ["test"]

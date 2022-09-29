@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+#![allow(missing_docs)]
+
 /// Try to strip any refs/namespaces, refs/heads, refs/remotes, and
 /// refs/tags. If this fails we return the original string.
 pub fn try_extract_refname(spec: &str) -> Result<String, String> {
@@ -62,50 +64,5 @@ pub fn is_remote(reference: &git2::Reference) -> bool {
     match reference.name() {
         Some(name) => re.is_match(name),
         None => false,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_try_extract_refname() {
-        assert_eq!(try_extract_refname("refs/heads/dev"), Ok("dev".to_string()));
-
-        assert_eq!(
-            try_extract_refname("refs/heads/master"),
-            Ok("master".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/remotes/banana/pineapple"),
-            Ok("banana/pineapple".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/remotes/origin/master"),
-            Ok("origin/master".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/namespaces/golden/refs/heads/banana"),
-            Ok("banana".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/namespaces/golden/refs/tags/v0.1.0"),
-            Ok("v0.1.0".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/namespaces/golden/refs/namespaces/silver/refs/heads/master"),
-            Ok("master".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/namespaces/golden/refs/remotes/kickflip/heads/heelflip"),
-            Ok("kickflip/heelflip".to_string())
-        );
     }
 }
