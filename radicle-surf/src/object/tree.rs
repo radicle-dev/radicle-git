@@ -29,9 +29,13 @@ use serde::{
 use crate::{
     commit,
     file_system,
+    git::RepositoryRef,
     object::{Error, Info, ObjectType},
     revision::Revision,
-    vcs::git::{Browser, Rev},
+    vcs::{
+        git::{Branch, Rev},
+        Vcs,
+    },
 };
 
 /// Result of a directory listing, carries other trees and blobs.
@@ -86,7 +90,7 @@ impl Serialize for TreeEntry {
 ///
 /// Will return [`Error`] if any of the surf interactions fail.
 pub fn tree<P>(
-    browser: &mut Browser<'_>,
+    repo: &RepositoryRef,
     maybe_revision: Option<Revision<P>>,
     maybe_prefix: Option<String>,
 ) -> Result<Tree, Error>
@@ -96,9 +100,10 @@ where
     let maybe_revision = maybe_revision.map(Rev::try_from).transpose()?;
     let prefix = maybe_prefix.unwrap_or_default();
 
-    if let Some(revision) = maybe_revision {
-        browser.rev(revision)?;
-    }
+    let rev = match maybe_revision {
+        Some(r) => r,
+        None => Branch::local("main").into(),
+    };
 
     let path = if prefix == "/" || prefix.is_empty() {
         file_system::Path::root()
@@ -106,7 +111,7 @@ where
         file_system::Path::from_str(&prefix)?
     };
 
-    let root_dir = browser.get_directory()?;
+    let root_dir = repo.snapshot(&rev)?;
     let prefix_dir = if path.is_root() {
         root_dir
     } else {
@@ -155,7 +160,7 @@ where
     entries.sort_by(|a, b| a.info.object_type.cmp(&b.info.object_type));
 
     let last_commit = if path.is_root() {
-        Some(commit::Header::from(browser.get().first()))
+        Some(commit::Header::from(repo.get_history(rev).unwrap().first()))
     } else {
         None
     };

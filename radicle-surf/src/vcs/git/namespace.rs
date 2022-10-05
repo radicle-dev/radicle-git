@@ -21,7 +21,7 @@ pub use radicle_git_ext::Oid;
 use std::{convert::TryFrom, fmt, str};
 
 /// A `Namespace` value allows us to switch the git namespace of
-/// [`super::Browser`].
+/// a repo.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Namespace {
     /// Since namespaces can be nested we have a vector of strings.

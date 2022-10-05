@@ -32,9 +32,10 @@ use serde::{
 use crate::{
     commit,
     file_system,
+    git::RepositoryRef,
     object::{Error, Info, ObjectType},
     revision::Revision,
-    vcs::git::{Browser, Rev},
+    vcs::git::Rev,
 };
 
 #[cfg(feature = "syntax")]
@@ -118,18 +119,18 @@ impl Serialize for BlobContent {
 /// Will return [`Error`] if the project doesn't exist or a surf interaction
 /// fails.
 pub fn blob<P>(
-    browser: &mut Browser,
+    repo: &RepositoryRef,
     maybe_revision: Option<Revision<P>>,
     path: &str,
 ) -> Result<Blob, Error>
 where
     P: ToString,
 {
-    make_blob(browser, maybe_revision, path, content)
+    make_blob(repo, maybe_revision, path, content)
 }
 
 fn make_blob<P, C>(
-    browser: &mut Browser,
+    repo: &RepositoryRef,
     maybe_revision: Option<Revision<P>>,
     path: &str,
     content: C,
@@ -139,11 +140,9 @@ where
     C: FnOnce(&[u8]) -> BlobContent,
 {
     let maybe_revision = maybe_revision.map(Rev::try_from).transpose()?;
-    if let Some(revision) = maybe_revision {
-        browser.rev(revision)?;
-    }
+    let revision = maybe_revision.unwrap();
 
-    let root = browser.get_directory()?;
+    let root = repo.snapshot(&revision)?;
     let p = file_system::Path::from_str(path)?;
 
     let file = root
@@ -153,8 +152,8 @@ where
     let mut commit_path = file_system::Path::root();
     commit_path.append(p.clone());
 
-    let last_commit = browser
-        .last_commit(commit_path)?
+    let last_commit = repo
+        .last_commit(commit_path, &revision)?
         .map(|c| commit::Header::from(&c));
     let (_rest, last) = p.split_last();
 

@@ -18,14 +18,13 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use radicle_surf::{
     file_system::{unsound, Path},
-    vcs::git::{Branch, Browser, Repository},
+    vcs::git::{Branch, Repository, Rev},
 };
 
 fn last_commit_comparison(c: &mut Criterion) {
     let repo = Repository::new("./data/git-platinum")
         .expect("Could not retrieve ./data/git-platinum as git repository");
-    let browser =
-        Browser::new(&repo, Branch::local("master")).expect("Could not initialise Browser");
+    let rev: Rev = Branch::local("master").into();
 
     let mut group = c.benchmark_group("Last Commit");
     for path in [
@@ -36,7 +35,7 @@ fn last_commit_comparison(c: &mut Criterion) {
     .iter()
     {
         group.bench_with_input(BenchmarkId::new("", path), path, |b, path| {
-            b.iter(|| browser.last_commit(path.clone()))
+            b.iter(|| repo.as_ref().last_commit(path.clone(), &rev))
         });
     }
 }

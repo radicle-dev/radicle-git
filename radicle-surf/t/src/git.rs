@@ -8,17 +8,7 @@ use radicle_surf::git::{Author, BranchType, Commit};
 use radicle_surf::{
     diff::*,
     file_system::{unsound, Path},
-    git::{
-        error::Error,
-        Branch,
-        BranchName,
-        Browser,
-        Namespace,
-        Oid,
-        RefScope,
-        Repository,
-        TagName,
-    },
+    git::{error::Error, Branch, BranchName, Namespace, Oid, RefScope, Repository, Rev, TagName},
 };
 
 const GIT_PLATINUM: &str = "../data/git-platinum";
@@ -28,29 +18,26 @@ const GIT_PLATINUM: &str = "../data/git-platinum";
 // An issue with submodules, see: https://github.com/radicle-dev/radicle-surf/issues/54
 fn test_submodule_failure() {
     let repo = Repository::new("../..").unwrap();
-    let browser = Browser::new(&repo, Branch::local("main")).unwrap();
-
-    browser.get_directory().unwrap();
+    repo.as_ref()
+        .snapshot(&Branch::local("main").into())
+        .unwrap();
 }
 
 #[cfg(test)]
 mod namespace {
     use super::*;
     use pretty_assertions::{assert_eq, assert_ne};
+    use radicle_surf::vcs::Vcs;
 
     #[test]
     fn switch_to_banana() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let mut browser = Browser::new_with_namespace(
-            &repo,
-            &Namespace::try_from("golden")?,
-            Branch::local("master"),
-        )?;
-        let history = browser.get();
+        let repo = repo.as_ref();
+        let history_master = repo.get_history(Branch::local("master").into())?;
+        repo.switch_namespace("golden")?;
+        let history_banana = repo.get_history(Branch::local("banana").into())?;
 
-        browser.branch(Branch::local("banana"))?;
-
-        assert_ne!(history, browser.get());
+        assert_ne!(history_master, history_banana);
 
         Ok(())
     }
@@ -58,28 +45,25 @@ mod namespace {
     #[test]
     fn me_namespace() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let browser = Browser::new(&repo, Branch::local("master"))?;
-        let history = browser.get();
+        let repo = repo.as_ref();
+        let history = repo.get_history(Branch::local("master").into())?;
 
-        assert_eq!(browser.which_namespace(), Ok(None));
+        assert_eq!(repo.which_namespace(), Ok(None));
 
-        let browser = browser
-            .switch_namespace(&Namespace::try_from("me")?, Branch::local("feature/#1194"))?;
+        repo.switch_namespace("me")?;
+        assert_eq!(repo.which_namespace(), Ok(Some(Namespace::try_from("me")?)));
 
-        assert_eq!(
-            browser.which_namespace(),
-            Ok(Some(Namespace::try_from("me")?))
-        );
-        assert_eq!(history, browser.get());
+        let history_feature = repo.get_history(Branch::local("feature/#1194").into())?;
+        assert_eq!(history, history_feature);
 
         let expected_branches: Vec<Branch> = vec![Branch::local("feature/#1194")];
-        let mut branches = browser.list_branches(RefScope::Local)?;
+        let mut branches = repo.list_branches(RefScope::Local)?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
 
         let expected_branches: Vec<Branch> = vec![Branch::remote("feature/#1194", "fein")];
-        let mut branches = browser.list_branches(RefScope::Remote {
+        let mut branches = repo.list_branches(RefScope::Remote {
             name: Some("fein".to_string()),
         })?;
         branches.sort();
@@ -92,22 +76,23 @@ mod namespace {
     #[test]
     fn golden_namespace() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let browser = Browser::new(&repo, Branch::local("master"))?;
-        let history = browser.get();
+        let repo = repo.as_ref();
+        let history = repo.get_history(Branch::local("master").into())?;
 
-        assert_eq!(browser.which_namespace(), Ok(None));
+        assert_eq!(repo.which_namespace(), Ok(None));
 
-        let golden_browser =
-            browser.switch_namespace(&Namespace::try_from("golden")?, Branch::local("master"))?;
+        repo.switch_namespace("golden")?;
 
         assert_eq!(
-            golden_browser.which_namespace(),
+            repo.which_namespace(),
             Ok(Some(Namespace::try_from("golden")?))
         );
-        assert_eq!(history, golden_browser.get());
+
+        let golden_history = repo.get_history(Branch::local("master").into())?;
+        assert_eq!(history, golden_history);
 
         let expected_branches: Vec<Branch> = vec![Branch::local("banana"), Branch::local("master")];
-        let mut branches = golden_browser.list_branches(RefScope::Local)?;
+        let mut branches = repo.list_branches(RefScope::Local)?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
@@ -117,7 +102,7 @@ mod namespace {
             Branch::remote("heelflip", "kickflip"),
             Branch::remote("v0.1.0", "kickflip"),
         ];
-        let mut branches = golden_browser.list_branches(RefScope::Remote {
+        let mut branches = repo.list_branches(RefScope::Remote {
             name: Some("kickflip".to_string()),
         })?;
         branches.sort();
@@ -130,24 +115,21 @@ mod namespace {
     #[test]
     fn silver_namespace() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let browser = Browser::new(&repo, Branch::local("master"))?;
-        let history = browser.get();
+        let repo = repo.as_ref();
+        let history = repo.get_history(Branch::local("master").into())?;
 
-        assert_eq!(browser.which_namespace(), Ok(None));
+        assert_eq!(repo.which_namespace(), Ok(None));
 
-        let silver_browser = browser.switch_namespace(
-            &Namespace::try_from("golden/silver")?,
-            Branch::local("master"),
-        )?;
-
+        repo.switch_namespace("golden/silver")?;
         assert_eq!(
-            silver_browser.which_namespace(),
+            repo.which_namespace(),
             Ok(Some(Namespace::try_from("golden/silver")?))
         );
-        assert_ne!(history, silver_browser.get());
+        let silver_history = repo.get_history(Branch::local("master").into())?;
+        assert_ne!(history, silver_history);
 
         let expected_branches: Vec<Branch> = vec![Branch::local("master")];
-        let mut branches = silver_browser.list_branches(RefScope::All)?;
+        let mut branches = repo.list_branches(RefScope::All)?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
@@ -158,6 +140,8 @@ mod namespace {
 
 #[cfg(test)]
 mod rev {
+    use radicle_surf::vcs::Vcs;
+
     use super::*;
     use std::str::FromStr;
 
@@ -175,13 +159,12 @@ mod rev {
     #[test]
     fn _master() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let mut browser = Browser::new(&repo, Branch::local("master"))?;
-        browser.rev(Branch::remote("master", "origin"))?;
+        let repo = repo.as_ref();
+        let history = repo.get_history(Branch::remote("master", "origin").into())?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         assert!(
-            browser
-                .as_history()
+            history
                 .find(|commit| if commit.id == commit1 {
                     Some(commit.clone())
                 } else {
@@ -190,13 +173,12 @@ mod rev {
                 .is_some(),
             "commit_id={}, history =\n{:#?}",
             commit1,
-            browser.as_history()
+            &history
         );
 
         let commit2 = Oid::from_str("d6880352fc7fda8f521ae9b7357668b17bb5bad5")?;
         assert!(
-            browser
-                .as_history()
+            history
                 .find(|commit| if commit.id == commit2 {
                     Some(commit.clone())
                 } else {
@@ -205,7 +187,7 @@ mod rev {
                 .is_some(),
             "commit_id={}, history =\n{:#?}",
             commit2,
-            browser.as_history()
+            &history
         );
 
         Ok(())
@@ -214,12 +196,11 @@ mod rev {
     #[test]
     fn commit() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let mut browser = Browser::new(&repo, Branch::local("master"))?;
-        browser.rev(Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?)?;
+        let rev: Rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?.into();
+        let history = repo.as_ref().get_history(rev)?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
-        assert!(browser
-            .as_history()
+        assert!(history
             .find(|commit| if commit.id == commit1 {
                 Some(commit.clone())
             } else {
@@ -233,9 +214,9 @@ mod rev {
     #[test]
     fn commit_parents() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let mut browser = Browser::new(&repo, Branch::local("master"))?;
-        browser.rev(Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?)?;
-        let commit = browser.as_history().first();
+        let rev: Rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?.into();
+        let history = repo.as_ref().get_history(rev)?;
+        let commit = history.first();
 
         assert_eq!(
             commit.parents,
@@ -248,12 +229,11 @@ mod rev {
     #[test]
     fn commit_short() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let mut browser = Browser::new(&repo, Branch::local("master"))?;
-        browser.rev(browser.oid("3873745c8")?)?;
+        let rev: Rev = repo.as_ref().oid("3873745c8")?.into();
+        let history = repo.as_ref().get_history(rev)?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
-        assert!(browser
-            .as_history()
+        assert!(history
             .find(|commit| if commit.id == commit1 {
                 Some(commit.clone())
             } else {
@@ -267,11 +247,11 @@ mod rev {
     #[test]
     fn tag() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let mut browser = Browser::new(&repo, Branch::local("master"))?;
-        browser.rev(TagName::new("v0.2.0"))?;
+        let rev: Rev = TagName::new("v0.2.0").into();
+        let history = repo.as_ref().get_history(rev)?;
 
         let commit1 = Oid::from_str("2429f097664f9af0c5b7b389ab998b2199ffa977")?;
-        assert_eq!(browser.as_history().first().id, commit1);
+        assert_eq!(history.first().id, commit1);
 
         Ok(())
     }
@@ -279,6 +259,8 @@ mod rev {
 
 #[cfg(test)]
 mod last_commit {
+    use radicle_surf::vcs::Vcs;
+
     use super::*;
     use std::str::FromStr;
 
@@ -286,52 +268,46 @@ mod last_commit {
     fn readme_missing_and_memory() {
         let repo = Repository::new(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
-        let mut browser =
-            Browser::new(&repo, Branch::local("master")).expect("Could not initialise Browser");
-
-        // Set the browser history to the initial commit
-        let commit =
+        let oid =
             Oid::from_str("d3464e33d75c75c99bfb90fa2e9d16efc0b7d0e3").expect("Failed to parse SHA");
-        browser.commit(commit).unwrap();
-
-        let head_commit = browser.get().0.first().clone();
 
         // memory.rs is commited later so it should not exist here.
-        let memory_last_commit = browser
-            .last_commit(Path::with_root(&[
-                unsound::label::new("src"),
-                unsound::label::new("memory.rs"),
-            ]))
+        let rev: Rev = oid.into();
+        let memory_last_commit_oid = repo
+            .as_ref()
+            .last_commit(
+                Path::with_root(&[unsound::label::new("src"), unsound::label::new("memory.rs")]),
+                &rev,
+            )
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
-        assert_eq!(memory_last_commit, None);
+        assert_eq!(memory_last_commit_oid, None);
 
         // README.md exists in this commit.
-        let readme_last_commit = browser
-            .last_commit(Path::with_root(&[unsound::label::new("README.md")]))
+        let readme_last_commit = repo
+            .as_ref()
+            .last_commit(Path::with_root(&[unsound::label::new("README.md")]), &rev)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
-        assert_eq!(readme_last_commit, Some(head_commit.id));
+        assert_eq!(readme_last_commit, Some(oid));
     }
 
     #[test]
     fn folder_svelte() {
         let repo = Repository::new(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
-        let mut browser =
-            Browser::new(&repo, Branch::local("master")).expect("Could not initialise Browser");
-
         // Check that last commit is the actual last commit even if head commit differs.
-        let commit =
+        let oid =
             Oid::from_str("19bec071db6474af89c866a1bd0e4b1ff76e2b97").expect("Could not parse SHA");
-        browser.commit(commit).unwrap();
+        let rev: Rev = oid.into();
 
         let expected_commit_id = Oid::from_str("f3a089488f4cfd1a240a9c01b3fcc4c34a4e97b2").unwrap();
 
-        let folder_svelte = browser
-            .last_commit(unsound::path::new("~/examples/Folder.svelte"))
+        let folder_svelte = repo
+            .as_ref()
+            .last_commit(unsound::path::new("~/examples/Folder.svelte"), &rev)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
@@ -342,20 +318,19 @@ mod last_commit {
     fn nest_directory() {
         let repo = Repository::new(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
-        let mut browser =
-            Browser::new(&repo, Branch::local("master")).expect("Could not initialise Browser");
-
         // Check that last commit is the actual last commit even if head commit differs.
-        let commit =
+        let oid =
             Oid::from_str("19bec071db6474af89c866a1bd0e4b1ff76e2b97").expect("Failed to parse SHA");
-        browser.commit(commit).unwrap();
+        let rev: Rev = oid.into();
 
         let expected_commit_id = Oid::from_str("2429f097664f9af0c5b7b389ab998b2199ffa977").unwrap();
 
-        let nested_directory_tree_commit_id = browser
-            .last_commit(unsound::path::new(
-                "~/this/is/a/really/deeply/nested/directory/tree",
-            ))
+        let nested_directory_tree_commit_id = repo
+            .as_ref()
+            .last_commit(
+                unsound::path::new("~/this/is/a/really/deeply/nested/directory/tree"),
+                &rev,
+            )
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
@@ -367,24 +342,24 @@ mod last_commit {
     fn can_get_last_commit_for_special_filenames() {
         let repo = Repository::new(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
-        let mut browser =
-            Browser::new(&repo, Branch::local("master")).expect("Could not initialise Browser");
 
         // Check that last commit is the actual last commit even if head commit differs.
-        let commit =
+        let oid =
             Oid::from_str("a0dd9122d33dff2a35f564d564db127152c88e02").expect("Failed to parse SHA");
-        browser.commit(commit).unwrap();
+        let rev: Rev = oid.into();
 
         let expected_commit_id = Oid::from_str("a0dd9122d33dff2a35f564d564db127152c88e02").unwrap();
 
-        let backslash_commit_id = browser
-            .last_commit(unsound::path::new("~/special/faux\\path"))
+        let backslash_commit_id = repo
+            .as_ref()
+            .last_commit(unsound::path::new("~/special/faux\\path"), &rev)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
         assert_eq!(backslash_commit_id, Some(expected_commit_id));
 
-        let ogre_commit_id = browser
-            .last_commit(unsound::path::new("~/special/👹👹👹"))
+        let ogre_commit_id = repo
+            .as_ref()
+            .last_commit(unsound::path::new("~/special/👹👹👹"), &rev)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
         assert_eq!(ogre_commit_id, Some(expected_commit_id));
@@ -394,15 +369,20 @@ mod last_commit {
     fn root() {
         let repo = Repository::new(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
-        let browser =
-            Browser::new(&repo, Branch::local("master")).expect("Could not initialise Browser");
-
-        let root_last_commit_id = browser
-            .last_commit(Path::root())
+        let rev: Rev = Branch::local("master").into();
+        let root_last_commit_id = repo
+            .as_ref()
+            .last_commit(Path::root(), &rev)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
-        assert_eq!(root_last_commit_id, Some(browser.get().first().id));
+        let expected_oid = repo
+            .as_ref()
+            .get_history(Branch::local("master").into())
+            .unwrap()
+            .first()
+            .id;
+        assert_eq!(root_last_commit_id, Some(expected_oid));
     }
 }
 
@@ -416,14 +396,13 @@ mod diff {
     fn test_initial_diff() -> Result<(), Error> {
         let oid = Oid::from_str("d3464e33d75c75c99bfb90fa2e9d16efc0b7d0e3")?;
         let repo = Repository::new(GIT_PLATINUM)?;
-        // let commit = repo.0.find_commit(oid).unwrap();
-        let commit = repo.as_ref().get_git2_commit(oid).unwrap();
+        let repo = repo.as_ref();
+        let commit = repo.get_git2_commit(oid).unwrap();
 
         assert!(commit.parents().count() == 0);
         assert!(commit.parent(0).is_err());
 
-        let bro = Browser::new(&repo, Branch::local("master"))?;
-        let diff = bro.initial_diff(oid)?;
+        let diff = repo.initial_diff(oid)?;
 
         let expected_diff = Diff {
             created: vec![CreateFile {
@@ -453,15 +432,12 @@ mod diff {
     #[test]
     fn test_diff() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = repo.as_ref();
         let commit = repo
-            .as_ref()
             .get_git2_commit(Oid::from_str("80bacafba303bf0cdf6142921f430ff265f25095")?)
             .unwrap();
         let parent = commit.parent(0)?;
-
-        let bro = Browser::new(&repo, Branch::local("master"))?;
-
-        let diff = bro.diff(parent.id().into(), commit.id().into())?;
+        let diff = repo.diff(parent.id().into(), commit.id().into())?;
 
         let expected_diff = Diff {
                 created: vec![],
@@ -572,8 +548,7 @@ mod threading {
     fn basic_test() -> Result<(), Error> {
         let shared_repo = Mutex::new(Repository::new(GIT_PLATINUM)?);
         let locked_repo: MutexGuard<Repository> = shared_repo.lock().unwrap();
-        let bro = Browser::new(&*locked_repo, Branch::local("master"))?;
-        let mut branches = bro.list_branches(RefScope::All)?;
+        let mut branches = locked_repo.as_ref().list_branches(RefScope::All)?;
         branches.sort();
 
         assert_eq!(

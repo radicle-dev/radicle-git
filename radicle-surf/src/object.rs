@@ -25,7 +25,7 @@ use serde::{
 };
 
 pub mod blob;
-pub use blob::{blob, Blob, BlobContent};
+pub use blob::{Blob, BlobContent};
 
 pub mod tree;
 pub use tree::{tree, Tree, TreeEntry};
