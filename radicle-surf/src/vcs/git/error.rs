@@ -89,38 +89,3 @@ pub enum Error {
     #[error(transparent)]
     Git(#[from] git2::Error),
 }
-
-/// A private enum that captures a recoverable and
-/// non-recoverable error when walking the git tree.
-///
-/// In the case of `NotBlob` we abort the the computation but do
-/// a check for it and recover.
-///
-/// In the of `Git` we abort both computations.
-#[derive(Debug, Error)]
-pub(crate) enum TreeWalkError {
-    #[error("entry is not a blob")]
-    NotBlob,
-    #[error("git object is a commit")]
-    Commit,
-    #[error(transparent)]
-    Git(#[from] Error),
-}
-
-impl From<git2::Error> for TreeWalkError {
-    fn from(err: git2::Error) -> Self {
-        TreeWalkError::Git(err.into())
-    }
-}
-
-impl From<file_system::Error> for TreeWalkError {
-    fn from(err: file_system::Error) -> Self {
-        err.into()
-    }
-}
-
-impl From<str::Utf8Error> for TreeWalkError {
-    fn from(err: str::Utf8Error) -> Self {
-        err.into()
-    }
-}

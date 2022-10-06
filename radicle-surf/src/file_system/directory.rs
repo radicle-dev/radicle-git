@@ -21,41 +21,14 @@
 //! See [`Directory`] for more information.
 //!
 //! As well as this, this module contains [`DirectoryContents`] which is the
-//! output of iterating over a [`Directory`], and also [`SystemType`] which is
-//! an identifier of what type of [`DirectoryContents`] one is viewing when
-//! [listing](#method.list_directory) a directory.
+//! output of iterating over a [`Directory`].
 
-use crate::{file_system::path::*, tree::*};
+use crate::file_system::path::*;
 use nonempty::NonEmpty;
 use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
+    collections::{hash_map::DefaultHasher, BTreeMap},
     hash::{Hash, Hasher},
 };
-
-/// `SystemType` is an enumeration over what can be found in a [`Directory`] so
-/// we can report back to the caller a [`Label`] and its type.
-///
-/// See [`SystemType::file`](#method.file) and
-/// [`SystemType::directory`](#method.directory).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum SystemType {
-    /// The `File` type in a directory system.
-    File,
-    /// The `Directory` type in a directory system.
-    Directory,
-}
-
-impl SystemType {
-    /// A file name and [`SystemType::File`].
-    pub fn file(label: Label) -> (Label, Self) {
-        (label, SystemType::File)
-    }
-
-    /// A directory name and [`SystemType::Directory`].
-    pub fn directory(label: Label) -> (Label, Self) {
-        (label, SystemType::Directory)
-    }
-}
 
 /// A `File` consists of its file contents (a [`Vec`] of bytes).
 ///
@@ -126,29 +99,16 @@ impl File {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Location {
-    Root,
-    SubDirectory(Label),
-}
-
-/// A `Directory` can be thought of as a non-empty set of entries of
-/// sub-directories and files. The reason for the non-empty property is that a
-/// VCS directory would have at least one artifact as a sub-directory which
-/// tracks the VCS work, e.g. git using the `.git` folder.
-///
-/// On top of that, some VCSes, such as git, will not track an empty directory,
-/// and so when creating a new directory to track it will have to contain at
-/// least one file.
+/// A `Directory` is a set of entries of sub-directories and files, ordered
+/// by their unique names in the alphabetical order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Directory {
-    current: Location,
-    sub_directories: Forest<Label, File>,
+    name: Label,
+    contents: BTreeMap<Label, DirectoryContents>,
 }
 
 /// `DirectoryContents` is an enumeration of what a [`Directory`] can contain
-/// and is used for when we are [`iter`](struct.Directory.html#method.iter)ating
-/// through a [`Directory`].
+/// and is used for when we are iterating through a [`Directory`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DirectoryContents {
     /// The `File` variant contains the file's name and the [`File`] itself.
@@ -165,25 +125,10 @@ pub enum DirectoryContents {
 impl DirectoryContents {
     /// Get a label for the `DirectoryContents`, either the name of the [`File`]
     /// or the name of the [`Directory`].
-    pub fn label(&self) -> Label {
+    pub fn label(&self) -> &Label {
         match self {
-            DirectoryContents::File { name, .. } => name.clone(),
+            DirectoryContents::File { name, .. } => name,
             DirectoryContents::Directory(directory) => directory.current(),
-        }
-    }
-}
-
-impl From<SubTree<Label, File>> for DirectoryContents {
-    fn from(sub_tree: SubTree<Label, File>) -> Self {
-        match sub_tree {
-            SubTree::Node { key, value } => DirectoryContents::File {
-                name: key,
-                file: value,
-            },
-            SubTree::Branch { key, forest } => DirectoryContents::Directory(Directory {
-                current: Location::SubDirectory(key),
-                sub_directories: (*forest).into(),
-            }),
         }
     }
 }
@@ -194,139 +139,39 @@ impl Directory {
     /// This function is usually used for testing and demonstation purposes.
     pub fn root() -> Self {
         Directory {
-            current: Location::Root,
-            sub_directories: Forest::root(),
+            name: Label::root(),
+            contents: BTreeMap::new(),
         }
     }
 
     /// Create a directory, similar to `root`, except with a given name.
     ///
     /// This function is usually used for testing and demonstation purposes.
-    pub fn new(label: Label) -> Self {
+    pub fn new(name: Label) -> Self {
         Directory {
-            current: Location::SubDirectory(label),
-            sub_directories: Forest::root(),
+            name,
+            contents: BTreeMap::new(),
         }
     }
 
-    /// List the current `Directory`'s files and sub-directories.
-    ///
-    /// The listings are a pair of [`Label`] and [`SystemType`], where the
-    /// [`Label`] represents the name of the file or directory.
-    ///
-    /// ```
-    /// use nonempty::NonEmpty;
-    /// use radicle_surf::file_system::{Directory, File, SystemType};
-    /// use radicle_surf::file_system::unsound;
-    ///
-    /// let mut directory = Directory::root();
-    ///
-    /// // Root files set up
-    /// let root_files = NonEmpty::from((
-    ///     (unsound::label::new("foo.rs"), File::new(b"use crate::bar")),
-    ///     vec![(
-    ///         unsound::label::new("bar.rs"),
-    ///         File::new(b"fn hello_world()"),
-    ///     )],
-    /// ));
-    /// directory.insert_files(&[], root_files);
-    ///
-    /// // Haskell files set up
-    /// let haskell_files = NonEmpty::from((
-    ///     (
-    ///         unsound::label::new("foo.hs"),
-    ///         File::new(b"module Foo where"),
-    ///     ),
-    ///     vec![(
-    ///         unsound::label::new("bar.hs"),
-    ///         File::new(b"module Bar where"),
-    ///     )],
-    /// ));
-    ///
-    /// directory.insert_files(&[unsound::label::new("haskell")], haskell_files);
-    ///
-    /// let mut directory_contents = directory.list_directory();
-    /// directory_contents.sort();
-    ///
-    /// assert_eq!(
-    ///     directory_contents,
-    ///     vec![
-    ///         SystemType::file(unsound::label::new("bar.rs")),
-    ///         SystemType::file(unsound::label::new("foo.rs")),
-    ///         SystemType::directory(unsound::label::new("haskell")),
-    ///     ]
-    /// );
-    /// ```
-    pub fn list_directory(&self) -> Vec<(Label, SystemType)> {
-        let forest = &self.sub_directories;
-        match &forest.0 {
-            None => vec![],
-            Some(trees) => trees
-                .0
-                .iter()
-                .map(|tree| match tree {
-                    SubTree::Node { key: name, .. } => SystemType::file(name.clone()),
-                    SubTree::Branch { key: name, .. } => SystemType::directory(name.clone()),
-                })
-                .collect(),
-        }
+    /// Get the name of the current `Directory`.
+    pub fn name(&self) -> &Label {
+        &self.name
     }
 
-    /// Get the [`Label`] of the current directory.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use radicle_surf::file_system::{Directory, DirectoryContents, File, Label};
-    /// use radicle_surf::file_system::unsound;
-    ///
-    /// let mut root = Directory::root();
-    ///
-    /// let main = File::new(b"println!(\"Hello, world!\")");
-    /// root.insert_file(unsound::path::new("main.rs"), main.clone());
-    ///
-    /// let lib = File::new(b"struct Hello(String)");
-    /// root.insert_file(unsound::path::new("lib.rs"), lib.clone());
-    ///
-    /// let test_mod = File::new(b"assert_eq!(1 + 1, 2);");
-    /// root.insert_file(unsound::path::new("test/mod.rs"), test_mod.clone());
-    ///
-    /// let mut root_iter = root.iter();
-    ///
-    /// assert_eq!(root_iter.next(), Some(DirectoryContents::File {
-    ///     name: unsound::label::new("lib.rs"),
-    ///     file: lib
-    /// }));
-    ///
-    /// assert_eq!(root_iter.next(), Some(DirectoryContents::File {
-    ///     name: unsound::label::new("main.rs"),
-    ///     file: main
-    /// }));
-    ///
-    /// let mut test_dir = Directory::new(unsound::label::new("test"));
-    /// test_dir.insert_file(unsound::path::new("mod.rs"), test_mod);
-    ///
-    /// assert_eq!(root_iter.next(), Some(DirectoryContents::Directory(test_dir)));
-    /// ```
-    pub fn iter(&self) -> impl Iterator<Item = DirectoryContents> + '_ {
-        let mut empty_iter = None;
-        let mut trees_iter = None;
-        match &self.sub_directories.0 {
-            None => empty_iter = Some(std::iter::empty()),
-            Some(trees) => {
-                trees_iter = Some(
-                    trees
-                        .iter_subtrees()
-                        .cloned()
-                        .map(|sub_tree| sub_tree.into()),
-                )
-            },
-        }
+    /// Add the `content` under `name` to the current `Directory`.
+    /// If `name` already exists in this directory, then the previous contents
+    /// are replaced.
+    pub fn insert(&mut self, name: Label, content: DirectoryContents) {
+        self.contents.insert(name, content);
+    }
 
-        empty_iter
-            .into_iter()
-            .flatten()
-            .chain(trees_iter.into_iter().flatten())
+    /// Returns an iterator for the contents of the current directory.
+    ///
+    /// Note that the returned iterator only iterates the current level,
+    /// without going recursively into sub-directories.
+    pub fn contents(&self) -> impl Iterator<Item = &DirectoryContents> {
+        self.contents.values()
     }
 
     /// Find a [`File`] in the directory given the [`Path`] to the [`File`].
@@ -361,8 +206,23 @@ impl Directory {
     /// // We shouldn't be able to find a file that doesn't exist
     /// assert_eq!(directory.find_file(unsound::path::new("foo/bar/qux.rs")), None);
     /// ```
-    pub fn find_file(&self, path: Path) -> Option<File> {
-        self.sub_directories.find_node(path.0).cloned()
+    pub fn find_file(&self, path: Path) -> Option<&File> {
+        let mut contents = &self.contents;
+        let path_depth = path.0.len();
+        for (idx, label) in path.iter().enumerate() {
+            match contents.get(label) {
+                Some(DirectoryContents::Directory(d)) => contents = &d.contents,
+                Some(DirectoryContents::File { name: _, file }) => {
+                    if idx + 1 == path_depth {
+                        return Some(file);
+                    } else {
+                        break; // Abort: finding a file before the last label.
+                    }
+                },
+                None => break, // Abort: a label not found.
+            }
+        }
+        None
     }
 
     /// Find a `Directory` in the directory given the [`Path`] to the
@@ -400,17 +260,22 @@ impl Directory {
     /// // 'baz.rs' is a file and not a directory
     /// assert!(directory.find_directory(unsound::path::new("foo/bar/baz.rs")).is_none());
     /// ```
-    pub fn find_directory(&self, path: Path) -> Option<Self> {
-        self.sub_directories
-            .find_branch(path.0.clone())
-            .cloned()
-            .map(|tree| {
-                let (_, current) = path.split_last();
-                Directory {
-                    current: Location::SubDirectory(current),
-                    sub_directories: tree.into(),
-                }
-            })
+    pub fn find_directory(&self, path: Path) -> Option<&Self> {
+        let mut found = None;
+        let mut contents = &self.contents;
+
+        for label in path.iter() {
+            match contents.get(label) {
+                Some(DirectoryContents::Directory(d)) => {
+                    found = Some(d);
+                    contents = &d.contents;
+                },
+                Some(DirectoryContents::File { .. }) => break, // Abort: should not be a file.
+                None => break,                                 // Abort: a label not found.
+            }
+        }
+
+        found
     }
 
     /// Get the [`Label`] of the current directory.
@@ -433,11 +298,8 @@ impl Directory {
     /// ).expect("Missing test directory");
     /// assert_eq!(test.current(), unsound::label::new("test"));
     /// ```
-    pub fn current(&self) -> Label {
-        match &self.current {
-            Location::Root => Label::root(),
-            Location::SubDirectory(label) => label.clone(),
-        }
+    pub fn current(&self) -> &Label {
+        &self.name
     }
 
     // TODO(fintan): This is going to be a bit trickier so going to leave it out for
@@ -464,9 +326,13 @@ impl Directory {
     /// assert_eq!(root.size(), 66);
     /// ```
     pub fn size(&self) -> usize {
-        self.sub_directories
-            .iter()
-            .fold(0, |size, file| size + file.size())
+        self.contents().fold(0, |size, item| {
+            if let DirectoryContents::File { name: _, file } = item {
+                size + file.size()
+            } else {
+                size
+            }
+        })
     }
 
     /// Insert a file into a directory, given the full path to file (file name
@@ -474,7 +340,39 @@ impl Directory {
     ///
     /// This function is usually used for testing and demonstation purposes.
     pub fn insert_file(&mut self, path: Path, file: File) {
-        self.sub_directories.insert(path.0, file)
+        let name = path.0.last().clone();
+        let f = DirectoryContents::File {
+            name: name.clone(),
+            file,
+        };
+
+        let mut contents = &mut self.contents;
+        let path_depth = path.0.len() - 1; // exclude the last label: file name
+
+        if path_depth == 0 {
+            contents.insert(name, f);
+        } else {
+            for (idx, label) in path.iter().enumerate() {
+                // if label does not exist, create a sub directory.
+                if contents.get(label).is_none() {
+                    let new_dir = Directory::new(label.clone());
+                    contents.insert(label.clone(), DirectoryContents::Directory(new_dir));
+                }
+
+                match contents.get_mut(label) {
+                    Some(DirectoryContents::Directory(d)) => {
+                        contents = &mut d.contents;
+                        if idx + 1 == path_depth {
+                            // We are in the last directory level, insert the file.
+                            contents.insert(name, f);
+                            return;
+                        }
+                    },
+                    Some(DirectoryContents::File { .. }) => return, // Abort: should not be a file.
+                    None => return,
+                }
+            }
+        }
     }
 
     /// Insert files into a shared directory path.
@@ -502,26 +400,5 @@ impl Directory {
                 }
             },
         }
-    }
-
-    /// Creates a `Directory` from a HashMap `files`.
-    pub fn from_hash_map(files: HashMap<Path, NonEmpty<(Label, File)>>) -> Self {
-        let mut directory: Self = Directory::root();
-
-        for (path, files) in files.into_iter() {
-            for (file_name, file) in files.into_iter() {
-                let file_path = if path.is_root() {
-                    Path::new(file_name)
-                } else {
-                    let mut new_path = path.clone();
-                    new_path.push(file_name);
-                    new_path
-                };
-
-                directory.insert_file(file_path, file)
-            }
-        }
-
-        directory
     }
 }

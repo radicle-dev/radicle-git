@@ -18,7 +18,7 @@
 use crate::{
     diff::*,
     file_system,
-    file_system::directory,
+    file_system::{directory, DirectoryContents, Label},
     vcs,
     vcs::{
         git::{
@@ -37,10 +37,11 @@ use crate::{
         Vcs,
     },
 };
+use directory::Directory;
 use nonempty::NonEmpty;
 use radicle_git_ext::Oid;
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashSet},
     convert::TryFrom,
     str,
 };
@@ -163,14 +164,17 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Get the [`Diff`] between two commits.
-    pub fn diff(&self, from: Oid, to: Oid) -> Result<Diff, Error> {
-        self.diff_commits(None, Some(from.into()), to.into())
+    pub fn diff(&self, from: &Rev, to: &Rev) -> Result<Diff, Error> {
+        let from_commit = self.rev_to_commit(from)?;
+        let to_commit = self.rev_to_commit(to)?;
+        self.diff_commits(None, Some(&from_commit), &to_commit)
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
 
     /// Get the [`Diff`] of a commit with no parents.
-    pub fn initial_diff(&self, oid: Oid) -> Result<Diff, Error> {
-        self.diff_commits(None, None, oid.into())
+    pub fn initial_diff(&self, rev: &Rev) -> Result<Diff, Error> {
+        let commit = self.rev_to_commit(rev)?;
+        self.diff_commits(None, None, &commit)
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
 
@@ -180,11 +184,9 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Gets a snapshot of the repo as a Directory.
-    pub fn snapshot(&self, rev: &Rev) -> Result<directory::Directory, Error> {
+    pub fn snapshot(&self, rev: &Rev) -> Result<Directory, Error> {
         let commit = self.rev_to_commit(rev)?;
-        let oid: Oid = commit.id().into();
-        let tree = self.get_tree(&oid)?;
-        Ok(directory::Directory::from_hash_map(tree))
+        self.directory_of_commit(&commit)
     }
 
     /// Returns the last commit, if exists, for a `path` in the history of
@@ -252,6 +254,12 @@ impl<'a> RepositoryRef<'a> {
         let head = self.repo_ref.head()?;
         let head_commit = head.peel_to_commit()?;
         Ok(head_commit.id().into())
+    }
+
+    /// Returns the Oid of `rev`.
+    pub fn rev_oid(&self, rev: &Rev) -> Result<Oid, Error> {
+        let commit = self.rev_to_commit(rev)?;
+        Ok(commit.id().into())
     }
 
     pub(super) fn rev_to_commit(&self, rev: &Rev) -> Result<git2::Commit, Error> {
@@ -406,9 +414,8 @@ impl<'a> RepositoryRef<'a> {
         commit: &git2::Commit,
     ) -> Result<Option<file_system::Path>, Error> {
         let mut parents = commit.parents();
-        let parent = parents.next().map(|c| c.id());
 
-        let diff = self.diff_commits(Some(path), parent, commit.id())?;
+        let diff = self.diff_commits(Some(path), parents.next().as_ref(), commit)?;
         if let Some(_delta) = diff.deltas().next() {
             Ok(Some(path.clone()))
         } else {
@@ -419,13 +426,11 @@ impl<'a> RepositoryRef<'a> {
     fn diff_commits(
         &self,
         path: Option<&file_system::Path>,
-        from: Option<git2::Oid>,
-        to: git2::Oid,
+        from: Option<&git2::Commit>,
+        to: &git2::Commit,
     ) -> Result<git2::Diff, Error> {
-        let new_tree = self.repo_ref.find_commit(to)?.tree()?;
-        let old_tree = from.map_or(Ok(None), |oid| {
-            self.repo_ref.find_commit(oid)?.tree().map(Some)
-        })?;
+        let new_tree = to.tree()?;
+        let old_tree = from.map_or(Ok(None), |c| c.tree().map(Some))?;
 
         let mut opts = git2::DiffOptions::new();
         if let Some(path) = path {
@@ -441,97 +446,98 @@ impl<'a> RepositoryRef<'a> {
         Ok(diff)
     }
 
-    fn update_file_map(
-        path: file_system::Path,
-        name: file_system::Label,
-        file: directory::File,
-        files: &mut HashMap<file_system::Path, NonEmpty<(file_system::Label, directory::File)>>,
-    ) {
-        files
-            .entry(path)
-            .and_modify(|entries| entries.push((name.clone(), file.clone())))
-            .or_insert_with(|| NonEmpty::new((name, file)));
-    }
-
-    /// Do a pre-order TreeWalk of the given commit. This turns a Tree
-    /// into a HashMap of Paths and a list of Files. We can then turn that
-    /// into a Directory.
-    fn get_tree(
-        &self,
-        oid: &Oid,
-    ) -> Result<HashMap<file_system::Path, NonEmpty<(file_system::Label, directory::File)>>, Error>
-    {
-        let mut file_paths_or_error: Result<
-            HashMap<file_system::Path, NonEmpty<(file_system::Label, directory::File)>>,
-            Error,
-        > = Ok(HashMap::new());
-
-        let commit = self.repo_ref.find_commit((*oid).into())?;
+    /// Generates a Directory for the commit.
+    fn directory_of_commit(&self, commit: &git2::Commit) -> Result<Directory, Error> {
+        let mut parent_dirs = vec![Directory::root()];
         let tree = commit.as_object().peel_to_tree()?;
 
         tree.walk(git2::TreeWalkMode::PreOrder, |s, entry| {
-            match self.tree_entry_to_file_and_path(s, entry) {
-                Ok((path, name, file)) => {
-                    match file_paths_or_error.as_mut() {
-                        Ok(files) => Self::update_file_map(path, name, file, files),
-
-                        // We don't need to update, we want to keep the error.
-                        Err(_err) => {},
+            let tree_level = s.split('/').count();
+            if tree_level < parent_dirs.len() {
+                // As it is PreOrder, the last directory A was visited
+                // completely and we are back to the level. Now insert A
+                // into its parent directory.
+                if let Some(last_dir) = parent_dirs.pop() {
+                    if let Some(parent) = parent_dirs.last_mut() {
+                        let name = last_dir.name().clone();
+                        let content = DirectoryContents::Directory(last_dir);
+                        parent.insert(name, content);
                     }
-                    git2::TreeWalkResult::Ok
+                }
+            }
+
+            match entry.kind() {
+                Some(git2::ObjectType::Tree) => {
+                    if let Some(name) = entry.name() {
+                        // Add a new level of directory.
+                        match name.parse() {
+                            Ok(label) => parent_dirs.push(Directory::new(label)),
+                            Err(_) => {
+                                return git2::TreeWalkResult::Abort;
+                            },
+                        }
+                    }
                 },
-                Err(err) => match err {
-                    // We want to continue if the entry was not a Blob.
-                    TreeWalkError::NotBlob => git2::TreeWalkResult::Ok,
-
-                    // We found a ObjectType::Commit (likely a submodule) and
-                    // so we can skip it.
-                    TreeWalkError::Commit => git2::TreeWalkResult::Ok,
-
-                    // But we want to keep the error and abort otherwise.
-                    TreeWalkError::Git(err) => {
-                        file_paths_or_error = Err(err);
-                        git2::TreeWalkResult::Abort
-                    },
+                Some(git2::ObjectType::Blob) => {
+                    // Construct a File to insert into its parent directory.
+                    let object = match entry.to_object(self.repo_ref) {
+                        Ok(obj) => obj,
+                        Err(_) => {
+                            return git2::TreeWalkResult::Abort;
+                        },
+                    };
+                    let blob = match object.as_blob() {
+                        Some(b) => b,
+                        None => return git2::TreeWalkResult::Abort,
+                    };
+                    let f = directory::File::new(blob.content());
+                    let label = match entry.name() {
+                        Some(name) => match name.parse::<Label>() {
+                            Ok(label) => label,
+                            Err(_) => {
+                                return git2::TreeWalkResult::Abort;
+                            },
+                        },
+                        None => return git2::TreeWalkResult::Abort,
+                    };
+                    let content = DirectoryContents::File {
+                        name: label.clone(),
+                        file: f,
+                    };
+                    let parent = match parent_dirs.last_mut() {
+                        Some(parent_dir) => parent_dir,
+                        None => return git2::TreeWalkResult::Abort,
+                    };
+                    parent.insert(label, content);
+                },
+                _ => {
+                    return git2::TreeWalkResult::Skip;
                 },
             }
+
+            git2::TreeWalkResult::Ok
         })?;
 
-        file_paths_or_error
-    }
-
-    fn tree_entry_to_file_and_path(
-        &self,
-        tree_path: &str,
-        entry: &git2::TreeEntry,
-    ) -> Result<(file_system::Path, file_system::Label, directory::File), TreeWalkError> {
-        // Account for the "root" of git being the empty string
-        let path = if tree_path.is_empty() {
-            Ok(file_system::Path::root())
-        } else {
-            file_system::Path::try_from(tree_path)
-        }?;
-
-        // We found a Commit object in the Tree, likely a submodule.
-        // We will skip this entry.
-        if let Some(git2::ObjectType::Commit) = entry.kind() {
-            return Err(TreeWalkError::Commit);
+        // Tree walk is complete but there are some levels of dirs
+        // that are not popped up from `parent_dirs` yet. Note that
+        // the root dir is `parent_dirs[0]`.
+        //
+        // We need to pop up `parent_dirs` fully and update the directory
+        // content at each level.
+        while let Some(curr_dir) = parent_dirs.pop() {
+            match parent_dirs.last_mut() {
+                Some(parent) => {
+                    let name = curr_dir.name().clone();
+                    let content = DirectoryContents::Directory(curr_dir);
+                    parent.insert(name, content);
+                },
+                None => return Ok(curr_dir), // No more parent, we're at the root.
+            }
         }
 
-        let object = entry.to_object(self.repo_ref)?;
-        let blob = object.as_blob().ok_or(TreeWalkError::NotBlob)?;
-        let name = str::from_utf8(entry.name_bytes())?;
-
-        let name = file_system::Label::try_from(name).map_err(Error::FileSystem)?;
-
-        Ok((
-            path,
-            name,
-            directory::File {
-                contents: blob.content().to_owned(),
-                size: blob.size(),
-            },
-        ))
+        Err(Error::RevParseFailure {
+            rev: commit.id().to_string(),
+        })
     }
 }
 

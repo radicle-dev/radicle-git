@@ -295,7 +295,10 @@ impl Diff {
     #[allow(clippy::self_named_constructors)]
     pub fn diff(left: Directory, right: Directory) -> Self {
         let mut diff = Diff::new();
-        let path = Rc::new(RefCell::new(Path::from_labels(right.current(), &[])));
+        let path = Rc::new(RefCell::new(Path::from_labels(
+            right.current().clone(),
+            &[],
+        )));
         Diff::collect_diff(&left, &right, &path, &mut diff);
 
         // TODO: Some of the deleted files may actually be moved (renamed) to one of the
@@ -315,15 +318,15 @@ impl Diff {
         parent_path: &Rc<RefCell<Path>>,
         diff: &mut Diff,
     ) {
-        let mut old_iter = old.iter();
-        let mut new_iter = new.iter();
+        let mut old_iter = old.contents();
+        let mut new_iter = new.contents();
         let mut old_entry_opt = old_iter.next();
         let mut new_entry_opt = new_iter.next();
 
         while old_entry_opt.is_some() || new_entry_opt.is_some() {
             match (&old_entry_opt, &new_entry_opt) {
                 (Some(ref old_entry), Some(ref new_entry)) => {
-                    match new_entry.label().cmp(&old_entry.label()) {
+                    match new_entry.label().cmp(old_entry.label()) {
                         Ordering::Greater => {
                             diff.add_deleted_files(old_entry, parent_path);
                             old_entry_opt = old_iter.next();
@@ -414,11 +417,11 @@ impl Diff {
                         },
                     }
                 },
-                (Some(ref old_entry), None) => {
+                (Some(old_entry), None) => {
                     diff.add_deleted_files(old_entry, parent_path);
                     old_entry_opt = old_iter.next();
                 },
-                (None, Some(ref new_entry)) => {
+                (None, Some(new_entry)) => {
                     diff.add_created_files(new_entry, parent_path);
                     new_entry_opt = new_iter.next();
                 },
@@ -465,15 +468,15 @@ impl Diff {
     ) where
         F: Fn(Path) -> T + Copy,
     {
-        parent_path.borrow_mut().push(dir.current());
-        for entry in dir.iter() {
+        parent_path.borrow_mut().push(dir.current().clone());
+        for entry in dir.contents() {
             match entry {
                 DirectoryContents::Directory(subdir) => {
-                    Diff::collect_files_inner(&subdir, parent_path, mapper, files);
+                    Diff::collect_files_inner(subdir, parent_path, mapper, files);
                 },
                 DirectoryContents::File { name, .. } => {
                     let mut path = parent_path.borrow().clone();
-                    path.push(name);
+                    path.push(name.clone());
                     files.push(mapper(path));
                 },
             }
