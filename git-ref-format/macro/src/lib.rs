@@ -13,7 +13,7 @@ use proc_macro_error::abort;
 use quote::quote;
 use syn::{parse_macro_input, LitStr};
 
-use git_ref_format_core::{refspec::PatternStr, Component, Error, RefStr};
+use git_ref_format_core::{refspec::PatternStr, Component, Error, Qualified, RefStr};
 
 /// Create a [`git_ref_format_core::RefString`] from a string literal.
 ///
@@ -38,6 +38,52 @@ pub fn refname(input: TokenStream) -> TokenStream {
                 }
             };
             TokenStream::from(expand)
+        },
+
+        Err(e) => {
+            abort!(lit.span(), "invalid refname literal: {}", e);
+        },
+    }
+}
+
+/// Create a [`git_ref_format_core::Qualified`] from a string literal.
+///
+/// The string is validated at compile time, and an unsafe conversion is
+/// emitted.
+#[proc_macro_error]
+#[proc_macro]
+pub fn qualified(input: TokenStream) -> TokenStream {
+    let lit = parse_macro_input!(input as LitStr);
+    let val = lit.value();
+
+    let parsed: Result<&RefStr, Error> = val.as_str().try_into();
+    match parsed {
+        Ok(name) => {
+            let qualified: Option<Qualified> = Qualified::from_refstr(name);
+            match qualified {
+                Some(safe) => {
+                    let safe: &str = safe.as_str();
+                    let expand = quote! {
+                        unsafe {
+                            use ::std::{borrow::Cow, mem::transmute};
+                            use ::git_ref_format::{Component, RefStr, RefString};
+
+                            let inner: RefString = transmute(#safe.to_owned());
+                            let cow: Cow<'static, RefStr> = Cow::Owned(inner);
+                            transmute::<_, Qualified>(cow)
+                        }
+                    };
+
+                    TokenStream::from(expand)
+                },
+
+                None => {
+                    abort!(
+                        lit.span(),
+                        "refname is not of the form 'refs/<category>/<name>'"
+                    );
+                },
+            }
         },
 
         Err(e) => {
