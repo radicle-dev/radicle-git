@@ -127,7 +127,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for Namespaced<'a> {
         D: Deserializer<'de>,
     {
         Deserialize::deserialize(deserializer).and_then(|s: &RefStr| {
-            s.namespaced()
+            s.to_namespaced()
                 .ok_or_else(|| de::Error::custom("not a namespaced ref"))
         })
     }

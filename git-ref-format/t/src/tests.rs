@@ -158,7 +158,7 @@ fn namespaced() {
     assert_eq!(
         "refs/namespaces/foo/refs/heads/main",
         refname!("refs/namespaces/foo/refs/heads/main")
-            .namespaced()
+            .to_namespaced()
             .unwrap()
             .as_str()
     )
@@ -166,13 +166,13 @@ fn namespaced() {
 
 #[test]
 fn not_namespaced() {
-    assert!(name::REFS_HEADS_MAIN.namespaced().is_none())
+    assert!(name::REFS_HEADS_MAIN.to_namespaced().is_none())
 }
 
 #[test]
 fn not_namespaced_because_not_qualified() {
     assert!(refname!("refs/namespaces/foo/banana")
-        .namespaced()
+        .to_namespaced()
         .is_none())
 }
 
@@ -181,7 +181,7 @@ fn strip_namespace() {
     assert_eq!(
         "refs/rad/id",
         refname!("refs/namespaces/xyz/refs/rad/id")
-            .namespaced()
+            .to_namespaced()
             .unwrap()
             .strip_namespace()
             .as_str()
@@ -191,9 +191,9 @@ fn strip_namespace() {
 #[test]
 fn strip_nested_namespaces() {
     let full = refname!("refs/namespaces/a/refs/namespaces/b/refs/heads/main");
-    let namespaced = full.namespaced().unwrap();
+    let namespaced = full.to_namespaced().unwrap();
     let strip_first = namespaced.strip_namespace();
-    let nested = strip_first.namespaced().unwrap();
+    let nested = strip_first.to_namespaced().unwrap();
     let strip_second = nested.strip_namespace();
 
     assert_eq!("a", namespaced.namespace().as_str());
@@ -203,13 +203,13 @@ fn strip_nested_namespaces() {
 }
 
 #[test]
-fn add_namespace() {
+fn with_namespace() {
     assert_eq!(
         "refs/namespaces/foo/refs/heads/main",
         name::REFS_HEADS_MAIN
             .qualified()
             .unwrap()
-            .add_namespace(refname!("foo").head())
+            .with_namespace(refname!("foo").head())
             .as_str()
     )
 }
