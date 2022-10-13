@@ -145,6 +145,8 @@ pub mod name {
 }
 
 #[cfg(any(feature = "macro", feature = "git-ref-format-macro"))]
+pub use git_ref_format_macro::qualified;
+#[cfg(any(feature = "macro", feature = "git-ref-format-macro"))]
 pub use git_ref_format_macro::refname;
 
 pub mod refspec {

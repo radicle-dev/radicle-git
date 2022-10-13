@@ -1,11 +1,26 @@
 // Copyright © 2022 The Radicle Link Contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use git_ref_format::{component, name, refname, refspec, Error, Qualified, RefStr, RefString};
+use git_ref_format::{
+    component,
+    name,
+    qualified,
+    refname,
+    refspec,
+    Error,
+    Qualified,
+    RefStr,
+    RefString,
+};
 
 #[test]
 fn refname_macro_works() {
     assert_eq!("refs/heads/main", refname!("refs/heads/main").as_str())
+}
+
+#[test]
+fn qualified_macro_works() {
+    assert_eq!("refs/heads/main", qualified!("refs/heads/main").as_str())
 }
 
 #[test]
