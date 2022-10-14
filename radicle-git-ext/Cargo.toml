@@ -23,10 +23,6 @@ features = ["vendored-libgit2"]
 [dependencies.git-ref-format]
 path = "../git-ref-format"
 
-[dependencies.link-git]
-path = "../link-git"
-optional = true
-
 [dependencies.minicbor]
 version = "0.13"
 features = ["std"]
