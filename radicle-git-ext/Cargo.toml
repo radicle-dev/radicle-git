@@ -5,6 +5,7 @@ authors = ["The Radicle Team <dev@radicle.xyz>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
 description = "Utilities and extensions to the git2 crate"
+keywords = ["git", "radicle"]
 
 [lib]
 doctest = false
@@ -21,6 +22,7 @@ default-features = false
 features = ["vendored-libgit2"]
 
 [dependencies.git-ref-format]
+version = "0.1.0"
 path = "../git-ref-format"
 
 [dependencies.minicbor]
@@ -34,4 +36,5 @@ features = ["derive"]
 optional = true
 
 [dependencies.radicle-std-ext]
+version = "0.1.0"
 path = "../radicle-std-ext"
