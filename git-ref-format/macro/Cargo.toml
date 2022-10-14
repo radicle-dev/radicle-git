@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Kim Altintop <kim@eagain.st>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
+description = "Macros for the git-ref-format crate"
+keywords = ["git", "references"]
 
 [lib]
 doctest = false
@@ -16,4 +18,5 @@ quote = "1"
 syn = "1"
 
 [dependencies.git-ref-format-core]
+version = "0.1.0"
 path = "../core"
