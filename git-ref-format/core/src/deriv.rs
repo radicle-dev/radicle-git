@@ -75,7 +75,7 @@ impl<'a> Qualified<'a> {
     }
 
     #[inline]
-    pub fn namespaced(&self) -> Option<Namespaced> {
+    pub fn to_namespaced(&self) -> Option<Namespaced> {
         self.0.as_ref().into()
     }
 
@@ -83,7 +83,7 @@ impl<'a> Qualified<'a> {
     ///
     /// Creates a new [`Namespaced`] by prefxing `self` with
     /// "refs/namespaces/<ns>".
-    pub fn add_namespace<'b>(&self, ns: Component<'b>) -> Namespaced<'a> {
+    pub fn with_namespace<'b>(&self, ns: Component<'b>) -> Namespaced<'a> {
         Namespaced(Cow::Owned(
             IntoIterator::into_iter([lit::Refs.into(), lit::Namespaces.into(), ns])
                 .chain(self.0.components())
@@ -352,7 +352,7 @@ impl<'a> Namespaced<'a> {
 
     pub fn strip_namespace_recursive<'b>(&self) -> Qualified<'b> {
         let mut strip = self.strip_namespace();
-        while let Some(ns) = strip.namespaced() {
+        while let Some(ns) = strip.to_namespaced() {
             strip = ns.strip_namespace();
         }
         strip

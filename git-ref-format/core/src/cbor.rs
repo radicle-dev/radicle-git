@@ -103,7 +103,7 @@ impl<'de: 'a, 'a> Decode<'de> for Namespaced<'a> {
     #[inline]
     fn decode(d: &mut Decoder<'de>) -> Result<Self, decode::Error> {
         Decode::decode(d).and_then(|s: &RefStr| {
-            s.namespaced()
+            s.to_namespaced()
                 .ok_or(decode::Error::Message("not a namespaced ref"))
         })
     }

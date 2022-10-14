@@ -193,7 +193,7 @@ impl RefStr {
     }
 
     #[inline]
-    pub fn namespaced(&self) -> Option<Namespaced> {
+    pub fn to_namespaced(&self) -> Option<Namespaced> {
         self.into()
     }
 
