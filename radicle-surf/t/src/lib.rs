@@ -9,6 +9,3 @@ mod diff;
 
 #[cfg(test)]
 mod file_system;
-
-#[cfg(test)]
-mod tree;

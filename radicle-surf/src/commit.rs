@@ -144,12 +144,14 @@ pub struct Commits {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commit(repo: &RepositoryRef, sha1: Oid) -> Result<Commit, Error> {
+pub fn commit(repo: &RepositoryRef, rev: &Rev) -> Result<Commit, Error> {
+    let sha1 = repo.rev_oid(rev)?;
     let commit = repo.get_commit(sha1)?;
     let diff = if let Some(parent) = commit.parents.first() {
-        repo.diff(*parent, sha1)?
+        let parent_rev = (*parent).into();
+        repo.diff(&parent_rev, rev)?
     } else {
-        repo.initial_diff(sha1)?
+        repo.initial_diff(rev)?
     };
 
     let mut deletions = 0;

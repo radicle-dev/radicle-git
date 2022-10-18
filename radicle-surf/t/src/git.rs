@@ -7,7 +7,7 @@
 use radicle_surf::git::{Author, BranchType, Commit};
 use radicle_surf::{
     diff::*,
-    file_system::{unsound, Path},
+    file_system::{unsound, DirectoryContents, Path},
     git::{error::Error, Branch, BranchName, Namespace, Oid, RefScope, Repository, Rev, TagName},
 };
 
@@ -402,7 +402,7 @@ mod diff {
         assert!(commit.parents().count() == 0);
         assert!(commit.parent(0).is_err());
 
-        let diff = repo.initial_diff(oid)?;
+        let diff = repo.initial_diff(&oid.into())?;
 
         let expected_diff = Diff {
             created: vec![CreateFile {
@@ -433,11 +433,11 @@ mod diff {
     fn test_diff() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let commit = repo
-            .get_git2_commit(Oid::from_str("80bacafba303bf0cdf6142921f430ff265f25095")?)
-            .unwrap();
+        let oid = Oid::from_str("80bacafba303bf0cdf6142921f430ff265f25095")?;
+        let commit = repo.get_git2_commit(oid).unwrap();
         let parent = commit.parent(0)?;
-        let diff = repo.diff(parent.id().into(), commit.id().into())?;
+        let parent_oid: Oid = parent.id().into();
+        let diff = repo.diff(&parent_oid.into(), &oid.into())?;
 
         let expected_diff = Diff {
                 created: vec![],
@@ -782,5 +782,35 @@ mod reference {
         );
 
         Ok(())
+    }
+}
+
+mod code_browsing {
+    use super::*;
+    use radicle_surf::file_system::Directory;
+
+    #[test]
+    fn iterate_root_dir_recursive() {
+        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo = repo.as_ref();
+        let root_dir = repo.snapshot(&Branch::local("master").into()).unwrap();
+        let count = println_dir(&root_dir, 0);
+        assert_eq!(count, 36); // Check total file count.
+
+        /// Prints items in `dir` with `indent_level`.
+        /// For sub-directories, will do Depth-First-Search and print
+        /// recursively.
+        /// Returns the number of items visited (i.e. printed)
+        fn println_dir(dir: &Directory, indent_level: usize) -> i32 {
+            let mut count = 0;
+            for item in dir.contents() {
+                println!("> {}{}", " ".repeat(indent_level * 4), &item.label());
+                count += 1;
+                if let DirectoryContents::Directory(sub_dir) = item {
+                    count += println_dir(sub_dir, indent_level + 1);
+                }
+            }
+            count
+        }
     }
 }

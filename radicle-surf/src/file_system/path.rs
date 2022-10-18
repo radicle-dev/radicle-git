@@ -48,6 +48,9 @@ impl Deref for Label {
     }
 }
 
+/// The label for the root directory.
+pub const ROOT_LABEL: &str = "~";
+
 impl Label {
     /// The root label for the root directory, i.e. `"~"`.
     ///
@@ -64,7 +67,7 @@ impl Label {
     /// ```
     pub fn root() -> Self {
         Label {
-            label: "~".into(),
+            label: ROOT_LABEL.into(),
             hidden: false,
         }
     }

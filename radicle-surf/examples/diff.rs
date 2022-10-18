@@ -32,7 +32,10 @@ fn main() {
     let base_oid = Oid::from_str(&options.base_revision).unwrap();
     let now = Instant::now();
     let elapsed_nanos = now.elapsed().as_nanos();
-    let diff = repo.as_ref().diff(base_oid, head_oid).unwrap();
+    let diff = repo
+        .as_ref()
+        .diff(&base_oid.into(), &head_oid.into())
+        .unwrap();
     print_diff_summary(&diff, elapsed_nanos);
 }
 

@@ -28,7 +28,7 @@ use serde::{
 
 use crate::{
     commit,
-    file_system,
+    file_system::{self, DirectoryContents},
     git::RepositoryRef,
     object::{Error, Info, ObjectType},
     revision::Revision,
@@ -113,33 +113,31 @@ where
 
     let root_dir = repo.snapshot(&rev)?;
     let prefix_dir = if path.is_root() {
-        root_dir
+        &root_dir
     } else {
         root_dir
             .find_directory(path.clone())
             .ok_or_else(|| Error::PathNotFound(path.clone()))?
     };
-    let mut prefix_contents = prefix_dir.list_directory();
-    prefix_contents.sort();
 
-    let entries_results: Result<Vec<TreeEntry>, Error> = prefix_contents
-        .iter()
-        .map(|(label, system_type)| {
+    let entries_results: Result<Vec<TreeEntry>, Error> = prefix_dir
+        .contents()
+        .map(|entry| {
             let entry_path = if path.is_root() {
-                file_system::Path::new(label.clone())
+                file_system::Path::new(entry.label().clone())
             } else {
                 let mut p = path.clone();
-                p.push(label.clone());
+                p.push(entry.label().clone());
                 p
             };
             let mut commit_path = file_system::Path::root();
             commit_path.append(entry_path.clone());
 
             let info = Info {
-                name: label.to_string(),
-                object_type: match system_type {
-                    file_system::SystemType::Directory => ObjectType::Tree,
-                    file_system::SystemType::File => ObjectType::Blob,
+                name: entry.label().to_string(),
+                object_type: match entry {
+                    DirectoryContents::Directory(_) => ObjectType::Tree,
+                    DirectoryContents::File { .. } => ObjectType::Blob,
                 },
                 last_commit: None,
             };
