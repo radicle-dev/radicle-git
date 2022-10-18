@@ -32,10 +32,7 @@ use crate::{
     git::RepositoryRef,
     object::{Error, Info, ObjectType},
     revision::Revision,
-    vcs::{
-        git::{Branch, Rev},
-        Vcs,
-    },
+    vcs::git::{Branch, Rev},
 };
 
 /// Result of a directory listing, carries other trees and blobs.
@@ -158,7 +155,7 @@ where
     entries.sort_by(|a, b| a.info.object_type.cmp(&b.info.object_type));
 
     let last_commit = if path.is_root() {
-        Some(commit::Header::from(repo.get_history(rev).unwrap().first()))
+        Some(commit::Header::from(repo.history(rev).unwrap().first()))
     } else {
         None
     };

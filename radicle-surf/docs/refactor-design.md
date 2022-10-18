@@ -68,6 +68,13 @@ use `DirectoryContents` for its items and not to use `Tree` or `Forest` at all.
 We also found the `list_directory()` method duplicates with `iter()` method.
 Hence `list_directory()` is removed, together with `SystemType` type.
 
+## Remove `Vcs` trait
+
+The `Vcs` trait was introduced to support different version control backends,
+for example both Git and Pijul, and potentially others. However, since this
+port is part of `radicle-git` repo, we are only supporting Git going forward.
+We no longer need another layer of indirection defined by `Vcs` trait.
+
 ## The new API
 
 With the changes proposed in the previous section, we describe what the new API

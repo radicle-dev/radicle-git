@@ -30,10 +30,7 @@ use crate::{
     file_system,
     person::Person,
     revision::Revision,
-    vcs::{
-        git::{self, BranchName, RepositoryRef, Rev},
-        Vcs,
-    },
+    vcs::git::{self, BranchName, RepositoryRef, Rev},
 };
 
 use radicle_git_ext::Oid;
@@ -244,7 +241,7 @@ where
     };
 
     let stats = repo.get_stats(&rev)?;
-    let headers = repo.get_history(rev)?.iter().map(Header::from).collect();
+    let headers = repo.history(rev)?.iter().map(Header::from).collect();
 
     Ok(Commits { headers, stats })
 }
