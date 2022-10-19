@@ -20,21 +20,18 @@ use crate::{
     file_system,
     file_system::{directory, DirectoryContents, Label},
     vcs,
-    vcs::{
-        git::{
-            error::*,
-            reference::{glob::RefGlob, Ref, Rev},
-            Branch,
-            BranchName,
-            Commit,
-            Namespace,
-            RefScope,
-            Signature,
-            Stats,
-            Tag,
-            TagName,
-        },
-        Vcs,
+    vcs::git::{
+        error::*,
+        reference::{glob::RefGlob, Ref, Rev},
+        Branch,
+        BranchName,
+        Commit,
+        Namespace,
+        RefScope,
+        Signature,
+        Stats,
+        Tag,
+        TagName,
     },
 };
 use directory::Directory;
@@ -145,21 +142,15 @@ impl<'a> RepositoryRef<'a> {
         Ok(namespaces?.into_iter().collect())
     }
 
-    pub(super) fn reference<R, P>(&self, reference: R, check: P) -> Result<History, Error>
+    pub(super) fn ref_history<R>(&self, reference: R) -> Result<History, Error>
     where
         R: Into<Ref>,
-        P: FnOnce(&git2::Reference) -> Option<Error>,
     {
         let reference = match self.which_namespace()? {
             None => reference.into(),
             Some(namespace) => reference.into().namespaced(namespace),
         }
         .find_ref(self)?;
-
-        if let Some(err) = check(&reference) {
-            return Err(err);
-        }
-
         self.to_history(&reference)
     }
 
@@ -207,7 +198,7 @@ impl<'a> RepositoryRef<'a> {
     /// Gets stats of `rev`.
     pub fn get_stats(&self, rev: &Rev) -> Result<Stats, Error> {
         let branches = self.list_branches(RefScope::Local)?.len();
-        let history = self.get_history(rev.clone())?;
+        let history = self.history(rev.clone())?;
         let commits = history.len();
 
         let contributors = history
@@ -278,12 +269,6 @@ impl<'a> RepositoryRef<'a> {
     pub fn get_git2_commit(&self, oid: Oid) -> Result<git2::Commit<'a>, Error> {
         let commit = self.repo_ref.find_commit(oid.into())?;
         Ok(commit)
-    }
-
-    /// Build a [`History`] using the `head` reference.
-    pub fn head_history(&self) -> Result<History, Error> {
-        let head = self.repo_ref.head()?;
-        self.to_history(&head)
     }
 
     /// Turn a [`git2::Reference`] into a [`History`] by completing
@@ -439,9 +424,14 @@ impl<'a> RepositoryRef<'a> {
             opts.skip_binary_check(true);
         }
 
-        let diff =
+        let mut diff =
             self.repo_ref
                 .diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), Some(&mut opts))?;
+
+        // Detect renames by default.
+        let mut find_opts = git2::DiffFindOptions::new();
+        find_opts.renames(true);
+        diff.find_similar(Some(&mut find_opts))?;
 
         Ok(diff)
     }
@@ -539,39 +529,16 @@ impl<'a> RepositoryRef<'a> {
             rev: commit.id().to_string(),
         })
     }
-}
 
-impl<'a> Vcs<Commit, Error> for RepositoryRef<'a> {
-    type HistoryId = Rev;
-    type ArtefactId = Oid;
-
-    fn get_history(&self, history_id: Self::HistoryId) -> Result<History, Error> {
-        match history_id {
-            Rev::Ref(reference) => self.reference(reference, |_| None),
+    /// Returns the history of `rev`.
+    pub fn history(&self, rev: Rev) -> Result<History, Error> {
+        match rev {
+            Rev::Ref(reference) => self.ref_history(reference),
             Rev::Oid(oid) => {
                 let commit = self.get_git2_commit(oid)?;
                 self.commit_to_history(commit)
             },
         }
-    }
-
-    fn get_histories(&self) -> Result<Vec<History>, Error> {
-        self.repo_ref
-            .references()
-            .map_err(Error::from)
-            .and_then(|mut references| {
-                references.try_fold(vec![], |mut acc, reference| {
-                    reference.map_err(Error::from).and_then(|r| {
-                        let history = self.to_history(&r)?;
-                        acc.push(history);
-                        Ok(acc)
-                    })
-                })
-            })
-    }
-
-    fn get_identifier(artifact: &Commit) -> Self::ArtefactId {
-        artifact.id
     }
 }
 
@@ -605,16 +572,6 @@ impl Repository {
 impl<'a> From<&'a Repository> for RepositoryRef<'a> {
     fn from(repo: &'a Repository) -> Self {
         repo.as_ref()
-    }
-}
-
-impl vcs::GetVcs<Error> for Repository {
-    type RepoId = String;
-
-    fn get_repo(repo_id: Self::RepoId) -> Result<Self, Error> {
-        git2::Repository::open(&repo_id)
-            .map(Repository)
-            .map_err(Error::from)
     }
 }
 

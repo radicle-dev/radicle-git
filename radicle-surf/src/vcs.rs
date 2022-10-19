@@ -15,10 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! A model of a general VCS. The components consist of a [`History`]
-//! and a [`Vcs`] trait.
+//! A model of a general VCS History.
 
-// use crate::file_system::directory::Directory;
 use nonempty::NonEmpty;
 
 pub mod git;
@@ -133,35 +131,4 @@ impl<A> History<A> {
             .filter(|history| history.find_in_history(identifier, id_of).is_some())
             .collect()
     }
-}
-
-pub(crate) trait GetVcs<Error>
-where
-    Self: Sized,
-{
-    /// The way to identify a Repository.
-    type RepoId;
-
-    /// Find a Repository
-    fn get_repo(identifier: Self::RepoId) -> Result<Self, Error>;
-}
-
-/// The `VCS` trait encapsulates the minimal amount of information for
-/// interacting with some notion of `History` from a given
-/// Version-Control-System.
-pub trait Vcs<A, Error> {
-    /// The way to identify a History.
-    type HistoryId;
-
-    /// The way to identify an artefact.
-    type ArtefactId;
-
-    /// Find a History in a Repo given a way to identify it
-    fn get_history(&self, identifier: Self::HistoryId) -> Result<History<A>, Error>;
-
-    /// Find all histories in a Repo
-    fn get_histories(&self) -> Result<Vec<History<A>>, Error>;
-
-    /// Identify artefacts of a Repository
-    fn get_identifier(artefact: &A) -> Self::ArtefactId;
 }

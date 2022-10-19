@@ -27,15 +27,14 @@ fn test_submodule_failure() {
 mod namespace {
     use super::*;
     use pretty_assertions::{assert_eq, assert_ne};
-    use radicle_surf::vcs::Vcs;
 
     #[test]
     fn switch_to_banana() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history_master = repo.get_history(Branch::local("master").into())?;
+        let history_master = repo.history(Branch::local("master").into())?;
         repo.switch_namespace("golden")?;
-        let history_banana = repo.get_history(Branch::local("banana").into())?;
+        let history_banana = repo.history(Branch::local("banana").into())?;
 
         assert_ne!(history_master, history_banana);
 
@@ -46,14 +45,14 @@ mod namespace {
     fn me_namespace() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.get_history(Branch::local("master").into())?;
+        let history = repo.history(Branch::local("master").into())?;
 
         assert_eq!(repo.which_namespace(), Ok(None));
 
         repo.switch_namespace("me")?;
         assert_eq!(repo.which_namespace(), Ok(Some(Namespace::try_from("me")?)));
 
-        let history_feature = repo.get_history(Branch::local("feature/#1194").into())?;
+        let history_feature = repo.history(Branch::local("feature/#1194").into())?;
         assert_eq!(history, history_feature);
 
         let expected_branches: Vec<Branch> = vec![Branch::local("feature/#1194")];
@@ -77,7 +76,7 @@ mod namespace {
     fn golden_namespace() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.get_history(Branch::local("master").into())?;
+        let history = repo.history(Branch::local("master").into())?;
 
         assert_eq!(repo.which_namespace(), Ok(None));
 
@@ -88,7 +87,7 @@ mod namespace {
             Ok(Some(Namespace::try_from("golden")?))
         );
 
-        let golden_history = repo.get_history(Branch::local("master").into())?;
+        let golden_history = repo.history(Branch::local("master").into())?;
         assert_eq!(history, golden_history);
 
         let expected_branches: Vec<Branch> = vec![Branch::local("banana"), Branch::local("master")];
@@ -116,7 +115,7 @@ mod namespace {
     fn silver_namespace() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.get_history(Branch::local("master").into())?;
+        let history = repo.history(Branch::local("master").into())?;
 
         assert_eq!(repo.which_namespace(), Ok(None));
 
@@ -125,7 +124,7 @@ mod namespace {
             repo.which_namespace(),
             Ok(Some(Namespace::try_from("golden/silver")?))
         );
-        let silver_history = repo.get_history(Branch::local("master").into())?;
+        let silver_history = repo.history(Branch::local("master").into())?;
         assert_ne!(history, silver_history);
 
         let expected_branches: Vec<Branch> = vec![Branch::local("master")];
@@ -140,8 +139,6 @@ mod namespace {
 
 #[cfg(test)]
 mod rev {
-    use radicle_surf::vcs::Vcs;
-
     use super::*;
     use std::str::FromStr;
 
@@ -160,7 +157,7 @@ mod rev {
     fn _master() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.get_history(Branch::remote("master", "origin").into())?;
+        let history = repo.history(Branch::remote("master", "origin").into())?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         assert!(
@@ -197,7 +194,7 @@ mod rev {
     fn commit() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let rev: Rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?.into();
-        let history = repo.as_ref().get_history(rev)?;
+        let history = repo.as_ref().history(rev)?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         assert!(history
@@ -215,7 +212,7 @@ mod rev {
     fn commit_parents() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let rev: Rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?.into();
-        let history = repo.as_ref().get_history(rev)?;
+        let history = repo.as_ref().history(rev)?;
         let commit = history.first();
 
         assert_eq!(
@@ -230,7 +227,7 @@ mod rev {
     fn commit_short() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let rev: Rev = repo.as_ref().oid("3873745c8")?.into();
-        let history = repo.as_ref().get_history(rev)?;
+        let history = repo.as_ref().history(rev)?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         assert!(history
@@ -248,7 +245,7 @@ mod rev {
     fn tag() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let rev: Rev = TagName::new("v0.2.0").into();
-        let history = repo.as_ref().get_history(rev)?;
+        let history = repo.as_ref().history(rev)?;
 
         let commit1 = Oid::from_str("2429f097664f9af0c5b7b389ab998b2199ffa977")?;
         assert_eq!(history.first().id, commit1);
@@ -259,8 +256,6 @@ mod rev {
 
 #[cfg(test)]
 mod last_commit {
-    use radicle_surf::vcs::Vcs;
-
     use super::*;
     use std::str::FromStr;
 
@@ -378,7 +373,7 @@ mod last_commit {
 
         let expected_oid = repo
             .as_ref()
-            .get_history(Branch::local("master").into())
+            .history(Branch::local("master").into())
             .unwrap()
             .first()
             .id;
@@ -461,6 +456,42 @@ mod diff {
             };
         assert_eq!(expected_diff, diff);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_branch_diff() -> Result<(), Error> {
+        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = repo.as_ref();
+        let diff = repo.diff(
+            &Branch::local("master").into(),
+            &Branch::local("dev").into(),
+        )?;
+
+        println!("Diff two branches: master -> dev");
+        println!(
+            "result: created {} deleted {} moved {} modified {}",
+            diff.created.len(),
+            diff.deleted.len(),
+            diff.moved.len(),
+            diff.modified.len()
+        );
+        assert_eq!(diff.created.len(), 1);
+        assert_eq!(diff.deleted.len(), 11);
+        assert_eq!(diff.moved.len(), 1);
+        assert_eq!(diff.modified.len(), 2);
+        for c in diff.created.iter() {
+            println!("created: {}", &c.path);
+        }
+        for d in diff.deleted.iter() {
+            println!("deleted: {}", &d.path);
+        }
+        for m in diff.moved.iter() {
+            println!("moved: {} -> {}", &m.old_path, &m.new_path);
+        }
+        for m in diff.modified.iter() {
+            println!("modified: {}", &m.path);
+        }
         Ok(())
     }
 
