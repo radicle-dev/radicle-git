@@ -3,7 +3,7 @@
 // This file is part of radicle-link, distributed under the GPLv3 with Radicle
 // Linking Exception. For full terms see the included LICENSE file.
 
-use std::path::Path;
+use std::{fmt, path::Path};
 
 use git_ext::{error::is_not_found_err, Oid};
 use std_ext::result::ResultExt as _;
@@ -43,6 +43,14 @@ impl Read {
         let raw = git2::Repository::open(path)?;
 
         Ok(Self { raw })
+    }
+}
+
+impl fmt::Debug for Read {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Read")
+            .field("raw", &self.raw.path())
+            .finish()
     }
 }
 

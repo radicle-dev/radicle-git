@@ -20,7 +20,10 @@
 // TODO: this doesn't abstract over the git2 types very well, but it's too much
 // hassle to massage that right now.
 
-use std::error::Error;
+use std::{
+    error::Error,
+    path::{Path, PathBuf},
+};
 
 pub use git2::{Blob, Commit, Object, Tag, Tree};
 
@@ -31,6 +34,71 @@ pub use read::Read;
 
 pub mod write;
 pub use write::Write;
+
+/// A `TreeBuilder` represents a series of operations to build a git tree, see
+/// *Tree Objects* [here][git-objects].
+///
+/// The [`TreeEntry`] variants represent a limited set of the actions one can
+/// perform [git-objects]: <https://git-scm.com/book/en/v2/Git-Internals-Git-Objects>
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TreeBuilder {
+    entries: Vec<TreeEntry>,
+}
+
+impl TreeBuilder {
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+
+    /// [`TreeBuilder::insert`] creates a [`TreeEntry::Insert`] entry in the
+    /// `TreeBuilder`.
+    pub fn insert<P, M>(mut self, name: P, oid: Oid, mode: M) -> Self
+    where
+        P: AsRef<Path>,
+        M: Into<i32>,
+    {
+        let name = name.as_ref().to_path_buf();
+        let filemode = mode.into();
+        self.entries.push(TreeEntry::Insert {
+            name,
+            oid,
+            filemode,
+        });
+        self
+    }
+
+    /// [`TreeBuilder::remove`] creates a [`TreeEntry::Remove`] entry in the
+    /// `TreeBuilder`.
+    pub fn remove<P>(mut self, name: P) -> Self
+    where
+        P: AsRef<Path>,
+    {
+        let name = name.as_ref().to_path_buf();
+        self.entries.push(TreeEntry::Remove { name });
+        self
+    }
+
+    /// Iterate over the [`TreeEntry`]'s found in the `TreeBuilder`.
+    pub fn iter(&self) -> impl Iterator<Item = &TreeEntry> {
+        self.entries.iter()
+    }
+}
+
+/// A `TreeEntry` represents a single operation within a [`TreeBuilder`].
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum TreeEntry {
+    /// Insert the `oid` under the `name` path in the resulting tree.
+    /// The `filemode` determines the file mode for the file found at `name`.
+    Insert {
+        name: PathBuf,
+        oid: Oid,
+        filemode: i32,
+    },
+    /// Remove the `name` path from the resulting tree.
+    Remove { name: PathBuf },
+}
 
 /// Find the [`Object`] corresponding to the given `oid`.
 ///

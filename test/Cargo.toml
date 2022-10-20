@@ -33,3 +33,8 @@ features = ["test"]
 [dev-dependencies.radicle-surf-test]
 path = "../radicle-surf/t"
 features = ["test"]
+
+[dev-dependencies.git-storage-test]
+path = "../git-storage/t"
+features = ["test"]
+
