@@ -109,6 +109,12 @@ impl From<&git::Commit> for Header {
     }
 }
 
+impl From<git::Commit> for Header {
+    fn from(commit: git::Commit) -> Self {
+        Self::from(&commit)
+    }
+}
+
 #[cfg(feature = "serialize")]
 impl Serialize for Header {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -142,14 +148,10 @@ pub struct Commits {
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
 pub fn commit(repo: &RepositoryRef, rev: &Rev) -> Result<Commit, Error> {
-    let sha1 = repo.rev_oid(rev)?;
-    let commit = repo.get_commit(sha1)?;
-    let diff = if let Some(parent) = commit.parents.first() {
-        let parent_rev = (*parent).into();
-        repo.diff(&parent_rev, rev)?
-    } else {
-        repo.initial_diff(rev)?
-    };
+    let commit = repo.commit(rev)?;
+    let sha1 = commit.id;
+    let header = Header::from(&commit);
+    let diff = repo.diff_from_parent(commit)?;
 
     let mut deletions = 0;
     let mut additions = 0;
@@ -199,7 +201,7 @@ pub fn commit(repo: &RepositoryRef, rev: &Rev) -> Result<Commit, Error> {
         .collect();
 
     Ok(Commit {
-        header: Header::from(&commit),
+        header,
         stats: Stats {
             additions,
             deletions,
@@ -216,7 +218,7 @@ pub fn commit(repo: &RepositoryRef, rev: &Rev) -> Result<Commit, Error> {
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
 pub fn header(repo: &RepositoryRef, sha1: Oid) -> Result<Header, Error> {
-    let commit = repo.get_commit(sha1)?;
+    let commit = repo.commit(sha1)?;
     Ok(Header::from(&commit))
 }
 
@@ -240,8 +242,9 @@ where
         None => repo.head_oid()?.into(),
     };
 
-    let stats = repo.get_stats(&rev)?;
-    let headers = repo.history(rev)?.iter().map(Header::from).collect();
+    let stats = repo.get_commit_stats(&rev)?;
+    let commits: Result<Vec<git::Commit>, git::Error> = repo.history(&rev)?.collect();
+    let headers = commits?.iter().map(Header::from).collect();
 
     Ok(Commits { headers, stats })
 }

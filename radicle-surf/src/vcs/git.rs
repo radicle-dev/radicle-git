@@ -63,6 +63,8 @@
 //! # }
 //! ```
 
+use std::str::FromStr;
+
 // Re-export git2 as sub-module
 pub use git2::{self, Error as Git2Error, Time};
 pub use radicle_git_ext::Oid;
@@ -72,9 +74,13 @@ mod reference;
 pub use reference::{ParseError, Ref, Rev};
 
 mod repo;
-pub use repo::{History, Repository, RepositoryRef};
+pub use repo::{Repository, RepositoryRef};
+
+mod history;
+pub use history::History;
 
 pub mod error;
+pub use error::Error;
 
 pub mod ext;
 
@@ -136,5 +142,56 @@ where
             // We qualify the remotes as the PeerId + heads, otherwise we would grab the tags too.
             name: Some(format!("{}/heads", peer_id.to_string())),
         })
+    }
+}
+
+/// Supports various ways to specify a revision used in Git.
+pub trait Revision {
+    /// Returns the object id of this revision in `repo`.
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error>;
+}
+
+impl Revision for Oid {
+    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Error> {
+        Ok(*self)
+    }
+}
+
+impl Revision for &str {
+    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Error> {
+        Oid::from_str(*self).map_err(Error::Git)
+    }
+}
+
+impl Revision for &Branch {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        let refname = repo.namespaced_refname(&self.refname())?;
+        Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
+    }
+}
+
+impl Revision for &Tag {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        let refname = repo.namespaced_refname(&self.refname())?;
+        Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
+    }
+}
+
+impl Revision for &Rev {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        match *self {
+            Rev::Oid(oid) => Ok(*oid),
+            Rev::Ref(r) => {
+                let r = match repo.which_namespace()? {
+                    None => r.clone(),
+                    Some(namespace) => match r {
+                        Ref::Namespace { .. } => r.clone(),
+                        _ => r.clone().namespaced(namespace),
+                    },
+                };
+                let refname = format!("{}", r);
+                Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
+            },
+        }
     }
 }

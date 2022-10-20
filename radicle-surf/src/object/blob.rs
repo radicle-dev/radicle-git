@@ -141,7 +141,6 @@ where
 {
     let maybe_revision = maybe_revision.map(Rev::try_from).transpose()?;
     let revision = maybe_revision.unwrap();
-
     let root = repo.snapshot(&revision)?;
     let p = file_system::Path::from_str(path)?;
 

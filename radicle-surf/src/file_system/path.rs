@@ -169,6 +169,14 @@ impl From<Path> for Vec<Label> {
     }
 }
 
+impl From<&Path> for path::PathBuf {
+    fn from(path: &Path) -> Self {
+        path.iter()
+            .map(|label| label.as_str())
+            .collect::<path::PathBuf>()
+    }
+}
+
 impl git2::IntoCString for Path {
     fn into_c_string(self) -> Result<CString, git2::Error> {
         if self.is_root() {
