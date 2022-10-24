@@ -36,6 +36,7 @@ pub mod error;
 /// For write access to the refdb see [`refdb::Write`].
 ///
 /// To construct the `Write` storage use [`Read::open`].
+#[derive(Debug)]
 pub struct Write {
     inner: Read,
     info: UserInfo,
@@ -568,7 +569,19 @@ impl odb::Write for Write {
             .map(Oid::from)
     }
 
-    fn write_tree(&self, builder: git2::TreeBuilder) -> Result<Oid, Self::WriteTree> {
-        builder.write().map(Oid::from)
+    fn write_tree(&self, builder: odb::TreeBuilder) -> Result<Oid, Self::WriteTree> {
+        let repo = self.as_raw();
+        let mut tree = repo.treebuilder(None)?;
+        for entry in builder.iter() {
+            match entry {
+                odb::TreeEntry::Insert {
+                    name,
+                    oid,
+                    filemode,
+                } => tree.insert(name, (*oid).into(), *filemode).map(|_| ())?,
+                odb::TreeEntry::Remove { name } => tree.remove(name)?,
+            }
+        }
+        tree.write().map(Oid::from)
     }
 }

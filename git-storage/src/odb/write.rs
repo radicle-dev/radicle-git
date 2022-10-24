@@ -6,7 +6,7 @@ use std::error::Error;
 use git_ext::Oid;
 use git_ref_format::RefStr;
 
-use super::{Commit, Object, Read, Tree};
+use super::{Commit, Object, Read, Tree, TreeBuilder};
 
 /// Read-write access to a git odb.
 ///
@@ -58,9 +58,5 @@ pub trait Write: Read {
         R: AsRef<RefStr>;
 
     /// Write a [`super::Tree`] using the provided `builder`.
-    // XXX: It's annoying that this exposes git2 but the effort of abstracting the
-    // tree builder is too high
-    // TODO: instead of passing the builder, we could use an enum of operations to
-    // modify a builder
-    fn write_tree(&self, builder: git2::TreeBuilder) -> Result<Oid, Self::WriteTree>;
+    fn write_tree(&self, builder: TreeBuilder) -> Result<Oid, Self::WriteTree>;
 }
