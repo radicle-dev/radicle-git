@@ -8,4 +8,7 @@ mod git;
 mod diff;
 
 #[cfg(test)]
+mod history;
+
+#[cfg(test)]
 mod file_system;

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#![deny(missing_docs, unused_import_braces, unused_qualifications, warnings)]
+#![deny(unused_import_braces, unused_qualifications)]
 
 //! Welcome to `radicle-surf`!
 //!
@@ -84,6 +84,7 @@
 //! ```
 pub mod diff;
 pub mod file_system;
+pub mod history;
 pub mod vcs;
 
 pub mod commit;
