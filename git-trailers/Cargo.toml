@@ -1,9 +1,15 @@
 [package]
 name = "git-trailers"
 version = "0.1.0"
-authors = ["Nuno Alexandre <hi@nunoalexandre.com>", "Kim Altintop <kim@eagain.st>"]
+authors = [
+  "Nuno Alexandre <hi@nunoalexandre.com>",
+  "Kim Altintop <kim@eagain.st>",
+  "Fintan Halpenny <fintan.halpenny@gmail.com>",
+]
 edition = "2018"
 license = "GPL-3.0-or-later"
+description = "Library to support parsing and display git trailers <https://git-scm.com/docs/git-interpret-trailers>"
+keywords = ["git"]
 
 [lib]
 doctest = false
