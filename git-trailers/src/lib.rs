@@ -45,11 +45,13 @@ pub struct Token<'a>(&'a str);
 
 /// A version of the Trailer<'a> which owns it's token and values. Useful for
 /// when you need to carry trailers around in a long lived data structure.
+#[derive(Debug)]
 pub struct OwnedTrailer {
-    token: OwnedToken,
-    values: Vec<String>,
+    pub token: OwnedToken,
+    pub values: Vec<String>,
 }
 
+#[derive(Debug)]
 pub struct OwnedToken(String);
 
 impl<'a> From<&Trailer<'a>> for OwnedTrailer {
@@ -73,6 +75,14 @@ impl<'a> From<&'a OwnedTrailer> for Trailer<'a> {
             token: Token(t.token.0.as_str()),
             values: t.values.iter().map(Cow::from).collect(),
         }
+    }
+}
+
+impl Deref for OwnedToken {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
