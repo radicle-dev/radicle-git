@@ -11,6 +11,10 @@ doctest = false
 test = true
 doc = false
 
+[dev-dependencies.git-commit-test]
+path = "../git-commit/t"
+features = ["test"]
+
 [dev-dependencies.git-ext-test]
 path = "../radicle-git-ext/t"
 features = ["test"]

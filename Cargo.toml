@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "git-ref-format",
+  "git-commit",
   "git-storage",
   "git-trailers",
   "link-git",
