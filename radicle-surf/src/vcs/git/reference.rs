@@ -19,7 +19,7 @@ use std::{fmt, str};
 
 use thiserror::Error;
 
-use crate::vcs::git::{repo::RepositoryRef, BranchName, Namespace, TagName};
+use crate::vcs::git::{BranchName, Namespace, TagName};
 use radicle_git_ext::Oid;
 pub(super) mod glob;
 
@@ -92,15 +92,6 @@ impl Ref {
         }
 
         ref_namespace
-    }
-
-    /// We try to find a [`git2::Reference`] based off of a `Ref` by turning the
-    /// ref into a fully qualified ref (e.g. refs/remotes/**/master).
-    pub fn find_ref<'a>(
-        &self,
-        repo: &RepositoryRef<'a>,
-    ) -> Result<git2::Reference<'a>, git2::Error> {
-        repo.repo_ref.find_reference(&self.to_string())
     }
 }
 

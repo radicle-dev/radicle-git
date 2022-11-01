@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::vcs::git::error::Error;
+use crate::{
+    file_system::{self, directory},
+    vcs::git::{error::Error, Branch, RepositoryRef, Rev, Tag},
+};
 use radicle_git_ext::Oid;
 use std::{convert::TryFrom, str};
 
@@ -116,6 +119,16 @@ impl Commit {
             .unwrap_or(&self.message)
             .trim()
     }
+
+    /// Retrieves the file with `path` in this commit.
+    pub fn get_file(
+        &self,
+        repo: &RepositoryRef,
+        path: file_system::Path,
+    ) -> Result<directory::File, Error> {
+        let git2_commit = repo.get_git2_commit(self.id)?;
+        repo.get_commit_file(&git2_commit, path)
+    }
 }
 
 #[cfg(feature = "serialize")]
@@ -164,5 +177,47 @@ impl<'repo> TryFrom<git2::Commit<'repo>> for Commit {
             summary,
             parents,
         })
+    }
+}
+
+/// A common trait for anything that can convert to a `Commit`.
+pub trait ToCommit {
+    /// Converts to a commit in `repo`.
+    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error>;
+}
+
+impl ToCommit for Commit {
+    fn to_commit(self, _repo: &RepositoryRef) -> Result<Commit, Error> {
+        Ok(self)
+    }
+}
+
+impl ToCommit for &str {
+    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
+        repo.commit(self)
+    }
+}
+
+impl ToCommit for Oid {
+    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
+        repo.commit(self)
+    }
+}
+
+impl ToCommit for &Branch {
+    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
+        repo.commit(self)
+    }
+}
+
+impl ToCommit for &Tag {
+    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
+        repo.commit(self)
+    }
+}
+
+impl ToCommit for &Rev {
+    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
+        repo.commit(self)
     }
 }

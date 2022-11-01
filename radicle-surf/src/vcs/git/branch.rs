@@ -16,10 +16,9 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::vcs::git::{self, error::Error, ext, reference::Ref};
-use std::{cmp::Ordering, convert::TryFrom, fmt, str};
-
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
+use std::{cmp::Ordering, convert::TryFrom, fmt, str};
 
 /// The branch type we want to filter on.
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
@@ -147,13 +146,13 @@ impl Branch {
     }
 
     /// Get the name of the `Branch`.
-    pub fn name(&self) -> String {
+    pub fn refname(&self) -> String {
         let branch_name = self.name.0.clone();
         match self.locality {
-            BranchType::Local => branch_name,
+            BranchType::Local => format!("refs/heads/{}", branch_name),
             BranchType::Remote { ref name } => match name {
                 None => branch_name,
-                Some(remote_name) => format!("{}/{}", remote_name, branch_name),
+                Some(remote_name) => format!("refs/remotes/{}/{}", remote_name, branch_name),
             },
         }
     }

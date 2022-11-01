@@ -19,15 +19,16 @@ use crate::{
     diff::*,
     file_system,
     file_system::{directory, DirectoryContents, Label},
-    vcs,
     vcs::git::{
         error::*,
-        reference::{glob::RefGlob, Ref, Rev},
+        reference::{glob::RefGlob, Rev},
         Branch,
         BranchName,
         Commit,
+        History,
         Namespace,
         RefScope,
+        Revision,
         Signature,
         Stats,
         Tag,
@@ -35,23 +36,15 @@ use crate::{
     },
 };
 use directory::Directory;
-use nonempty::NonEmpty;
 use radicle_git_ext::Oid;
 use std::{
     collections::{BTreeSet, HashSet},
     convert::TryFrom,
+    path::PathBuf,
     str,
 };
 
-/// This is for flagging to the `file_history` function that it should
-/// stop at the first (i.e. Last) commit it finds for a file.
-pub(super) enum CommitHistory {
-    _Full,
-    Last,
-}
-
-/// A `History` that uses `git2::Commit` as the underlying artifact.
-pub type History = vcs::History<Commit>;
+use super::commit::ToCommit;
 
 /// Wrapper around the `git2`'s `git2::Repository` type.
 /// This is to to limit the functionality that we can do
@@ -66,6 +59,7 @@ pub struct Repository(pub(super) git2::Repository);
 ///
 /// Use the `From<&'a git2::Repository>` implementation to construct a
 /// `RepositoryRef`.
+#[derive(Clone, Copy)]
 pub struct RepositoryRef<'a> {
     pub(super) repo_ref: &'a git2::Repository,
 }
@@ -142,31 +136,28 @@ impl<'a> RepositoryRef<'a> {
         Ok(namespaces?.into_iter().collect())
     }
 
-    pub(super) fn ref_history<R>(&self, reference: R) -> Result<History, Error>
-    where
-        R: Into<Ref>,
-    {
-        let reference = match self.which_namespace()? {
-            None => reference.into(),
-            Some(namespace) => reference.into().namespaced(namespace),
-        }
-        .find_ref(self)?;
-        self.to_history(&reference)
-    }
-
     /// Get the [`Diff`] between two commits.
-    pub fn diff(&self, from: &Rev, to: &Rev) -> Result<Diff, Error> {
-        let from_commit = self.rev_to_commit(from)?;
-        let to_commit = self.rev_to_commit(to)?;
+    pub fn diff(&self, from: impl Revision, to: impl Revision) -> Result<Diff, Error> {
+        let from_commit = self.get_git2_commit(from.object_id(self)?)?;
+        let to_commit = self.get_git2_commit(to.object_id(self)?)?;
         self.diff_commits(None, Some(&from_commit), &to_commit)
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
 
     /// Get the [`Diff`] of a commit with no parents.
-    pub fn initial_diff(&self, rev: &Rev) -> Result<Diff, Error> {
-        let commit = self.rev_to_commit(rev)?;
+    pub fn initial_diff<R: Revision>(&self, rev: R) -> Result<Diff, Error> {
+        let commit = self.get_git2_commit(rev.object_id(self)?)?;
         self.diff_commits(None, None, &commit)
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
+    }
+
+    /// Get the diff introduced by a particlar rev.
+    pub fn diff_from_parent<C: ToCommit>(&self, commit: C) -> Result<Diff, Error> {
+        let commit = commit.to_commit(self)?;
+        match commit.parents.first() {
+            Some(parent) => self.diff(*parent, commit.id),
+            None => self.initial_diff(commit.id),
+        }
     }
 
     /// Parse an [`Oid`] from the given string.
@@ -175,36 +166,42 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Gets a snapshot of the repo as a Directory.
-    pub fn snapshot(&self, rev: &Rev) -> Result<Directory, Error> {
-        let commit = self.rev_to_commit(rev)?;
-        self.directory_of_commit(&commit)
+    pub fn snapshot<C: ToCommit>(&self, commit: C) -> Result<Directory, Error> {
+        let commit = commit.to_commit(self)?;
+        let git2_commit = self.repo_ref.find_commit((commit.id).into())?;
+        self.directory_of_commit(&git2_commit)
     }
 
     /// Returns the last commit, if exists, for a `path` in the history of
     /// `rev`.
     pub fn last_commit(&self, path: file_system::Path, rev: &Rev) -> Result<Option<Commit>, Error> {
-        let git2_commit = self.rev_to_commit(rev)?;
-        let commit = Commit::try_from(git2_commit)?;
-        let file_history = self.file_history(&path, CommitHistory::Last, commit)?;
-        Ok(file_history.first().cloned())
+        let history = self.history(rev)?;
+        history.by_path(path).next().transpose()
     }
 
-    /// Retrieves `Commit` identified by `oid`.
-    pub fn get_commit(&self, oid: Oid) -> Result<Commit, Error> {
-        let git2_commit = self.get_git2_commit(oid)?;
-        Commit::try_from(git2_commit)
+    /// Returns a commit for `rev` if exists.
+    pub fn commit<R: Revision>(&self, rev: R) -> Result<Commit, Error> {
+        let oid = rev.object_id(self)?;
+        match self.repo_ref.find_commit(oid.into()) {
+            Ok(commit) => Commit::try_from(commit),
+            Err(e) => Err(Error::Git(e)),
+        }
     }
 
-    /// Gets stats of `rev`.
-    pub fn get_stats(&self, rev: &Rev) -> Result<Stats, Error> {
+    /// Gets stats of `commit`.
+    pub fn get_commit_stats<C: ToCommit>(&self, commit: C) -> Result<Stats, Error> {
         let branches = self.list_branches(RefScope::Local)?.len();
-        let history = self.history(rev.clone())?;
-        let commits = history.len();
+        let history = self.history(commit)?;
+        let mut commits = 0;
 
         let contributors = history
-            .iter()
-            .cloned()
-            .map(|commit| (commit.author.name, commit.author.email))
+            .filter_map(|commit| match commit {
+                Ok(commit) => {
+                    commits += 1;
+                    Some((commit.author.name, commit.author.email))
+                },
+                Err(_) => None,
+            })
             .collect::<BTreeSet<_>>();
 
         Ok(Stats {
@@ -247,62 +244,23 @@ impl<'a> RepositoryRef<'a> {
         Ok(head_commit.id().into())
     }
 
-    /// Returns the Oid of `rev`.
-    pub fn rev_oid(&self, rev: &Rev) -> Result<Oid, Error> {
-        let commit = self.rev_to_commit(rev)?;
-        Ok(commit.id().into())
-    }
-
-    pub(super) fn rev_to_commit(&self, rev: &Rev) -> Result<git2::Commit, Error> {
-        match rev {
-            Rev::Oid(oid) => Ok(self.repo_ref.find_commit((*oid).into())?),
-            Rev::Ref(reference) => Ok(reference.find_ref(self)?.peel_to_commit()?),
-        }
-    }
-
     /// Switch to a `namespace`
     pub fn switch_namespace(&self, namespace: &str) -> Result<(), Error> {
         Ok(self.repo_ref.set_namespace(namespace)?)
     }
 
+    /// Returns a full reference name with namespace(s) included.
+    pub(crate) fn namespaced_refname(&self, refname: &str) -> Result<String, Error> {
+        let fullname = match self.which_namespace()? {
+            Some(namespace) => namespace.append_refname(refname),
+            None => refname.to_string(),
+        };
+        Ok(fullname)
+    }
+
     /// Get a particular `git2::Commit` of `oid`.
-    pub fn get_git2_commit(&self, oid: Oid) -> Result<git2::Commit<'a>, Error> {
-        let commit = self.repo_ref.find_commit(oid.into())?;
-        Ok(commit)
-    }
-
-    /// Turn a [`git2::Reference`] into a [`History`] by completing
-    /// a revwalk over the first commit in the reference.
-    pub(super) fn to_history(&self, history: &git2::Reference<'a>) -> Result<History, Error> {
-        let head = history.peel_to_commit()?;
-        self.commit_to_history(head)
-    }
-
-    /// Turn a [`git2::Reference`] into a [`History`] by completing
-    /// a revwalk over the first commit in the reference.
-    pub(super) fn commit_to_history(&self, head: git2::Commit) -> Result<History, Error> {
-        let head_id = head.id();
-        let mut commits = NonEmpty::new(Commit::try_from(head)?);
-        let mut revwalk = self.repo_ref.revwalk()?;
-
-        // Set the revwalk to the head commit
-        revwalk.push(head_id)?;
-
-        for commit_result_id in revwalk {
-            // The revwalk iter returns results so
-            // we unpack these and push them to the history
-            let commit_id = commit_result_id?;
-
-            // Skip the head commit since we have processed it
-            if commit_id == head_id {
-                continue;
-            }
-
-            let commit = Commit::try_from(self.repo_ref.find_commit(commit_id)?)?;
-            commits.push(commit);
-        }
-
-        Ok(vcs::History(commits))
+    pub(crate) fn get_git2_commit(&self, oid: Oid) -> Result<git2::Commit, Error> {
+        self.repo_ref.find_commit(oid.into()).map_err(Error::Git)
     }
 
     /// Extract the signature from a commit
@@ -363,37 +321,19 @@ impl<'a> RepositoryRef<'a> {
         Ok(other == git2_oid || is_descendant)
     }
 
-    /// Get the history of the file system where the head of the [`NonEmpty`] is
-    /// the latest commit.
-    pub(super) fn file_history(
+    pub(crate) fn get_commit_file(
         &self,
-        path: &file_system::Path,
-        commit_history: CommitHistory,
-        commit: Commit,
-    ) -> Result<Vec<Commit>, Error> {
-        let mut revwalk = self.repo_ref.revwalk()?;
-        let mut commits = vec![];
-
-        // Set the revwalk to the head commit
-        revwalk.push(commit.id.into())?;
-
-        for commit in revwalk {
-            let parent_id = commit?;
-            let parent = self.repo_ref.find_commit(parent_id)?;
-            let paths = self.diff_commit_and_parents(path, &parent)?;
-            if let Some(_path) = paths {
-                commits.push(Commit::try_from(parent)?);
-                match &commit_history {
-                    CommitHistory::Last => break,
-                    CommitHistory::_Full => {},
-                }
-            }
-        }
-
-        Ok(commits)
+        git2_commit: &git2::Commit,
+        path: file_system::Path,
+    ) -> Result<directory::File, Error> {
+        let git2_tree = git2_commit.tree()?;
+        let entry = git2_tree.get_path(PathBuf::from(&path).as_ref())?;
+        let object = entry.to_object(self.repo_ref)?;
+        let blob = object.as_blob().ok_or(Error::PathNotFound(path))?;
+        Ok(directory::File::new(blob.content()))
     }
 
-    fn diff_commit_and_parents(
+    pub(crate) fn diff_commit_and_parents(
         &self,
         path: &file_system::Path,
         commit: &git2::Commit,
@@ -530,15 +470,9 @@ impl<'a> RepositoryRef<'a> {
         })
     }
 
-    /// Returns the history of `rev`.
-    pub fn history(&self, rev: Rev) -> Result<History, Error> {
-        match rev {
-            Rev::Ref(reference) => self.ref_history(reference),
-            Rev::Oid(oid) => {
-                let commit = self.get_git2_commit(oid)?;
-                self.commit_to_history(commit)
-            },
-        }
+    /// Returns the history with the `head` commit.
+    pub fn history<C: ToCommit>(&self, head: C) -> Result<History, Error> {
+        History::new(*self, head)
     }
 }
 
@@ -562,7 +496,7 @@ impl Repository {
 
     /// Since our operations are read-only when it comes to surfing a repository
     /// we have a separate struct called [`RepositoryRef`]. This turns an owned
-    /// [`Repository`], the one returend by [`Repository::new`], into a
+    /// [`Repository`], the one returned by [`Repository::new`], into a
     /// [`RepositoryRef`].
     pub fn as_ref(&'_ self) -> RepositoryRef<'_> {
         RepositoryRef { repo_ref: &self.0 }

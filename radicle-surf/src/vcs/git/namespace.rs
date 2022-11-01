@@ -30,6 +30,18 @@ pub struct Namespace {
     pub(super) values: NonEmpty<String>,
 }
 
+impl Namespace {
+    /// Appends a `refname` to this namespace, and returns
+    /// the full reference path.
+    pub fn append_refname(&self, refname: &str) -> String {
+        let mut prefix = String::new();
+        for value in self.values.iter() {
+            prefix = format!("{}refs/namespaces/{}/", &prefix, value);
+        }
+        format!("{}{}", &prefix, refname)
+    }
+}
+
 impl fmt::Display for Namespace {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let values: Vec<_> = self.values.clone().into();

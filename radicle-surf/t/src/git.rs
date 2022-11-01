@@ -18,9 +18,7 @@ const GIT_PLATINUM: &str = "../data/git-platinum";
 // An issue with submodules, see: https://github.com/radicle-dev/radicle-surf/issues/54
 fn test_submodule_failure() {
     let repo = Repository::new("../..").unwrap();
-    repo.as_ref()
-        .snapshot(&Branch::local("main").into())
-        .unwrap();
+    repo.as_ref().snapshot(&Branch::local("main")).unwrap();
 }
 
 #[cfg(test)]
@@ -32,11 +30,11 @@ mod namespace {
     fn switch_to_banana() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history_master = repo.history(Branch::local("master").into())?;
+        let history_master = repo.history(&Branch::local("master"))?;
         repo.switch_namespace("golden")?;
-        let history_banana = repo.history(Branch::local("banana").into())?;
+        let history_banana = repo.history(&Branch::local("banana"))?;
 
-        assert_ne!(history_master, history_banana);
+        assert_ne!(history_master.head(), history_banana.head());
 
         Ok(())
     }
@@ -45,15 +43,15 @@ mod namespace {
     fn me_namespace() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.history(Branch::local("master").into())?;
+        let history = repo.history(&Branch::local("master"))?;
 
         assert_eq!(repo.which_namespace(), Ok(None));
 
         repo.switch_namespace("me")?;
         assert_eq!(repo.which_namespace(), Ok(Some(Namespace::try_from("me")?)));
 
-        let history_feature = repo.history(Branch::local("feature/#1194").into())?;
-        assert_eq!(history, history_feature);
+        let history_feature = repo.history(&Branch::local("feature/#1194"))?;
+        assert_eq!(history.head(), history_feature.head());
 
         let expected_branches: Vec<Branch> = vec![Branch::local("feature/#1194")];
         let mut branches = repo.list_branches(RefScope::Local)?;
@@ -76,7 +74,7 @@ mod namespace {
     fn golden_namespace() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.history(Branch::local("master").into())?;
+        let history = repo.history(&Branch::local("master"))?;
 
         assert_eq!(repo.which_namespace(), Ok(None));
 
@@ -87,8 +85,8 @@ mod namespace {
             Ok(Some(Namespace::try_from("golden")?))
         );
 
-        let golden_history = repo.history(Branch::local("master").into())?;
-        assert_eq!(history, golden_history);
+        let golden_history = repo.history(&Branch::local("master"))?;
+        assert_eq!(history.head(), golden_history.head());
 
         let expected_branches: Vec<Branch> = vec![Branch::local("banana"), Branch::local("master")];
         let mut branches = repo.list_branches(RefScope::Local)?;
@@ -115,7 +113,7 @@ mod namespace {
     fn silver_namespace() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.history(Branch::local("master").into())?;
+        let history = repo.history(&Branch::local("master"))?;
 
         assert_eq!(repo.which_namespace(), Ok(None));
 
@@ -124,8 +122,8 @@ mod namespace {
             repo.which_namespace(),
             Ok(Some(Namespace::try_from("golden/silver")?))
         );
-        let silver_history = repo.history(Branch::local("master").into())?;
-        assert_ne!(history, silver_history);
+        let silver_history = repo.history(&Branch::local("master"))?;
+        assert_ne!(history.head(), silver_history.head());
 
         let expected_branches: Vec<Branch> = vec![Branch::local("master")];
         let mut branches = repo.list_branches(RefScope::All)?;
@@ -157,17 +155,11 @@ mod rev {
     fn _master() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.history(Branch::remote("master", "origin").into())?;
+        let mut history = repo.history(&Branch::remote("master", "origin"))?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         assert!(
-            history
-                .find(|commit| if commit.id == commit1 {
-                    Some(commit.clone())
-                } else {
-                    None
-                })
-                .is_some(),
+            history.any(|commit| commit.unwrap().id == commit1),
             "commit_id={}, history =\n{:#?}",
             commit1,
             &history
@@ -175,13 +167,7 @@ mod rev {
 
         let commit2 = Oid::from_str("d6880352fc7fda8f521ae9b7357668b17bb5bad5")?;
         assert!(
-            history
-                .find(|commit| if commit.id == commit2 {
-                    Some(commit.clone())
-                } else {
-                    None
-                })
-                .is_some(),
+            history.any(|commit| commit.unwrap().id == commit2),
             "commit_id={}, history =\n{:#?}",
             commit2,
             &history
@@ -193,17 +179,12 @@ mod rev {
     #[test]
     fn commit() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = repo.as_ref();
         let rev: Rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?.into();
-        let history = repo.as_ref().history(rev)?;
+        let mut history = repo.history(&rev)?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
-        assert!(history
-            .find(|commit| if commit.id == commit1 {
-                Some(commit.clone())
-            } else {
-                None
-            })
-            .is_some());
+        assert!(history.any(|commit| commit.unwrap().id == commit1));
 
         Ok(())
     }
@@ -211,9 +192,10 @@ mod rev {
     #[test]
     fn commit_parents() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = repo.as_ref();
         let rev: Rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?.into();
-        let history = repo.as_ref().history(rev)?;
-        let commit = history.first();
+        let history = repo.history(&rev)?;
+        let commit = history.head();
 
         assert_eq!(
             commit.parents,
@@ -226,17 +208,12 @@ mod rev {
     #[test]
     fn commit_short() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
-        let rev: Rev = repo.as_ref().oid("3873745c8")?.into();
-        let history = repo.as_ref().history(rev)?;
+        let repo = repo.as_ref();
+        let rev: Rev = repo.oid("3873745c8")?.into();
+        let mut history = repo.history(&rev)?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
-        assert!(history
-            .find(|commit| if commit.id == commit1 {
-                Some(commit.clone())
-            } else {
-                None
-            })
-            .is_some());
+        assert!(history.any(|commit| commit.unwrap().id == commit1));
 
         Ok(())
     }
@@ -244,11 +221,12 @@ mod rev {
     #[test]
     fn tag() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = repo.as_ref();
         let rev: Rev = TagName::new("v0.2.0").into();
-        let history = repo.as_ref().history(rev)?;
+        let history = repo.history(&rev)?;
 
         let commit1 = Oid::from_str("2429f097664f9af0c5b7b389ab998b2199ffa977")?;
-        assert_eq!(history.first().id, commit1);
+        assert_eq!(history.head().id, commit1);
 
         Ok(())
     }
@@ -373,11 +351,22 @@ mod last_commit {
 
         let expected_oid = repo
             .as_ref()
-            .history(Branch::local("master").into())
+            .history(&Branch::local("master"))
             .unwrap()
-            .first()
+            .head()
             .id;
         assert_eq!(root_last_commit_id, Some(expected_oid));
+    }
+
+    #[test]
+    fn binary_file() {
+        let repo = Repository::new(GIT_PLATINUM)
+            .expect("Could not retrieve ./data/git-platinum as git repository");
+        let repo = repo.as_ref();
+        let history = repo.history(&Branch::local("dev")).unwrap();
+        let file_commit = history.by_path(unsound::path::new("~/bin/cat")).next();
+        assert!(file_commit.is_some());
+        println!("file commit: {:?}", &file_commit);
     }
 }
 
@@ -389,15 +378,13 @@ mod diff {
 
     #[test]
     fn test_initial_diff() -> Result<(), Error> {
-        let oid = Oid::from_str("d3464e33d75c75c99bfb90fa2e9d16efc0b7d0e3")?;
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let commit = repo.get_git2_commit(oid).unwrap();
+        let oid = Oid::from_str("d3464e33d75c75c99bfb90fa2e9d16efc0b7d0e3")?;
+        let commit = repo.commit(oid).unwrap();
+        assert!(commit.parents.is_empty());
 
-        assert!(commit.parents().count() == 0);
-        assert!(commit.parent(0).is_err());
-
-        let diff = repo.initial_diff(&oid.into())?;
+        let diff = repo.initial_diff(oid)?;
 
         let expected_diff = Diff {
             created: vec![CreateFile {
@@ -425,14 +412,25 @@ mod diff {
     }
 
     #[test]
+    fn test_diff_of_rev() -> Result<(), Error> {
+        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = repo.as_ref();
+        let diff = repo.diff_from_parent("80bacafba303bf0cdf6142921f430ff265f25095")?;
+        assert_eq!(diff.created.len(), 0);
+        assert_eq!(diff.deleted.len(), 0);
+        assert_eq!(diff.moved.len(), 0);
+        assert_eq!(diff.modified.len(), 1);
+        Ok(())
+    }
+
+    #[test]
     fn test_diff() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let oid = Oid::from_str("80bacafba303bf0cdf6142921f430ff265f25095")?;
-        let commit = repo.get_git2_commit(oid).unwrap();
-        let parent = commit.parent(0)?;
-        let parent_oid: Oid = parent.id().into();
-        let diff = repo.diff(&parent_oid.into(), &oid.into())?;
+        let oid = "80bacafba303bf0cdf6142921f430ff265f25095";
+        let commit = repo.commit(oid).unwrap();
+        let parent_oid = commit.parents.get(0).unwrap();
+        let diff = repo.diff(*parent_oid, oid)?;
 
         let expected_diff = Diff {
                 created: vec![],
@@ -463,10 +461,7 @@ mod diff {
     fn test_branch_diff() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let diff = repo.diff(
-            &Branch::local("master").into(),
-            &Branch::local("dev").into(),
-        )?;
+        let diff = repo.diff(&Branch::local("master"), &Branch::local("dev"))?;
 
         println!("Diff two branches: master -> dev");
         println!(
@@ -824,7 +819,7 @@ mod code_browsing {
     fn iterate_root_dir_recursive() {
         let repo = Repository::new(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
-        let root_dir = repo.snapshot(&Branch::local("master").into()).unwrap();
+        let root_dir = repo.snapshot(&Branch::local("master")).unwrap();
         let count = println_dir(&root_dir, 0);
         assert_eq!(count, 36); // Check total file count.
 
@@ -843,5 +838,29 @@ mod code_browsing {
             }
             count
         }
+    }
+
+    #[test]
+    fn test_tag_snapshot() {
+        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo_ref = repo.as_ref();
+        let tags = repo_ref.list_tags(RefScope::Local).unwrap();
+        assert_eq!(tags.len(), 6);
+        let root_dir = repo_ref.snapshot(&tags[0]).unwrap();
+        assert_eq!(root_dir.contents().count(), 1);
+    }
+
+    #[test]
+    fn test_file_history() {
+        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo = repo.as_ref();
+        let history = repo.history(&Branch::local("dev")).unwrap();
+        let path = unsound::path::new("README.md");
+        let mut file_history = history.by_path(path);
+        let commit = file_history.next().unwrap().unwrap();
+        let file = commit
+            .get_file(&repo, unsound::path::new("README.md"))
+            .unwrap();
+        assert_eq!(file.size(), 67);
     }
 }

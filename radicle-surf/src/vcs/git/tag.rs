@@ -106,6 +106,11 @@ impl Tag {
             Self::Annotated { name, .. } => name.clone(),
         }
     }
+
+    /// Returns the full ref name of the tag.
+    pub fn refname(&self) -> String {
+        format!("refs/tags/{}", self.name().name())
+    }
 }
 
 impl<'repo> TryFrom<git2::Tag<'repo>> for Tag {

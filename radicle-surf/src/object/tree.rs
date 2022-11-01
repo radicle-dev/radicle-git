@@ -155,7 +155,8 @@ where
     entries.sort_by(|a, b| a.info.object_type.cmp(&b.info.object_type));
 
     let last_commit = if path.is_root() {
-        Some(commit::Header::from(repo.history(rev).unwrap().first()))
+        let history = repo.history(&rev)?;
+        Some(commit::Header::from(history.head()))
     } else {
         None
     };
