@@ -135,22 +135,6 @@ mod reflike {
         assert!(serde_json::from_str::<OneLevel>(&json).is_err());
         assert!(serde_json::from_str::<Qualified>(&json).is_err())
     }
-
-    #[test]
-    fn cbor() {
-        let refl = RefLike::try_from("pu").unwrap();
-        roundtrip::cbor(refl.clone());
-        roundtrip::cbor(OneLevel::from(refl.clone()));
-        roundtrip::cbor(Qualified::from(refl))
-    }
-
-    #[test]
-    fn cbor_invalid() {
-        let cbor = minicbor::to_vec("HEAD^").unwrap();
-        assert!(minicbor::decode::<RefLike>(&cbor).is_err());
-        assert!(minicbor::decode::<OneLevel>(&cbor).is_err());
-        assert!(minicbor::decode::<Qualified>(&cbor).is_err())
-    }
 }
 
 mod pattern {
@@ -231,17 +215,6 @@ mod pattern {
     fn serde_invalid() {
         let json = serde_json::to_string("HEAD^").unwrap();
         assert!(serde_json::from_str::<RefspecPattern>(&json).is_err())
-    }
-
-    #[test]
-    fn cbor() {
-        roundtrip::cbor(RefspecPattern::try_from("refs/heads/*").unwrap())
-    }
-
-    #[test]
-    fn cbor_invalid() {
-        let cbor = minicbor::to_vec("HEAD^").unwrap();
-        assert!(minicbor::decode::<RefspecPattern>(&cbor).is_err())
     }
 
     #[test]

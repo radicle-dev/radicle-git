@@ -7,20 +7,14 @@ extern crate radicle_git_ext as git_ext;
 extern crate radicle_std_ext as std_ext;
 
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate radicle_macros;
 
-pub mod namespace;
 pub mod reference;
 pub mod refspec;
 pub mod remote;
-pub mod urn;
-pub use urn::Urn;
 
 mod sealed;
 
-pub use namespace::{AsNamespace, Namespace};
 pub use reference::{
     AsRemote,
     Many,
@@ -33,18 +27,27 @@ pub use reference::{
 };
 pub use refspec::{Fetchspec, Pushspec, Refspec};
 
+pub trait AsNamespace: Into<git_ext::RefLike> {
+    fn into_namespace(self) -> git_ext::RefLike {
+        self.into()
+    }
+}
+
 /// Helper to aid type inference constructing a [`Reference`] without a
 /// namespace.
 pub struct Flat;
 
-impl From<Flat> for Option<Namespace<git_ext::Oid>> {
+impl<N> From<Flat> for Option<N>
+where
+    N: AsNamespace,
+{
     fn from(_flat: Flat) -> Self {
         None
     }
 }
 
 /// Type specialised reference for the most common use within this crate.
-pub type Reference<C, R> = GenericRef<Namespace<git_ext::Oid>, R, C>;
+pub type Reference<N, C, R> = GenericRef<N, R, C>;
 
 /// Whether we should force the overwriting of a reference or not.
 #[derive(Debug, Clone, Copy)]
