@@ -7,6 +7,7 @@ authors = [
   "Alexis Sellier <alexis@radicle.xyz>",
   "Fintan Halpenny <fintan.halpenny@gmail.com>",
 ]
+description = "A small library for parsing, displaying and creating a git commit"
 keywords = ["git", "radicle"]
 
 [dependencies]
