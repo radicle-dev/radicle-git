@@ -8,9 +8,70 @@ experience. This experience can be likened to GitHub or GitLab's
 project browsing pages. It does not aim to be an UI layer, but rather
 provides the functionality for a UI layer to built on top of it. With
 that in mind, this document sets out to define the main components of
-`radicle-surf` and a high-level design of the API. Note that this is
-the second iteration of designing this library -- where the first can
-be found in the [denotational-design.md][denotational] document.
+`radicle-surf` and a high-level design of the API.
+
+Note that this is the second iteration of designing this library --
+where the first can be found in the
+[denotational-design.md][denotational] document. Since part of this
+work is refactoring the original design there will be mention of
+previous artefacts that are being changed. The original source code
+can be found [here][radicle-surf], if you wish to study some history.
+
+## Motivation
+
+The `radicle-surf` crate aims to provide a safe and easy-to-use API that
+supports the following features:
+
+1. Code browsing: given a specific revision, browse files and directories.
+2. Getting the difference between two revisions.
+3. Retrieve the history of the commits, files, and directories.
+4. Retrieve the references stored in the `git` project, e.g. branches,
+   remote branches, tags, etc.
+5. Retrieve specific `git` objects, in a user-friendly structure.
+
+The main goals of the refactoring are:
+
+* Reviewing the previous API and making it simpler where possible.
+* Address open issues in the original [`radicle-surf`] project as much
+  as possible.
+* In contrast to the previous implementation, be `git` specific and
+  not support other VCS systems.
+* Hide away `git2` in the exposed API. The use of `git2` should be an
+  implementation detail.
+
+## API Review
+
+Before defining the future design of the API, this document intends to
+review the previous API to provide guidelines for building the future
+version of the API.
+
+### Remove `Browser`
+
+The `Browser` started out succinct but became a kitchen sink for
+functionality. Some if its problems include:
+
+* It is not a source of truth of any information. For example,
+  `list_branches` method is just a wrapper of
+  `Repository::list_branches`.
+* It takes in `History`, but really works at the `Snapshot` level.
+* It is mutable but the state it holds is minimal and does not provide
+  any use, beyond switching the `History`.
+
+Going forward the removal of `Browser` is recommended. Some ways the
+API will change with this removal are:
+
+* For iteratoring the history, use `History`.
+* For generating `Directory`, use the repository storage directly
+  given a revision.
+* For accessing references and objects use the repository storage
+  directly.
+
+### Remove `Snapshot`
+
+A `Snapshot` was previously a function that converted a `History` into
+a `Directory`. Since we can assume we are working in `git` this can be
+simplified to a single function that can take a revision, that
+resolves to a `Commit`, and produces a `Directory`.
 
 ## Components
 
@@ -264,3 +325,4 @@ implementation.
 [git-references]: https://git-scm.com/book/en/v2/Git-Internals-Git-References
 [git-revisions]: https://git-scm.com/docs/revision
 [libgit-revwalk]: https://github.com/libgit2/libgit2/blob/main/include/git2/revwalk.h
+[radicle-surf]: https://github.com/radicle-dev/radicle-surf
