@@ -10,18 +10,9 @@ use std::{
     str::FromStr,
 };
 
-use multihash::{Multihash, MultihashRef};
-use thiserror::Error;
-
 /// Serializable [`git2::Oid`]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Oid(git2::Oid);
-
-impl Oid {
-    pub fn into_multihash(self) -> Multihash {
-        self.into()
-    }
-}
 
 #[cfg(feature = "serde")]
 mod serde_impls {
@@ -60,35 +51,6 @@ mod serde_impls {
             }
 
             deserializer.deserialize_str(OidVisitor)
-        }
-    }
-}
-
-#[cfg(feature = "minicbor")]
-mod minicbor_impls {
-    use super::*;
-    use minicbor::{
-        decode,
-        encode::{self, Write},
-        Decode,
-        Decoder,
-        Encode,
-        Encoder,
-    };
-
-    impl Encode for Oid {
-        fn encode<W: Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
-            e.bytes(Multihash::from(self).as_bytes())?;
-            Ok(())
-        }
-    }
-
-    impl<'b> Decode<'b> for Oid {
-        fn decode(d: &mut Decoder) -> Result<Self, decode::Error> {
-            let bytes = d.bytes()?;
-            let mhash = MultihashRef::from_slice(bytes)
-                .or(Err(decode::Error::Message("not a multihash")))?;
-            Self::try_from(mhash).or(Err(decode::Error::Message("not a git oid")))
         }
     }
 }
@@ -147,54 +109,10 @@ impl FromStr for Oid {
     }
 }
 
-#[derive(Debug, Error)]
-#[non_exhaustive]
-pub enum FromMultihashError {
-    #[error("invalid hash algorithm: expected Sha1, got {actual:?}")]
-    AlgorithmMismatch { actual: multihash::Code },
-
-    #[error(transparent)]
-    Git(#[from] git2::Error),
-}
-
-impl TryFrom<Multihash> for Oid {
-    type Error = FromMultihashError;
-
-    fn try_from(mhash: Multihash) -> Result<Self, Self::Error> {
-        Self::try_from(mhash.as_ref())
-    }
-}
-
-impl TryFrom<MultihashRef<'_>> for Oid {
-    type Error = FromMultihashError;
-
-    fn try_from(mhash: MultihashRef) -> Result<Self, Self::Error> {
-        if mhash.algorithm() != multihash::Code::Sha1 {
-            return Err(Self::Error::AlgorithmMismatch {
-                actual: mhash.algorithm(),
-            });
-        }
-
-        Self::try_from(mhash.digest()).map_err(Self::Error::from)
-    }
-}
-
 impl TryFrom<&[u8]> for Oid {
     type Error = git2::Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         git2::Oid::from_bytes(bytes).map(Self)
-    }
-}
-
-impl From<Oid> for Multihash {
-    fn from(oid: Oid) -> Self {
-        Self::from(&oid)
-    }
-}
-
-impl From<&Oid> for Multihash {
-    fn from(oid: &Oid) -> Self {
-        multihash::wrap(multihash::Code::Sha1, oid.as_ref())
     }
 }
