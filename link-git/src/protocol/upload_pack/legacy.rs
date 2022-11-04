@@ -74,7 +74,7 @@ where
                 .arg(format!("uploadpack.hiderefs=!{}", r.as_bstr()));
         }
 
-        cmd.args(&[
+        cmd.args([
             "upload-pack",
             "--strict",
             "--timeout=5",

@@ -159,7 +159,7 @@ impl Revision for Oid {
 
 impl Revision for &str {
     fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Error> {
-        Oid::from_str(*self).map_err(Error::Git)
+        Oid::from_str(self).map_err(Error::Git)
     }
 }
 

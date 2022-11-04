@@ -251,7 +251,7 @@ fn discover(pack_dir: impl AsRef<Path>) -> Result<im::Vector<Arc<pack::Index>>, 
     let pack_dir = pack_dir.as_ref();
     let pack_dir_disp = pack_dir.display();
     trace!("discovering packs at {}", pack_dir_disp);
-    match fs::read_dir(&pack_dir) {
+    match fs::read_dir(pack_dir) {
         Ok(iter) => {
             let mut paths = Vec::new();
             for entry in iter {
