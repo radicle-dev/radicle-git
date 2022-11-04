@@ -149,7 +149,7 @@ where
                 )
                 .env("GIT_PROTOCOL", format!("version={}", protocol_version))
                 .env("GIT_NAMESPACE", namespace)
-                .args(&[
+                .args([
                     "-c",
                     "uploadpack.allowanysha1inwant=true",
                     "-c",

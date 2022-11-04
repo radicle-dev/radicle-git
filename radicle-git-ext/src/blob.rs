@@ -81,9 +81,7 @@ impl<'a> Blob<'a> {
                 let reference = match branch {
                     Branch::Name(name) => {
                         git.find_reference(&name).or_matches(is_not_found_err, || {
-                            Err(Error::NotFound(NotFound::NoSuchBranch(
-                                name.to_owned().to_string(),
-                            )))
+                            Err(Error::NotFound(NotFound::NoSuchBranch(name.into_owned())))
                         })
                     },
 
