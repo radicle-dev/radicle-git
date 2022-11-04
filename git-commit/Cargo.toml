@@ -1,0 +1,22 @@
+[package]
+name = "git-commit"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+authors = [
+  "Alexis Sellier <alexis@radicle.xyz>",
+  "Fintan Halpenny <fintan.halpenny@gmail.com>",
+]
+keywords = ["git", "radicle"]
+
+[dependencies]
+thiserror = "1"
+
+[dependencies.git2]
+version = "0.15.0"
+default-features = false
+features = ["vendored-libgit2"]
+
+[dependencies.git-trailers]
+version = "0.1.0"
+path = "../git-trailers"

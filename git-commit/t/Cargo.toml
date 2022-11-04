@@ -1,0 +1,26 @@
+[package]
+name = "git-commit-test"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+publish = false
+
+[lib]
+doctest = false
+test = true
+doc = false
+
+[features]
+test = []
+
+[dependencies.git-commit]
+path = ".."
+
+[dev-dependencies.git2]
+version = "0.15.0"
+default-features = false
+features = ["vendored-libgit2"]
+
+[dev-dependencies.test-helpers]
+path = "../../test/test-helpers"
