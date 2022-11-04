@@ -11,6 +11,8 @@ committer Alexis Sellier <alexis@radicle.xyz> 1664786099 -0200
 Add SSH functionality with new `radicle-ssh`
 
 We borrow code from `thrussh`, refactored to be runtime-less.
+
+X-Signed-Off-By: Alex Sellier
 ";
 
 const SSH_SIGNATURE: &str = "\
@@ -69,6 +71,8 @@ gpgsig -----BEGIN PGP SIGNATURE-----
 Add SSH functionality with new `radicle-ssh`
 
 We borrow code from `thrussh`, refactored to be runtime-less.
+
+X-Signed-Off-By: Alex Sellier
 ";
 
 #[test]

@@ -12,17 +12,20 @@
 //! [git-commit]: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
 
 use std::{
+    borrow::Cow,
     fmt::Write as _,
     str::{self, FromStr},
 };
 
 use git2::{ObjectType, Oid};
+use git_trailers::{self as trailers, OwnedTrailer};
 
 pub mod author;
 pub use author::Author;
 
 pub mod headers;
 pub use headers::{Headers, Signature};
+use trailers::Trailer;
 
 /// A git commit in its object description form, i.e. the output of
 /// `git cat-file` for a commit object.
@@ -34,17 +37,22 @@ pub struct Commit {
     committer: Author,
     headers: Headers,
     message: String,
+    trailers: Vec<OwnedTrailer>,
 }
 
 impl Commit {
-    pub fn new(
+    pub fn new<T>(
         tree: Oid,
         parents: Vec<Oid>,
         author: Author,
         committer: Author,
         headers: Headers,
         message: String,
-    ) -> Self {
+        trailers: T,
+    ) -> Self
+    where
+        T: IntoIterator<Item = OwnedTrailer>,
+    {
         Self {
             tree,
             parents,
@@ -52,6 +60,7 @@ impl Commit {
             committer,
             headers,
             message,
+            trailers: trailers.into_iter().collect(),
         }
     }
 
@@ -118,6 +127,10 @@ impl Commit {
     pub fn push_header(&mut self, name: &str, value: &str) {
         self.headers.push(name, value.trim());
     }
+
+    pub fn trailers(&self) -> impl Iterator<Item = &OwnedTrailer> {
+        self.trailers.iter()
+    }
 }
 
 pub mod error {
@@ -137,6 +150,8 @@ pub mod error {
 
     #[derive(Debug, Error)]
     pub enum Parse {
+        #[error(transparent)]
+        Author(#[from] author::ParseError),
         #[error("invalid '{header}'")]
         InvalidHeader {
             header: &'static str,
@@ -148,7 +163,9 @@ pub mod error {
         #[error("missing '{0}' while parsing commit")]
         Missing(&'static str),
         #[error(transparent)]
-        Author(#[from] author::ParseError),
+        Token(#[from] git_trailers::InvalidToken),
+        #[error("error occurred while checking for git-trailers: {0}")]
+        Trailers(#[source] git2::Error),
         #[error(transparent)]
         Utf8(#[from] str::Utf8Error),
     }
@@ -226,6 +243,17 @@ impl FromStr for Commit {
             }
         }
 
+        // FIXME: would be nice if git-trailers could parse a message
+        // looking for the trailers, instead of going through git2
+        // here.
+        let trailers = git2::message_trailers_strs(message).map_err(error::Parse::Trailers)?;
+        let trailers = trailers
+            .iter()
+            .map(|(token, values)| {
+                let values = values.split_whitespace().map(Cow::Borrowed).collect();
+                trailers::Token::try_from(token).map(|token| Trailer { token, values }.to_owned())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             tree,
             parents,
@@ -233,6 +261,7 @@ impl FromStr for Commit {
             committer: committer.ok_or(error::Parse::Missing("committer"))?,
             headers,
             message: message.to_owned(),
+            trailers,
         })
     }
 }
@@ -255,6 +284,7 @@ impl ToString for Commit {
         }
         writeln!(buf).ok();
         write!(buf, "{}", self.message).ok();
+
         buf
     }
 }
