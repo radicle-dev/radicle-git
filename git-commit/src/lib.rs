@@ -12,20 +12,18 @@
 //! [git-commit]: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
 
 use std::{
-    borrow::Cow,
     fmt::Write as _,
     str::{self, FromStr},
 };
 
 use git2::{ObjectType, Oid};
-use git_trailers::{self as trailers, OwnedTrailer};
+use git_trailers::{self as trailers, OwnedTrailer, Trailer};
 
 pub mod author;
 pub use author::Author;
 
 pub mod headers;
 pub use headers::{Headers, Signature};
-use trailers::Trailer;
 
 /// A git commit in its object description form, i.e. the output of
 /// `git cat-file` for a commit object.
@@ -41,18 +39,20 @@ pub struct Commit {
 }
 
 impl Commit {
-    pub fn new<T>(
+    pub fn new<I, T>(
         tree: Oid,
         parents: Vec<Oid>,
         author: Author,
         committer: Author,
         headers: Headers,
         message: String,
-        trailers: T,
+        trailers: I,
     ) -> Self
     where
-        T: IntoIterator<Item = OwnedTrailer>,
+        I: IntoIterator<Item = T>,
+        OwnedTrailer: From<T>,
     {
+        let trailers = trailers.into_iter().map(OwnedTrailer::from).collect();
         Self {
             tree,
             parents,
@@ -60,7 +60,7 @@ impl Commit {
             committer,
             headers,
             message,
-            trailers: trailers.into_iter().collect(),
+            trailers,
         }
     }
 
@@ -243,24 +243,27 @@ impl FromStr for Commit {
             }
         }
 
-        // FIXME: would be nice if git-trailers could parse a message
-        // looking for the trailers, instead of going through git2
-        // here.
-        let trailers = git2::message_trailers_strs(message).map_err(error::Parse::Trailers)?;
-        let trailers = trailers
-            .iter()
-            .map(|(token, values)| {
-                let values = values.split_whitespace().map(Cow::Borrowed).collect();
-                trailers::Token::try_from(token).map(|token| Trailer { token, values }.to_owned())
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let (message, trailers) = message.lines().fold(
+            (Vec::new(), Vec::new()),
+            |(mut message, mut trailers), line| match trailers::parser::trailer(line, ": ") {
+                Ok((_, trailer)) => {
+                    trailers.push(trailer.into());
+                    (message, trailers)
+                },
+                Err(_) => {
+                    message.push(line);
+                    (message, trailers)
+                },
+            },
+        );
+
         Ok(Self {
             tree,
             parents,
             author: author.ok_or(error::Parse::Missing("author"))?,
             committer: committer.ok_or(error::Parse::Missing("committer"))?,
             headers,
-            message: message.to_owned(),
+            message: message.join("\n"),
             trailers,
         })
     }
@@ -285,6 +288,16 @@ impl ToString for Commit {
         writeln!(buf).ok();
         write!(buf, "{}", self.message).ok();
 
+        if !self.trailers.is_empty() {
+            writeln!(buf).ok();
+        }
+        for (i, trailer) in self.trailers.iter().enumerate() {
+            if i < self.trailers.len() {
+                writeln!(buf, "{}", Trailer::from(trailer).display(": ")).ok();
+            } else {
+                write!(buf, "{}", Trailer::from(trailer).display(": ")).ok();
+            }
+        }
         buf
     }
 }
