@@ -8,7 +8,7 @@ use radicle_surf::git::{Author, BranchType, Commit};
 use radicle_surf::{
     diff::*,
     file_system::{unsound, DirectoryContents, Path},
-    git::{error::Error, Branch, BranchName, Namespace, Oid, RefScope, Repository, Rev, TagName},
+    git::{error::Error, Branch, Glob, Namespace, Oid, Repository, TagName},
 };
 
 const GIT_PLATINUM: &str = "../data/git-platinum";
@@ -54,15 +54,17 @@ mod namespace {
         assert_eq!(history.head(), history_feature.head());
 
         let expected_branches: Vec<Branch> = vec![Branch::local("feature/#1194")];
-        let mut branches = repo.list_branches(RefScope::Local)?;
+        let mut branches = repo
+            .branches(&Glob::heads("*")?)?
+            .collect::<Result<Vec<Branch>, Error>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
 
         let expected_branches: Vec<Branch> = vec![Branch::remote("feature/#1194", "fein")];
-        let mut branches = repo.list_branches(RefScope::Remote {
-            name: Some("fein".to_string()),
-        })?;
+        let mut branches = repo
+            .branches(&Glob::remotes("fein/*")?)?
+            .collect::<Result<Vec<Branch>, Error>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
@@ -89,7 +91,9 @@ mod namespace {
         assert_eq!(history.head(), golden_history.head());
 
         let expected_branches: Vec<Branch> = vec![Branch::local("banana"), Branch::local("master")];
-        let mut branches = repo.list_branches(RefScope::Local)?;
+        let mut branches = repo
+            .branches(&Glob::heads("*")?)?
+            .collect::<Result<Vec<Branch>, Error>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
@@ -99,9 +103,9 @@ mod namespace {
             Branch::remote("heelflip", "kickflip"),
             Branch::remote("v0.1.0", "kickflip"),
         ];
-        let mut branches = repo.list_branches(RefScope::Remote {
-            name: Some("kickflip".to_string()),
-        })?;
+        let mut branches = repo
+            .branches(&Glob::remotes("kickflip/*")?)?
+            .collect::<Result<Vec<Branch>, Error>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
@@ -126,7 +130,9 @@ mod namespace {
         assert_ne!(history.head(), silver_history.head());
 
         let expected_branches: Vec<Branch> = vec![Branch::local("master")];
-        let mut branches = repo.list_branches(RefScope::All)?;
+        let mut branches = repo
+            .branches(&Glob::heads("*")?.and_remotes("*")?)?
+            .collect::<Result<Vec<Branch>, Error>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
@@ -180,8 +186,8 @@ mod rev {
     fn commit() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let rev: Rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?.into();
-        let mut history = repo.history(&rev)?;
+        let rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
+        let mut history = repo.history(rev)?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         assert!(history.any(|commit| commit.unwrap().id == commit1));
@@ -193,8 +199,8 @@ mod rev {
     fn commit_parents() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let rev: Rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?.into();
-        let history = repo.history(&rev)?;
+        let rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
+        let history = repo.history(rev)?;
         let commit = history.head();
 
         assert_eq!(
@@ -209,8 +215,8 @@ mod rev {
     fn commit_short() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let rev: Rev = repo.oid("3873745c8")?.into();
-        let mut history = repo.history(&rev)?;
+        let rev = repo.oid("3873745c8")?;
+        let mut history = repo.history(rev)?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         assert!(history.any(|commit| commit.unwrap().id == commit1));
@@ -222,7 +228,7 @@ mod rev {
     fn tag() -> Result<(), Error> {
         let repo = Repository::new(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let rev: Rev = TagName::new("v0.2.0").into();
+        let rev = TagName::new("v0.2.0")?;
         let history = repo.history(&rev)?;
 
         let commit1 = Oid::from_str("2429f097664f9af0c5b7b389ab998b2199ffa977")?;
@@ -245,12 +251,11 @@ mod last_commit {
             Oid::from_str("d3464e33d75c75c99bfb90fa2e9d16efc0b7d0e3").expect("Failed to parse SHA");
 
         // memory.rs is commited later so it should not exist here.
-        let rev: Rev = oid.into();
         let memory_last_commit_oid = repo
             .as_ref()
             .last_commit(
                 Path::with_root(&[unsound::label::new("src"), unsound::label::new("memory.rs")]),
-                &rev,
+                oid,
             )
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
@@ -260,7 +265,7 @@ mod last_commit {
         // README.md exists in this commit.
         let readme_last_commit = repo
             .as_ref()
-            .last_commit(Path::with_root(&[unsound::label::new("README.md")]), &rev)
+            .last_commit(Path::with_root(&[unsound::label::new("README.md")]), oid)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
@@ -274,13 +279,12 @@ mod last_commit {
         // Check that last commit is the actual last commit even if head commit differs.
         let oid =
             Oid::from_str("19bec071db6474af89c866a1bd0e4b1ff76e2b97").expect("Could not parse SHA");
-        let rev: Rev = oid.into();
 
         let expected_commit_id = Oid::from_str("f3a089488f4cfd1a240a9c01b3fcc4c34a4e97b2").unwrap();
 
         let folder_svelte = repo
             .as_ref()
-            .last_commit(unsound::path::new("~/examples/Folder.svelte"), &rev)
+            .last_commit(unsound::path::new("~/examples/Folder.svelte"), oid)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
@@ -294,7 +298,6 @@ mod last_commit {
         // Check that last commit is the actual last commit even if head commit differs.
         let oid =
             Oid::from_str("19bec071db6474af89c866a1bd0e4b1ff76e2b97").expect("Failed to parse SHA");
-        let rev: Rev = oid.into();
 
         let expected_commit_id = Oid::from_str("2429f097664f9af0c5b7b389ab998b2199ffa977").unwrap();
 
@@ -302,7 +305,7 @@ mod last_commit {
             .as_ref()
             .last_commit(
                 unsound::path::new("~/this/is/a/really/deeply/nested/directory/tree"),
-                &rev,
+                oid,
             )
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
@@ -319,20 +322,19 @@ mod last_commit {
         // Check that last commit is the actual last commit even if head commit differs.
         let oid =
             Oid::from_str("a0dd9122d33dff2a35f564d564db127152c88e02").expect("Failed to parse SHA");
-        let rev: Rev = oid.into();
 
         let expected_commit_id = Oid::from_str("a0dd9122d33dff2a35f564d564db127152c88e02").unwrap();
 
         let backslash_commit_id = repo
             .as_ref()
-            .last_commit(unsound::path::new("~/special/faux\\path"), &rev)
+            .last_commit(unsound::path::new("~/special/faux\\path"), oid)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
         assert_eq!(backslash_commit_id, Some(expected_commit_id));
 
         let ogre_commit_id = repo
             .as_ref()
-            .last_commit(unsound::path::new("~/special/👹👹👹"), &rev)
+            .last_commit(unsound::path::new("~/special/👹👹👹"), oid)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
         assert_eq!(ogre_commit_id, Some(expected_commit_id));
@@ -342,7 +344,7 @@ mod last_commit {
     fn root() {
         let repo = Repository::new(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
-        let rev: Rev = Branch::local("master").into();
+        let rev = Branch::local("master");
         let root_last_commit_id = repo
             .as_ref()
             .last_commit(Path::root(), &rev)
@@ -567,6 +569,8 @@ mod diff {
 
 #[cfg(test)]
 mod threading {
+    use radicle_surf::git::Glob;
+
     use super::*;
     use std::sync::{Mutex, MutexGuard};
 
@@ -574,17 +578,20 @@ mod threading {
     fn basic_test() -> Result<(), Error> {
         let shared_repo = Mutex::new(Repository::new(GIT_PLATINUM)?);
         let locked_repo: MutexGuard<Repository> = shared_repo.lock().unwrap();
-        let mut branches = locked_repo.as_ref().list_branches(RefScope::All)?;
+        let mut branches = locked_repo
+            .as_ref()
+            .branches(&Glob::heads("*")?.and_remotes("*")?)?
+            .collect::<Result<Vec<Branch>, Error>>()?;
         branches.sort();
 
         assert_eq!(
             branches,
             vec![
                 Branch::remote("HEAD", "origin"),
-                Branch::remote("dev", "origin"),
                 Branch::local("dev"),
-                Branch::remote("master", "origin"),
+                Branch::remote("dev", "origin"),
                 Branch::local("master"),
+                Branch::remote("master", "origin"),
                 Branch::remote("orange/pineapple", "banana"),
                 Branch::remote("pineapple", "banana"),
             ]
@@ -709,105 +716,52 @@ mod ext {
 #[cfg(test)]
 mod reference {
     use super::*;
-    use radicle_surf::vcs::git::{ParseError, Ref};
-    use std::str::FromStr;
+    use radicle_surf::vcs::git::{Glob, Tag};
 
     #[test]
-    fn parse_ref() -> Result<(), ParseError> {
-        assert_eq!(
-            Ref::from_str("refs/remotes/origin/master"),
-            Ok(Ref::RemoteBranch {
-                remote: "origin".to_string(),
-                name: BranchName::new("master")
-            })
-        );
+    fn test_branches() {
+        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo = repo.as_ref();
+        let branches = repo.branches(&Glob::heads("*").unwrap()).unwrap();
+        for b in branches {
+            println!("{}", b.unwrap().name);
+        }
+        let branches = repo
+            .branches(&Glob::heads("*").unwrap().and_remotes("banana/*").unwrap())
+            .unwrap();
+        for b in branches {
+            println!("{}", b.unwrap().refname());
+        }
+    }
 
-        assert_eq!(
-            Ref::from_str("refs/heads/master"),
-            Ok(Ref::LocalBranch {
-                name: BranchName::new("master"),
-            })
-        );
+    #[test]
+    fn test_tag_snapshot() {
+        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo_ref = repo.as_ref();
+        let tags = repo_ref
+            .tags(&Glob::tags("*").unwrap())
+            .unwrap()
+            .collect::<Result<Vec<Tag>, Error>>()
+            .unwrap();
+        assert_eq!(tags.len(), 6);
+        let root_dir = repo_ref.snapshot(&tags[0]).unwrap();
+        assert_eq!(root_dir.contents().count(), 1);
+    }
 
-        assert_eq!(
-            Ref::from_str("refs/heads/i-am-hyphenated"),
-            Ok(Ref::LocalBranch {
-                name: BranchName::new("i-am-hyphenated"),
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/heads/prefix/i-am-hyphenated"),
-            Ok(Ref::LocalBranch {
-                name: BranchName::new("prefix/i-am-hyphenated"),
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/tags/v0.0.1"),
-            Ok(Ref::Tag {
-                name: TagName::new("v0.0.1")
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/moi/refs/remotes/origin/master"),
-            Ok(Ref::Namespace {
-                namespace: "moi".to_string(),
-                reference: Box::new(Ref::RemoteBranch {
-                    remote: "origin".to_string(),
-                    name: BranchName::new("master")
-                })
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/moi/refs/namespaces/toi/refs/tags/v1.0.0"),
-            Ok(Ref::Namespace {
-                namespace: "moi".to_string(),
-                reference: Box::new(Ref::Namespace {
-                    namespace: "toi".to_string(),
-                    reference: Box::new(Ref::Tag {
-                        name: TagName::new("v1.0.0")
-                    })
-                })
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/me/refs/heads/feature/#1194"),
-            Ok(Ref::Namespace {
-                namespace: "me".to_string(),
-                reference: Box::new(Ref::LocalBranch {
-                    name: BranchName::new("feature/#1194"),
-                })
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/me/refs/remotes/fein/heads/feature/#1194"),
-            Ok(Ref::Namespace {
-                namespace: "me".to_string(),
-                reference: Box::new(Ref::RemoteBranch {
-                    remote: "fein".to_string(),
-                    name: BranchName::new("heads/feature/#1194"),
-                })
-            })
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/remotes/master"),
-            Err(ParseError::MalformedRef("refs/remotes/master".to_owned())),
-        );
-
-        assert_eq!(
-            Ref::from_str("refs/namespaces/refs/remotes/origin/master"),
-            Err(ParseError::MalformedRef(
-                "refs/namespaces/refs/remotes/origin/master".to_owned()
-            )),
-        );
-
-        Ok(())
+    #[test]
+    fn test_namespaces() {
+        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo = repo.as_ref();
+        let namespaces = repo.namespaces(&Glob::namespaces("*").unwrap()).unwrap();
+        assert_eq!(namespaces.count(), 3);
+        let namespaces = repo
+            .namespaces(&Glob::namespaces("golden/*").unwrap())
+            .unwrap();
+        assert_eq!(namespaces.count(), 2);
+        let namespaces = repo
+            .namespaces(&Glob::namespaces("golden/*").unwrap().and("me/*").unwrap())
+            .unwrap();
+        assert_eq!(namespaces.count(), 3);
     }
 }
 
@@ -838,16 +792,6 @@ mod code_browsing {
             }
             count
         }
-    }
-
-    #[test]
-    fn test_tag_snapshot() {
-        let repo = Repository::new(GIT_PLATINUM).unwrap();
-        let repo_ref = repo.as_ref();
-        let tags = repo_ref.list_tags(RefScope::Local).unwrap();
-        assert_eq!(tags.len(), 6);
-        let root_dir = repo_ref.snapshot(&tags[0]).unwrap();
-        assert_eq!(root_dir.contents().count(), 1);
     }
 
     #[test]

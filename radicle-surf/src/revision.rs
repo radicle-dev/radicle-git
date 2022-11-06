@@ -17,8 +17,6 @@
 
 //! Represents revisions
 
-use std::convert::TryFrom;
-
 use nonempty::NonEmpty;
 
 #[cfg(feature = "serialize")]
@@ -27,8 +25,8 @@ use serde::{Deserialize, Serialize};
 use radicle_git_ext::Oid;
 
 use crate::{
-    git::{BranchName, RepositoryRef},
-    vcs::git::{self, error::Error, RefScope, Rev, TagName},
+    git::{commit::ToCommit, BranchName, Glob, RepositoryRef},
+    vcs::git::{self, error::Error, TagName},
 };
 
 /// Types of a peer.
@@ -79,23 +77,35 @@ pub enum Revision<P> {
     },
 }
 
-impl<P> TryFrom<Revision<P>> for Rev
+impl<P> git::Revision for &Revision<P>
 where
     P: ToString,
 {
-    type Error = Error;
-
-    fn try_from(other: Revision<P>) -> Result<Self, Self::Error> {
-        match other {
-            Revision::Tag { name } => Ok(git::TagName::new(&name).into()),
-            Revision::Branch { name, peer_id } => Ok(match peer_id {
-                Some(peer) => {
-                    git::Branch::remote(&format!("heads/{}", name), &peer.to_string()).into()
-                },
-                None => git::Branch::local(&name).into(),
-            }),
-            Revision::Sha { sha } => Ok(sha.into()),
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        match self {
+            Revision::Tag { name } => {
+                repo.refname_to_oid(git::TagName::new(name)?.refname().as_str())
+            },
+            Revision::Branch { name, peer_id } => {
+                let refname = match peer_id {
+                    Some(peer) => {
+                        git::Branch::remote(&format!("heads/{}", name), &peer.to_string()).refname()
+                    },
+                    None => git::Branch::local(name).refname(),
+                };
+                repo.refname_to_oid(&refname)
+            },
+            Revision::Sha { sha } => Ok(*sha),
         }
+    }
+}
+
+impl<P> ToCommit for &Revision<P>
+where
+    P: ToString,
+{
+    fn to_commit(self, repo: &RepositoryRef) -> Result<git::Commit, Error> {
+        repo.commit(self)
     }
 }
 
@@ -114,7 +124,7 @@ pub struct Revisions<P, U> {
 }
 
 /// Provide the [`Revisions`] for the given `peer_id`, looking for the
-/// branches as [`RefScope::Remote`].
+/// remote branches.
 ///
 /// If there are no branches then this returns `None`.
 ///
@@ -129,7 +139,8 @@ pub fn remote<P, U>(
 where
     P: Clone + ToString,
 {
-    let remote_branches = repo.branch_names(Some(peer_id.clone()).into())?;
+    let remote_branches =
+        repo.branch_names(&Glob::remotes(&format!("{}/*", peer_id.to_string()))?)?;
     Ok(
         NonEmpty::from_vec(remote_branches).map(|branches| Revisions {
             peer_id,
@@ -143,7 +154,7 @@ where
 }
 
 /// Provide the [`Revisions`] for the given `peer_id`, looking for the
-/// branches as [`RefScope::Local`].
+/// local branches.
 ///
 /// If there are no branches then this returns `None`.
 ///
@@ -158,7 +169,7 @@ pub fn local<P, U>(
 where
     P: Clone + ToString,
 {
-    let local_branches = repo.branch_names(RefScope::Local)?;
+    let local_branches = repo.branch_names(&Glob::heads("*")?)?;
     let tags = repo.tag_names()?;
     Ok(
         NonEmpty::from_vec(local_branches).map(|branches| Revisions {

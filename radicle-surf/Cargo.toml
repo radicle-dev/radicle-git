@@ -30,9 +30,10 @@ gh-actions = []
 [dependencies]
 base64 = "0.13"
 either = "1.5"
+git-ref-format = { path = "../git-ref-format", version = "0.1.0" }
 nom = "6"
 nonempty = "0.5"
-radicle-git-ext = { path = "../radicle-git-ext", features = ["serde"] }
+radicle-git-ext = { version = "0.2.0", features = ["serde"] }
 regex = ">= 1.5.5"
 serde = { features = ["serde_derive"], optional = true, version = "1" }
 thiserror = "1.0"

@@ -15,14 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::vcs::git::{self, error::Error, reference::Ref, Author};
+use crate::vcs::git::{self, error::Error, Author};
+use git_ref_format::RefString;
 use radicle_git_ext::Oid;
 use std::{convert::TryFrom, fmt, str};
 
 /// A newtype wrapper over `String` to separate out the fact that a caller wants
 /// to fetch a tag.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TagName(String);
+pub struct TagName(RefString);
 
 impl fmt::Display for TagName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -31,7 +32,7 @@ impl fmt::Display for TagName {
 }
 
 impl TryFrom<&[u8]> for TagName {
-    type Error = str::Utf8Error;
+    type Error = Error;
 
     fn try_from(name: &[u8]) -> Result<Self, Self::Error> {
         let name = str::from_utf8(name)?;
@@ -39,25 +40,26 @@ impl TryFrom<&[u8]> for TagName {
             Ok(stripped) => stripped,
             Err(original) => original,
         };
-        Ok(Self(short_name))
-    }
-}
-
-impl From<TagName> for Ref {
-    fn from(other: TagName) -> Self {
-        Self::Tag { name: other }
+        let refstring = RefString::try_from(short_name)?;
+        Ok(Self(refstring))
     }
 }
 
 impl TagName {
     /// Create a new `TagName`.
-    pub fn new(name: &str) -> Self {
-        TagName(name.into())
+    pub fn new(name: &str) -> Result<Self, Error> {
+        let refstring = RefString::try_from(name)?;
+        Ok(Self(refstring))
     }
 
     /// Access the string value of the `TagName`.
     pub fn name(&self) -> &str {
         &self.0
+    }
+
+    /// Returns the full ref name of the tag.
+    pub fn refname(&self) -> String {
+        format!("refs/tags/{}", self.name())
     }
 }
 
@@ -109,12 +111,12 @@ impl Tag {
 
     /// Returns the full ref name of the tag.
     pub fn refname(&self) -> String {
-        format!("refs/tags/{}", self.name().name())
+        self.name().refname()
     }
 }
 
 impl<'repo> TryFrom<git2::Tag<'repo>> for Tag {
-    type Error = str::Utf8Error;
+    type Error = Error;
 
     fn try_from(tag: git2::Tag) -> Result<Self, Self::Error> {
         let id = tag.id().into();
@@ -152,7 +154,7 @@ impl<'repo> TryFrom<git2::Reference<'repo>> for Tag {
             let mut split = name.0.splitn(2, '/');
             let remote = split.next().map(|x| x.to_owned());
             let name = split.next().unwrap();
-            (remote, TagName(name.to_owned()))
+            (remote, TagName::new(name)?)
         } else {
             (None, name)
         };

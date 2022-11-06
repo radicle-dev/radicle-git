@@ -17,7 +17,7 @@
 
 use crate::{
     file_system::{self, directory},
-    vcs::git::{error::Error, Branch, RepositoryRef, Rev, Tag},
+    vcs::git::{error::Error, Branch, RepositoryRef, Tag, TagName},
 };
 use radicle_git_ext::Oid;
 use std::{convert::TryFrom, str};
@@ -216,7 +216,7 @@ impl ToCommit for &Tag {
     }
 }
 
-impl ToCommit for &Rev {
+impl ToCommit for &TagName {
     fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
         repo.commit(self)
     }

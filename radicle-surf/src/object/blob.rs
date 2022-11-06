@@ -18,10 +18,7 @@
 //! Represents git object type 'blob', i.e. actual file contents.
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
-use std::{
-    convert::TryFrom as _,
-    str::{self, FromStr as _},
-};
+use std::str::{self, FromStr as _};
 
 #[cfg(feature = "serialize")]
 use serde::{
@@ -35,7 +32,6 @@ use crate::{
     git::RepositoryRef,
     object::{Error, Info, ObjectType},
     revision::Revision,
-    vcs::git::Rev,
 };
 
 #[cfg(feature = "syntax")]
@@ -139,7 +135,6 @@ where
     P: ToString,
     C: FnOnce(&[u8]) -> BlobContent,
 {
-    let maybe_revision = maybe_revision.map(Rev::try_from).transpose()?;
     let revision = maybe_revision.unwrap();
     let root = repo.snapshot(&revision)?;
     let p = file_system::Path::from_str(path)?;
