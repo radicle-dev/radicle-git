@@ -73,6 +73,14 @@ a `Directory`. Since we can assume we are working in `git` this can be
 simplified to a single function that can take a revision, that
 resolves to a `Commit`, and produces a `Directory`.
 
+## Remove `Vcs` trait
+
+The `Vcs` trait was introduced to support different version control
+backends, for example both `git` and `pijul`, and potentially
+others. However, since this port is part of `radicle-git` repo, we are
+only supporting `git` going forward.  We no longer need another layer
+of indirection defined by `Vcs` trait.
+
 ## Components
 
 The `radicle-surf` library can split into a few main components for
