@@ -83,7 +83,7 @@ of indirection defined by `Vcs` trait.
 
 ## Components
 
-The `radicle-surf` library can split into a few main components for
+The `radicle-surf` library can be split into a few main components for
 browsing a `git` repository, each of which will be discussed in the
 following subsections.
 
@@ -91,6 +91,67 @@ Note that any of the API functions defined are _sketches_ and may not
 be the final form or signature of the functions themselves. The traits
 defined are recommendations, but other solutions for these
 representations may be discovered during implementation of this design.
+
+### Revisions
+
+Before describing the next components, it is important to first
+describe [revisions][git-revisions]. A revision in `git` is a way of
+specifying an `Oid`. This can be done in a multitude of ways. One can
+also specify a range of `Oid`s (think `git log`). The API will support
+taking revisions as parameters where an `Oid` is expected. It will
+not, however, permit ranges (at least for the time being) and so a
+revision will be scoped to any string that can resolve to a single
+`Oid`, e.g. an `Oid` string itself, a reference name, `@{date}`, etc.
+The aim will be to have a trait similar to:
+
+
+```rust
+/// `Self` is expected to be a type that can resolve to a single
+/// `Oid`.
+///
+/// An `Oid` is the trivial case and returns itself, and is
+/// infallible.
+///
+/// However, some other revisions require parsing and/or looking at the
+/// storage, which may result in an `Error`.
+pub trait FromRevision {
+  type Error;
+
+  /// Resolve the revision to its `Oid`, if possible.
+  fn peel(&self, storage: &Storage) -> Result<Oid, Self::Error>;
+}
+```
+
+#### Commit-ish
+
+The snapshot mentioned above is a `Commit` in `git`, where the
+commit points to a `Tree` object. Thus, the API should be able to take
+any parameter that may resolve to a `Commit`. This idea can be
+captured as a trait, similar to `FromRevision`, which allows something
+to be peeled to a `Commit`.
+
+```rust
+/// `Self` is expected to be a type that can resolve to a single
+/// `Commit`.
+///
+/// A `Commit` is the trivial case and returns itself, and is
+/// infallible.
+///
+/// However, some other kinds of data require parsing and/or looking at the
+/// storage, which may result in an `Error`.
+///
+/// Common cases are:
+///
+///   * Reference that points to a commit `Oid`.
+///   * A `Tag` that has a `target` of `Commit`.
+///   * An `Oid` that is the identifier for a particular `Commit`.
+pub trait Commitish {
+  type Error;
+
+  /// Resolve the type to its `Commit`, if possible.
+  fn peel(&self, storage: &Storage) -> Result<Commit, Self::Error>;
+}
+```
 
 ### References
 
@@ -148,35 +209,6 @@ to avoid retrieving the actual object to limit the amount of data
 needed. The `Oid` is the minimal amount of information required to
 fetch the object itself.
 
-### Revisions
-
-Before describing the next components, it is important to first
-describe [revisions][git-revisions]. A revision in `git` is a way of
-specifying an `Oid`. This can be done in a multitude of ways. One can
-also specify a range of `Oid`s (think `git log`). The API will support
-taking revisions as parameters where an `Oid` is expected. It will
-not, however, permit ranges (at least for the time being) and so a
-revision will be scoped to any string that can resolve to a single
-`Oid`, e.g. an `Oid` string itself, a reference name, `@{date}`, etc.
-The aim will be to have a trait similar to:
-
-```rust
-/// `Self` is expected to be a type that can resolve to a single
-/// `Oid`.
-///
-/// An `Oid` is the trivial case and returns itself, and is
-/// infallible.
-///
-/// However, some other revisions require parsing and/or looking at the
-/// storage, which may result in an `Error`.
-pub trait FromRevision {
-  type Error;
-
-  /// Resolve the revision to its `Oid`, if possible.
-  fn peel(&self, storage: &Storage) -> Result<Oid, Self::Error>;
-}
-```
-
 ### Objects
 
 Within the `git` model, [references][#References] point to
@@ -213,36 +245,7 @@ time. Generally, this object would be a `Tree`, i.e. a directory of
 files. However, it may be that a particular file, i.e. `Blob`, can be
 viewed.
 
-#### Commit-ish
-
-The snapshot mentioned above is a `Commit` in `git`, where the
-commit points to a `Tree` object. Thus, the API should be able to take
-any parameter that may resolve to a `Commit`. This idea can be
-captured as a trait, similar to `FromRevision`, which allows something
-to be peeled to a `Commit`.
-
-```rust
-/// `Self` is expected to be a type that can resolve to a single
-/// `Commit`.
-///
-/// A `Commit` is the trivial case and returns itself, and is
-/// infallible.
-///
-/// However, some other kinds of data require parsing and/or looking at the
-/// storage, which may result in an `Error`.
-///
-/// Common cases are:
-///
-///   * Reference that points to a commit `Oid`.
-///   * A `Tag` that has a `target` of `Commit`.
-///   * An `Oid` that is the identifier for a particular `Commit`.
-pub trait Commitish {
-  type Error;
-
-  /// Resolve the type to its `Commit`, if possible.
-  fn peel(&self, storage: &Storage) -> Result<Commit, Self::Error>;
-}
-```
+### Directories anf Files
 
 This provides the building blocks for defining common cases of viewing
 files and directories given a `Commitish` type.
