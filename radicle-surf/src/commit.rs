@@ -17,8 +17,6 @@
 
 //! Represents a commit.
 
-use std::convert::TryFrom as _;
-
 #[cfg(feature = "serialize")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
@@ -28,9 +26,10 @@ use serde::{
 use crate::{
     diff,
     file_system,
+    git::Glob,
     person::Person,
     revision::Revision,
-    vcs::git::{self, BranchName, RepositoryRef, Rev},
+    vcs::git::{self, BranchName, RepositoryRef},
 };
 
 use radicle_git_ext::Oid;
@@ -147,7 +146,7 @@ pub struct Commits {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commit(repo: &RepositoryRef, rev: &Rev) -> Result<Commit, Error> {
+pub fn commit<R: git::Revision>(repo: &RepositoryRef, rev: R) -> Result<Commit, Error> {
     let commit = repo.commit(rev)?;
     let sha1 = commit.id;
     let header = Header::from(&commit);
@@ -195,7 +194,7 @@ pub fn commit(repo: &RepositoryRef, rev: &Rev) -> Result<Commit, Error> {
     }
 
     let branches = repo
-        .revision_branches(&sha1)?
+        .revision_branches(&sha1, &Glob::heads("*")?.and_remotes("*")?)?
         .into_iter()
         .map(|b| b.name)
         .collect();
@@ -235,11 +234,11 @@ pub fn commits<P>(
 where
     P: ToString,
 {
-    let maybe_revision = maybe_revision.map(Rev::try_from).transpose()?;
-
-    let rev: Rev = match maybe_revision {
+    let rev = match maybe_revision {
         Some(revision) => revision,
-        None => repo.head_oid()?.into(),
+        None => Revision::Sha {
+            sha: repo.head_oid()?,
+        },
     };
 
     let stats = repo.get_commit_stats(&rev)?;

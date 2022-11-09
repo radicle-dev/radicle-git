@@ -69,12 +69,11 @@ use std::str::FromStr;
 pub use git2::{self, Error as Git2Error, Time};
 pub use radicle_git_ext::Oid;
 
-/// Provides ways of selecting a particular reference/revision.
-mod reference;
-pub use reference::{ParseError, Ref, Rev};
-
 mod repo;
 pub use repo::{Repository, RepositoryRef};
+
+mod glob;
+pub use glob::Glob;
 
 mod history;
 pub use history::History;
@@ -177,21 +176,9 @@ impl Revision for &Tag {
     }
 }
 
-impl Revision for &Rev {
+impl Revision for &TagName {
     fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
-        match *self {
-            Rev::Oid(oid) => Ok(*oid),
-            Rev::Ref(r) => {
-                let r = match repo.which_namespace()? {
-                    None => r.clone(),
-                    Some(namespace) => match r {
-                        Ref::Namespace { .. } => r.clone(),
-                        _ => r.clone().namespaced(namespace),
-                    },
-                };
-                let refname = format!("{}", r);
-                Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
-            },
-        }
+        let refname = repo.namespaced_refname(&self.refname())?;
+        Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
     }
 }

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::vcs::git::{self, error::Error, ext, reference::Ref};
+use crate::vcs::git::{self, error::Error, ext};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, convert::TryFrom, fmt, str};
@@ -56,7 +56,7 @@ impl From<git2::BranchType> for BranchType {
 /// to fetch a branch.
 #[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BranchName(pub(crate) String);
+pub struct BranchName(String);
 
 impl fmt::Display for BranchName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -65,7 +65,7 @@ impl fmt::Display for BranchName {
 }
 
 impl TryFrom<&[u8]> for BranchName {
-    type Error = str::Utf8Error;
+    type Error = Error;
 
     fn try_from(name: &[u8]) -> Result<Self, Self::Error> {
         let name = str::from_utf8(name)?;
@@ -114,18 +114,6 @@ impl Ord for Branch {
     }
 }
 
-impl From<Branch> for Ref {
-    fn from(other: Branch) -> Self {
-        match other.locality {
-            BranchType::Local => Self::LocalBranch { name: other.name },
-            BranchType::Remote { name } => Self::RemoteBranch {
-                name: other.name,
-                remote: name.unwrap_or_else(|| "**".to_string()),
-            },
-        }
-    }
-}
-
 impl Branch {
     /// Helper to create a remote `Branch` with a name
     pub fn remote(name: &str, remote: &str) -> Self {
@@ -147,11 +135,11 @@ impl Branch {
 
     /// Get the name of the `Branch`.
     pub fn refname(&self) -> String {
-        let branch_name = self.name.0.clone();
+        let branch_name = &self.name.0;
         match self.locality {
             BranchType::Local => format!("refs/heads/{}", branch_name),
             BranchType::Remote { ref name } => match name {
-                None => branch_name,
+                None => branch_name.to_string(),
                 Some(remote_name) => format!("refs/remotes/{}/{}", remote_name, branch_name),
             },
         }

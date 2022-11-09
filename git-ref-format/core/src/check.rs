@@ -12,7 +12,7 @@ pub struct Options {
     pub allow_pattern: bool,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum Error {
     #[error("empty input")]

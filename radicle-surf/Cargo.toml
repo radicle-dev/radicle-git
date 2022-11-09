@@ -32,7 +32,6 @@ base64 = "0.13"
 either = "1.5"
 nom = "6"
 nonempty = "0.5"
-radicle-git-ext = { path = "../radicle-git-ext", features = ["serde"] }
 regex = ">= 1.5.5"
 serde = { features = ["serde_derive"], optional = true, version = "1" }
 thiserror = "1.0"
@@ -41,6 +40,15 @@ thiserror = "1.0"
 version = "0.15.0"
 default-features = false
 features = ["vendored-libgit2"]
+
+[dependencies.git-ref-format]
+version = "0.1.0"
+path = "../git-ref-format"
+
+[dependencies.radicle-git-ext]
+version = "0.2.0"
+path = "../radicle-git-ext"
+features = ["serde"]
 
 [dev-dependencies]
 criterion = "0.3"

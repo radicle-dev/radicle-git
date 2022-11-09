@@ -18,13 +18,13 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use radicle_surf::{
     file_system::{unsound, Path},
-    vcs::git::{Branch, Repository, Rev},
+    vcs::git::{Branch, Repository},
 };
 
 fn last_commit_comparison(c: &mut Criterion) {
     let repo = Repository::new("./data/git-platinum")
         .expect("Could not retrieve ./data/git-platinum as git repository");
-    let rev: Rev = Branch::local("master").into();
+    let rev = Branch::local("master");
 
     let mut group = c.benchmark_group("Last Commit");
     for path in [

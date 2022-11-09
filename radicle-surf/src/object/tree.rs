@@ -18,7 +18,7 @@
 //! Represents git object type 'tree', i.e. like directory entries in Unix.
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
-use std::{convert::TryFrom as _, str::FromStr as _};
+use std::str::FromStr as _;
 
 #[cfg(feature = "serialize")]
 use serde::{
@@ -32,7 +32,6 @@ use crate::{
     git::RepositoryRef,
     object::{Error, Info, ObjectType},
     revision::Revision,
-    vcs::git::{Branch, Rev},
 };
 
 /// Result of a directory listing, carries other trees and blobs.
@@ -94,12 +93,13 @@ pub fn tree<P>(
 where
     P: ToString,
 {
-    let maybe_revision = maybe_revision.map(Rev::try_from).transpose()?;
     let prefix = maybe_prefix.unwrap_or_default();
-
     let rev = match maybe_revision {
         Some(r) => r,
-        None => Branch::local("main").into(),
+        None => Revision::Branch {
+            name: "main".to_string(),
+            peer_id: None,
+        },
     };
 
     let path = if prefix == "/" || prefix.is_empty() {

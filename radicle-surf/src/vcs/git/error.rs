@@ -88,4 +88,7 @@ pub enum Error {
     /// A wrapper around the generic [`git2::Error`].
     #[error(transparent)]
     Git(#[from] git2::Error),
+    /// A wrapper around git-ref-format::Error
+    #[error(transparent)]
+    RefFormat(#[from] git_ref_format::Error),
 }

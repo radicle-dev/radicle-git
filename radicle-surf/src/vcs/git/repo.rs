@@ -21,13 +21,12 @@ use crate::{
     file_system::{directory, DirectoryContents, Label},
     vcs::git::{
         error::*,
-        reference::{glob::RefGlob, Rev},
         Branch,
         BranchName,
         Commit,
+        Glob,
         History,
         Namespace,
-        RefScope,
         Revision,
         Signature,
         Stats,
@@ -38,7 +37,7 @@ use crate::{
 use directory::Directory;
 use radicle_git_ext::Oid;
 use std::{
-    collections::{BTreeSet, HashSet},
+    collections::{btree_set, BTreeSet},
     convert::TryFrom,
     path::PathBuf,
     str,
@@ -75,6 +74,67 @@ impl<'a> From<&'a git2::Repository> for RepositoryRef<'a> {
     }
 }
 
+// I think the following `Tags` and `Branches` would be merged
+// using Generic associated types supported in Rust 1.65.0.
+
+/// An iterator for tags.
+pub struct Tags<'a> {
+    references: Vec<git2::References<'a>>,
+    current: usize,
+}
+
+impl<'a> Iterator for Tags<'a> {
+    type Item = Result<Tag, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.current < self.references.len() {
+            match self.references.get_mut(self.current) {
+                Some(refs) => match refs.next() {
+                    Some(res) => return Some(res.map_err(Error::Git).and_then(Tag::try_from)),
+                    None => self.current += 1,
+                },
+                None => break,
+            }
+        }
+        None
+    }
+}
+
+/// An iterator for branches.
+pub struct Branches<'a> {
+    references: Vec<git2::References<'a>>,
+    current: usize,
+}
+
+impl<'a> Iterator for Branches<'a> {
+    type Item = Result<Branch, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.current < self.references.len() {
+            match self.references.get_mut(self.current) {
+                Some(refs) => match refs.next() {
+                    Some(res) => return Some(res.map_err(Error::Git).and_then(Branch::try_from)),
+                    None => self.current += 1,
+                },
+                None => break,
+            }
+        }
+        None
+    }
+}
+
+/// An iterator for namespaces.
+pub struct Namespaces {
+    namespaces: btree_set::IntoIter<Namespace>,
+}
+
+impl Iterator for Namespaces {
+    type Item = Namespace;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.namespaces.next()
+    }
+}
+
 impl<'a> RepositoryRef<'a> {
     /// What is the current namespace we're browsing in.
     pub fn which_namespace(&self) -> Result<Option<Namespace>, Error> {
@@ -84,56 +144,52 @@ impl<'a> RepositoryRef<'a> {
             .transpose()
     }
 
-    /// List the branches within a repository, filtering out ones that do not
-    /// parse correctly.
-    ///
-    /// # Errors
-    ///
-    /// * [`Error::Git`]
-    pub fn list_branches(&self, scope: RefScope) -> Result<Vec<Branch>, Error> {
-        RefGlob::branch(scope)
-            .references(self)?
-            .iter()
-            .try_fold(vec![], |mut acc, reference| {
-                let branch = Branch::try_from(reference?)?;
-                acc.push(branch);
-                Ok(acc)
-            })
+    /// Returns an iterator of branches that match `pattern`.
+    pub fn branches(&self, pattern: &Glob<Branch>) -> Result<Branches, Error> {
+        let mut branches = Branches {
+            references: vec![],
+            current: 0,
+        };
+        for glob in pattern.globs().iter() {
+            let namespaced = self.namespaced_refname(glob)?;
+            let references = self.repo_ref.references_glob(&namespaced)?;
+            branches.references.push(references);
+        }
+        Ok(branches)
     }
 
-    /// List the tags within a repository, filtering out ones that do not parse
-    /// correctly.
-    ///
-    /// # Errors
-    ///
-    /// * [`Error::Git`]
-    pub fn list_tags(&self, scope: RefScope) -> Result<Vec<Tag>, Error> {
-        RefGlob::tag(scope)
-            .references(self)?
-            .iter()
-            .try_fold(vec![], |mut acc, reference| {
-                let tag = Tag::try_from(reference?)?;
-                acc.push(tag);
-                Ok(acc)
-            })
+    /// Returns an iterator of tags that match `pattern`.
+    pub fn tags(&self, pattern: &Glob<Tag>) -> Result<Tags, Error> {
+        let mut tags = Tags {
+            references: vec![],
+            current: 0,
+        };
+        for glob in pattern.globs().iter() {
+            let namespaced = self.namespaced_refname(glob)?;
+            let references = self.repo_ref.references_glob(&namespaced)?;
+            tags.references.push(references);
+        }
+        Ok(tags)
     }
 
-    /// List the namespaces within a repository, filtering out ones that do not
-    /// parse correctly.
-    ///
-    /// # Errors
-    ///
-    /// * [`Error::Git`]
-    pub fn list_namespaces(&self) -> Result<Vec<Namespace>, Error> {
-        let namespaces: Result<HashSet<Namespace>, Error> = RefGlob::Namespace
-            .references(self)?
-            .iter()
-            .try_fold(HashSet::new(), |mut acc, reference| {
-                let namespace = Namespace::try_from(reference?)?;
-                acc.insert(namespace);
-                Ok(acc)
-            });
-        Ok(namespaces?.into_iter().collect())
+    /// Returns an iterator of namespaces that match `pattern`.
+    pub fn namespaces(&self, pattern: &Glob<Namespace>) -> Result<Namespaces, Error> {
+        let mut set = BTreeSet::new();
+        for glob in pattern.globs().iter() {
+            let new_set = self
+                .repo_ref
+                .references_glob(glob)?
+                .map(|reference| {
+                    reference
+                        .map_err(Error::Git)
+                        .and_then(|r| Namespace::try_from(r).map_err(|_| Error::EmptyNamespace))
+                })
+                .collect::<Result<BTreeSet<Namespace>, Error>>()?;
+            set.extend(new_set);
+        }
+        Ok(Namespaces {
+            namespaces: set.into_iter(),
+        })
     }
 
     /// Get the [`Diff`] between two commits.
@@ -174,7 +230,11 @@ impl<'a> RepositoryRef<'a> {
 
     /// Returns the last commit, if exists, for a `path` in the history of
     /// `rev`.
-    pub fn last_commit(&self, path: file_system::Path, rev: &Rev) -> Result<Option<Commit>, Error> {
+    pub fn last_commit<C: ToCommit>(
+        &self,
+        path: file_system::Path,
+        rev: C,
+    ) -> Result<Option<Commit>, Error> {
         let history = self.history(rev)?;
         history.by_path(path).next().transpose()
     }
@@ -190,7 +250,7 @@ impl<'a> RepositoryRef<'a> {
 
     /// Gets stats of `commit`.
     pub fn get_commit_stats<C: ToCommit>(&self, commit: C) -> Result<Stats, Error> {
-        let branches = self.list_branches(RefScope::Local)?.len();
+        let branches = self.branches(&Glob::heads("*")?)?.count();
         let history = self.history(commit)?;
         let mut commits = 0;
 
@@ -212,13 +272,10 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Lists branch names with `filter`.
-    pub fn branch_names(&self, filter: RefScope) -> Result<Vec<BranchName>, Error> {
-        let mut branches = self
-            .list_branches(filter)?
-            .into_iter()
-            .map(|b| b.name)
-            .collect::<Vec<BranchName>>();
-
+    pub fn branch_names(&self, filter: &Glob<Branch>) -> Result<Vec<BranchName>, Error> {
+        let branches: Result<Vec<BranchName>, Error> =
+            self.branches(filter)?.map(|b| b.map(|b| b.name)).collect();
+        let mut branches = branches?;
         branches.sort();
 
         Ok(branches)
@@ -226,12 +283,10 @@ impl<'a> RepositoryRef<'a> {
 
     /// Lists tag names in the local RefScope.
     pub fn tag_names(&self) -> Result<Vec<TagName>, Error> {
-        let tag_names = self.list_tags(RefScope::Local)?;
-        let mut tags: Vec<TagName> = tag_names
-            .into_iter()
-            .map(|tag_name| tag_name.name())
-            .collect();
-
+        let mut tags = self
+            .tags(&Glob::tags("*")?)?
+            .map(|t| t.map(|t| t.name()))
+            .collect::<Result<Vec<TagName>, Error>>()?;
         tags.sort();
 
         Ok(tags)
@@ -256,6 +311,11 @@ impl<'a> RepositoryRef<'a> {
             None => refname.to_string(),
         };
         Ok(fullname)
+    }
+
+    pub(crate) fn refname_to_oid(&self, refname: &str) -> Result<Oid, Error> {
+        let oid = self.repo_ref.refname_to_id(refname)?;
+        Ok(oid.into())
     }
 
     /// Get a particular `git2::Commit` of `oid`.
@@ -292,23 +352,16 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Lists branches that are reachable from `oid`.
-    pub fn revision_branches(&self, oid: &Oid) -> Result<Vec<Branch>, Error> {
-        let local = RefGlob::LocalBranch.references(self)?;
-        let remote = RefGlob::RemoteBranch { remote: None }.references(self)?;
-        let mut references = local.iter().chain(remote.iter());
-
+    pub fn revision_branches(&self, oid: &Oid, glob: &Glob<Branch>) -> Result<Vec<Branch>, Error> {
         let mut contained_branches = vec![];
-
-        references.try_for_each(|reference| {
-            let reference = reference?;
-            self.reachable_from(&reference, oid).and_then(|contains| {
-                if contains {
-                    let branch = Branch::try_from(reference)?;
-                    contained_branches.push(branch);
-                }
-                Ok(())
-            })
-        })?;
+        for branch in self.branches(glob)? {
+            let branch = branch?;
+            let namespaced = self.namespaced_refname(&branch.refname())?;
+            let reference = self.repo_ref.find_reference(&namespaced)?;
+            if self.reachable_from(&reference, oid)? {
+                contained_branches.push(branch);
+            }
+        }
 
         Ok(contained_branches)
     }
