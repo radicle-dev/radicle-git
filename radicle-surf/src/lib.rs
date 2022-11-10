@@ -15,8 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#![deny(missing_docs, unused_import_braces, unused_qualifications, warnings)]
-
 //! Welcome to `radicle-surf`!
 //!
 //! `radicle-surf` is a system to describe a file-system in a VCS world.
