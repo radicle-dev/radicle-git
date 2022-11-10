@@ -115,40 +115,13 @@ impl From<git2::Buf> for Signature {
     }
 }
 
-/// Determines whether to look for local or remote references or both.
-pub enum RefScope {
-    /// List all branches by default.
-    All,
-    /// List only local branches.
-    Local,
-    /// List only remote branches.
-    Remote {
-        /// Name of the remote. If `None`, then get the reference from all
-        /// remotes.
-        name: Option<String>,
-    },
-}
-
-/// Turn an `Option<P>` into a [`RefScope`]. If the `P` is present then
-/// this is set as the remote of the `RefScope`. Otherwise, it's local
-/// branch.
-impl<P> From<Option<P>> for RefScope
-where
-    P: ToString,
-{
-    fn from(peer_id: Option<P>) -> Self {
-        peer_id.map_or(RefScope::Local, |peer_id| RefScope::Remote {
-            // We qualify the remotes as the PeerId + heads, otherwise we would grab the tags too.
-            name: Some(format!("{}/heads", peer_id.to_string())),
-        })
-    }
-}
-
 /// Supports various ways to specify a revision used in Git.
 pub trait Revision {
     /// Returns the object id of this revision in `repo`.
     fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error>;
 }
+
+
 
 impl Revision for Oid {
     fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Error> {
