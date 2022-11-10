@@ -80,6 +80,11 @@
 //! # Ok(())
 //! # }
 //! ```
+
+pub extern crate git_ref_format;
+
+extern crate radicle_git_ext as git_ext;
+
 pub mod diff;
 pub mod file_system;
 pub mod git;

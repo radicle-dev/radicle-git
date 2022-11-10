@@ -67,6 +67,7 @@ use std::str::FromStr;
 
 // Re-export git2 as sub-module
 pub use git2::{self, Error as Git2Error, Time};
+use git_ref_format::{name::Components, Component, Qualified, RefString};
 pub use radicle_git_ext::Oid;
 
 mod repo;
@@ -81,15 +82,13 @@ pub use history::History;
 pub mod error;
 pub use error::Error;
 
-pub mod ext;
-
 /// Provides the data for talking about branches.
 pub mod branch;
-pub use branch::{Branch, BranchName, BranchType};
+pub use branch::{Branch, Local, Remote};
 
 /// Provides the data for talking about tags.
 pub mod tag;
-pub use tag::{Tag, TagName};
+pub use tag::Tag;
 
 /// Provides the data for talking about commits.
 pub mod commit;
@@ -121,6 +120,30 @@ pub trait Revision {
     fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error>;
 }
 
+impl Revision for RefString {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        repo.refname_to_oid(self.as_str())
+    }
+}
+
+impl Revision for &RefString {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        repo.refname_to_oid(self.as_str())
+    }
+}
+
+impl Revision for Qualified<'_> {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        repo.refname_to_oid(self.as_str())
+    }
+}
+
+impl Revision for &Qualified<'_> {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        repo.refname_to_oid(self.as_str())
+    }
+}
+
 impl Revision for Oid {
     fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Error> {
         Ok(*self)
@@ -147,9 +170,6 @@ impl Revision for &Tag {
     }
 }
 
-impl Revision for &TagName {
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
-        let refname = repo.namespaced_refname(&self.refname())?;
-        Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
-    }
+pub(crate) fn refstr_join<'a>(c: Component<'a>, cs: Components<'a>) -> RefString {
+    std::iter::once(c).chain(cs).collect::<RefString>()
 }

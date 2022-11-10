@@ -17,6 +17,7 @@
 
 //! Represents a commit.
 
+use git_ref_format::RefString;
 #[cfg(feature = "serialize")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
@@ -26,7 +27,7 @@ use serde::{
 use crate::{
     diff,
     file_system,
-    git::{self, BranchName, Glob, RepositoryRef},
+    git::{self, Glob, RepositoryRef},
     person::Person,
     revision::Revision,
 };
@@ -54,7 +55,7 @@ pub struct Commit {
     /// The changeset introduced by this commit.
     pub diff: diff::Diff,
     /// The list of branches this commit belongs to.
-    pub branches: Vec<BranchName>,
+    pub branches: Vec<RefString>,
 }
 
 /// Representation of a code commit.
@@ -195,7 +196,7 @@ pub fn commit<R: git::Revision>(repo: &RepositoryRef, rev: R) -> Result<Commit, 
     let branches = repo
         .revision_branches(&sha1, &Glob::heads("*")?.and_remotes("*")?)?
         .into_iter()
-        .map(|b| b.name)
+        .map(|b| b.refname().into())
         .collect();
 
     Ok(Commit {
@@ -226,13 +227,7 @@ pub fn header(repo: &RepositoryRef, sha1: Oid) -> Result<Header, Error> {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commits<P>(
-    repo: &RepositoryRef,
-    maybe_revision: Option<Revision<P>>,
-) -> Result<Commits, Error>
-where
-    P: ToString,
-{
+pub fn commits(repo: &RepositoryRef, maybe_revision: Option<Revision>) -> Result<Commits, Error> {
     let rev = match maybe_revision {
         Some(revision) => revision,
         None => Revision::Sha {

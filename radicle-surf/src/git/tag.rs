@@ -1,67 +1,9 @@
-// This file is part of radicle-surf
-// <https://github.com/radicle-dev/radicle-surf>
-//
-// Copyright (C) 2019-2020 The Radicle Team <dev@radicle.xyz>
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License version 3 or
-// later as published by the Free Software Foundation.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+use std::{convert::TryFrom, str};
 
-use crate::git::{self, error::Error, Author};
-use git_ref_format::RefString;
-use radicle_git_ext::Oid;
-use std::{convert::TryFrom, fmt, str};
+use git_ext::Oid;
+use git_ref_format::{component, lit, Qualified, RefStr, RefString};
 
-/// A newtype wrapper over `String` to separate out the fact that a caller wants
-/// to fetch a tag.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TagName(RefString);
-
-impl fmt::Display for TagName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl TryFrom<&[u8]> for TagName {
-    type Error = Error;
-
-    fn try_from(name: &[u8]) -> Result<Self, Self::Error> {
-        let name = str::from_utf8(name)?;
-        let short_name = match git::ext::try_extract_refname(name) {
-            Ok(stripped) => stripped,
-            Err(original) => original,
-        };
-        let refstring = RefString::try_from(short_name)?;
-        Ok(Self(refstring))
-    }
-}
-
-impl TagName {
-    /// Create a new `TagName`.
-    pub fn new(name: &str) -> Result<Self, Error> {
-        let refstring = RefString::try_from(name)?;
-        Ok(Self(refstring))
-    }
-
-    /// Access the string value of the `TagName`.
-    pub fn name(&self) -> &str {
-        &self.0
-    }
-
-    /// Returns the full ref name of the tag.
-    pub fn refname(&self) -> String {
-        format!("refs/tags/{}", self.name())
-    }
-}
+use crate::git::{refstr_join, Author};
 
 /// The static information of a [`git2::Tag`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -70,25 +12,21 @@ pub enum Tag {
     Light {
         /// The Object ID for the `Tag`, i.e the SHA1 digest.
         id: Oid,
-        /// The name that references this `Tag`.
-        name: TagName,
-        /// If the tag is provided this holds the remote’s name.
-        remote: Option<String>,
+        /// The reference name for this `Tag`.
+        name: RefString,
     },
     /// An annotated git tag.
     Annotated {
         /// The Object ID for the `Tag`, i.e the SHA1 digest.
         id: Oid,
         /// The Object ID for the object that is tagged.
-        target_id: Oid,
-        /// The name that references this `Tag`.
-        name: TagName,
+        target: Oid,
+        /// The reference name for this `Tag`.
+        name: RefString,
         /// The named author of this `Tag`, if the `Tag` was annotated.
         tagger: Option<Author>,
         /// The message with this `Tag`, if the `Tag` was annotated.
         message: Option<String>,
-        /// If the tag is provided this holds the remote’s name.
-        remote: Option<String>,
     },
 }
 
@@ -101,32 +39,62 @@ impl Tag {
         }
     }
 
-    /// Get the `TagName` of the tag, regardless of its type.
-    pub fn name(&self) -> TagName {
-        match self {
-            Self::Light { name, .. } => name.clone(),
-            Self::Annotated { name, .. } => name.clone(),
-        }
+    /// Return the fully qualified `Tag` refname,
+    /// e.g. `refs/tags/release/v1`.
+    pub fn refname(&self) -> Qualified {
+        lit::refs_tags(self.name()).into()
     }
 
-    /// Returns the full ref name of the tag.
-    pub fn refname(&self) -> String {
-        self.name().refname()
+    fn name(&self) -> &RefString {
+        match &self {
+            Tag::Light { name, .. } => name,
+            Tag::Annotated { name, .. } => name,
+        }
     }
 }
 
-impl<'repo> TryFrom<git2::Tag<'repo>> for Tag {
-    type Error = Error;
+pub mod error {
+    use std::str;
 
-    fn try_from(tag: git2::Tag) -> Result<Self, Self::Error> {
+    use git_ref_format::RefString;
+    use thiserror::Error;
+
+    #[derive(Debug, Error)]
+    pub enum FromTag {
+        #[error(transparent)]
+        RefFormat(#[from] git_ref_format::Error),
+        #[error(transparent)]
+        Utf8(#[from] str::Utf8Error),
+    }
+
+    #[derive(Debug, Error)]
+    pub enum FromReference {
+        #[error(transparent)]
+        FromTag(#[from] FromTag),
+        #[error(transparent)]
+        Git(#[from] git2::Error),
+        #[error("the refname '{0}' did not begin with 'refs/tags'")]
+        NotQualified(String),
+        #[error("the refname '{0}' did not begin with 'refs/tags'")]
+        NotTag(RefString),
+        #[error(transparent)]
+        RefFormat(#[from] git_ref_format::Error),
+        #[error(transparent)]
+        Utf8(#[from] str::Utf8Error),
+    }
+}
+
+impl TryFrom<&git2::Tag<'_>> for Tag {
+    type Error = error::FromTag;
+
+    fn try_from(tag: &git2::Tag) -> Result<Self, Self::Error> {
         let id = tag.id().into();
-
-        let target_id = tag.target_id().into();
-
-        let name = TagName::try_from(tag.name_bytes())?;
-
+        let target = tag.target_id().into();
+        let name = {
+            let name = str::from_utf8(tag.name_bytes())?;
+            RefStr::try_from_str(name)?.to_ref_string()
+        };
         let tagger = tag.tagger().map(Author::try_from).transpose()?;
-
         let message = tag
             .message_bytes()
             .map(str::from_utf8)
@@ -135,49 +103,47 @@ impl<'repo> TryFrom<git2::Tag<'repo>> for Tag {
 
         Ok(Tag::Annotated {
             id,
-            target_id,
+            target,
             name,
             tagger,
             message,
-            remote: None,
         })
     }
 }
 
-impl<'repo> TryFrom<git2::Reference<'repo>> for Tag {
-    type Error = Error;
+impl TryFrom<&git2::Reference<'_>> for Tag {
+    type Error = error::FromReference;
 
-    fn try_from(reference: git2::Reference) -> Result<Self, Self::Error> {
-        let name = TagName::try_from(reference.name_bytes())?;
-
-        let (remote, name) = if git::ext::is_remote(&reference) {
-            let mut split = name.0.splitn(2, '/');
-            let remote = split.next().map(|x| x.to_owned());
-            let name = split.next().unwrap();
-            (remote, TagName::new(name)?)
-        } else {
-            (None, name)
+    fn try_from(reference: &git2::Reference) -> Result<Self, Self::Error> {
+        let name = {
+            let name = str::from_utf8(reference.name_bytes())?;
+            RefStr::try_from_str(name)?
+                .qualified()
+                .ok_or_else(|| error::FromReference::NotQualified(name.to_string()))?
         };
 
-        match reference.peel_to_tag() {
-            Ok(tag) => Ok(Tag::try_from(tag)?),
-            Err(err) => {
+        let (_refs, tags, c, cs) = name.non_empty_components();
+
+        if tags == component::TAGS {
+            match reference.peel_to_tag() {
+                Ok(tag) => Tag::try_from(&tag).map_err(error::FromReference::from),
                 // If we get an error peeling to a tag _BUT_ we also have confirmed the
                 // reference is a tag, that means we have a lightweight tag,
                 // i.e. a commit SHA and name.
-                if err.class() == git2::ErrorClass::Object
-                    && err.code() == git2::ErrorCode::InvalidSpec
+                Err(err)
+                    if err.class() == git2::ErrorClass::Object
+                        && err.code() == git2::ErrorCode::InvalidSpec =>
                 {
                     let commit = reference.peel_to_commit()?;
                     Ok(Tag::Light {
                         id: commit.id().into(),
-                        name,
-                        remote,
+                        name: refstr_join(c, cs),
                     })
-                } else {
-                    Err(err.into())
-                }
-            },
+                },
+                Err(err) => Err(err.into()),
+            }
+        } else {
+            Err(error::FromReference::NotTag(name.into()))
         }
     }
 }

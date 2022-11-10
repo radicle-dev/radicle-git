@@ -17,6 +17,7 @@
 
 //! Represents revisions
 
+use git_ref_format::{lit, Qualified, RefString};
 use nonempty::NonEmpty;
 
 #[cfg(feature = "serialize")]
@@ -24,7 +25,7 @@ use serde::{Deserialize, Serialize};
 
 use radicle_git_ext::Oid;
 
-use crate::git::{self, commit::ToCommit, error::Error, BranchName, Glob, RepositoryRef, TagName};
+use crate::git::{self, commit::ToCommit, error::Error, Glob, RepositoryRef};
 
 /// Types of a peer.
 pub enum Category<P, U> {
@@ -51,20 +52,20 @@ pub enum Category<P, U> {
     serde(rename_all = "camelCase", tag = "type")
 )]
 #[derive(Debug, Clone)]
-pub enum Revision<P> {
+pub enum Revision {
     /// Select a tag under the name provided.
     #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
     Tag {
         /// Name of the tag.
-        name: String,
+        name: RefString,
     },
     /// Select a branch under the name provided.
     #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
     Branch {
         /// Name of the branch.
-        name: String,
+        name: RefString,
         /// The remote peer, if specified.
-        peer_id: Option<P>,
+        remote: Option<RefString>,
     },
     /// Select a SHA1 under the name provided.
     #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
@@ -74,39 +75,31 @@ pub enum Revision<P> {
     },
 }
 
-impl<P> git::Revision for &Revision<P>
-where
-    P: ToString,
-{
+impl git::Revision for &Revision {
     fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
         match self {
-            Revision::Tag { name } => {
-                repo.refname_to_oid(git::TagName::new(name)?.refname().as_str())
+            Revision::Tag { name } => match name.qualified() {
+                None => Qualified::from(lit::refs_tags(name)).object_id(repo),
+                Some(name) => name.object_id(repo),
             },
-            Revision::Branch { name, peer_id } => {
-                let refname = match peer_id {
-                    Some(peer) => {
-                        git::Branch::remote(&format!("heads/{}", name), &peer.to_string()).refname()
-                    },
-                    None => git::Branch::local(name).refname(),
-                };
-                repo.refname_to_oid(&refname)
+            Revision::Branch { name, remote } => match remote {
+                Some(remote) => {
+                    Qualified::from(lit::refs_remotes(remote.join(name))).object_id(repo)
+                },
+                None => git::Branch::local(name).refname().object_id(repo),
             },
             Revision::Sha { sha } => Ok(*sha),
         }
     }
 }
 
-impl<P> ToCommit for &Revision<P>
-where
-    P: ToString,
-{
+impl ToCommit for &Revision {
     fn to_commit(self, repo: &RepositoryRef) -> Result<git::Commit, Error> {
         repo.commit(self)
     }
 }
 
-/// Bundled response to retrieve both [`BranchName`]es and [`TagName`]s for
+/// Bundled response to retrieve both branches and tags for
 /// a user's repo.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Revisions<P, U> {
@@ -114,10 +107,10 @@ pub struct Revisions<P, U> {
     pub peer_id: P,
     /// The user who owns these revisions.
     pub user: U,
-    /// List of [`git::BranchName`].
-    pub branches: NonEmpty<BranchName>,
-    /// List of [`git::TagName`].
-    pub tags: Vec<TagName>,
+    /// List of branch reference names.
+    pub branches: NonEmpty<RefString>,
+    /// List of tag reference names.
+    pub tags: Vec<RefString>,
 }
 
 /// Provide the [`Revisions`] for the given `peer_id`, looking for the

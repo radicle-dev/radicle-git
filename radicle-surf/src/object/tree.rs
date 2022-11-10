@@ -20,6 +20,7 @@
 
 use std::str::FromStr as _;
 
+use git_ref_format::refname;
 #[cfg(feature = "serialize")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
@@ -85,20 +86,17 @@ impl Serialize for TreeEntry {
 /// # Errors
 ///
 /// Will return [`Error`] if any of the surf interactions fail.
-pub fn tree<P>(
+pub fn tree(
     repo: &RepositoryRef,
-    maybe_revision: Option<Revision<P>>,
+    maybe_revision: Option<Revision>,
     maybe_prefix: Option<String>,
-) -> Result<Tree, Error>
-where
-    P: ToString,
-{
+) -> Result<Tree, Error> {
     let prefix = maybe_prefix.unwrap_or_default();
     let rev = match maybe_revision {
         Some(r) => r,
         None => Revision::Branch {
-            name: "main".to_string(),
-            peer_id: None,
+            name: refname!("main"),
+            remote: None,
         },
     };
 

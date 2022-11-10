@@ -1,186 +1,306 @@
-// This file is part of radicle-surf
-// <https://github.com/radicle-dev/radicle-surf>
-//
-// Copyright (C) 2019-2020 The Radicle Team <dev@radicle.xyz>
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License version 3 or
-// later as published by the Free Software Foundation.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+use std::{
+    convert::TryFrom,
+    str::{self, FromStr},
+};
 
-use crate::git::{self, error::Error, ext};
-#[cfg(feature = "serialize")]
-use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, convert::TryFrom, fmt, str};
+use crate::git::refstr_join;
+use git_ref_format::{component, lit, Component, Qualified, RefStr, RefString};
 
-/// The branch type we want to filter on.
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub enum BranchType {
-    /// Local branches that are under `refs/heads/*`
-    Local,
-    /// Remote branches that are under `refs/remotes/<name>/*` if the name is
-    /// provided, otherwise `refs/remotes/**/*`.
-    Remote {
-        /// Name of the remote.
-        name: Option<String>,
-    },
-}
-
-impl From<BranchType> for git2::BranchType {
-    fn from(other: BranchType) -> Self {
-        match other {
-            BranchType::Local => git2::BranchType::Local,
-            BranchType::Remote { .. } => git2::BranchType::Remote,
-        }
-    }
-}
-
-impl From<git2::BranchType> for BranchType {
-    fn from(other: git2::BranchType) -> Self {
-        match other {
-            git2::BranchType::Local => BranchType::Local,
-            git2::BranchType::Remote => BranchType::Remote { name: None },
-        }
-    }
-}
-
-/// A newtype wrapper over `String` to separate out the fact that a caller wants
-/// to fetch a branch.
-#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BranchName(String);
-
-impl fmt::Display for BranchName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl TryFrom<&[u8]> for BranchName {
-    type Error = Error;
-
-    fn try_from(name: &[u8]) -> Result<Self, Self::Error> {
-        let name = str::from_utf8(name)?;
-        let short_name = match git::ext::try_extract_refname(name) {
-            Ok(stripped) => stripped,
-            Err(original) => original,
-        };
-        Ok(Self(short_name))
-    }
-}
-
-impl BranchName {
-    /// Create a new `BranchName`.
-    pub fn new(name: &str) -> Self {
-        Self(name.into())
-    }
-
-    /// Access the string value of the `BranchName`.
-    pub fn name(&self) -> &str {
-        &self.0
-    }
-}
-
-/// The static information of a `git2::Branch`.
+/// A `Branch` represents any git branch. This can either be a reference
+/// that is under the `refs/heads` or `refs/remotes` namespace.
 ///
-/// **Note**: The `PartialOrd` and `Ord` implementations compare on `BranchName`
-/// only.
-#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Branch {
-    /// Name identifier of the `Branch`.
-    pub name: BranchName,
-    /// Whether the `Branch` is `Remote` or `Local`.
-    pub locality: BranchType,
-}
-
-impl PartialOrd for Branch {
-    fn partial_cmp(&self, other: &Branch) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Branch {
-    fn cmp(&self, other: &Branch) -> Ordering {
-        self.name.cmp(&other.name)
-    }
+/// Note that if a `Branch` is created from a [`git2::Reference`] then
+/// any `refs/namespaces` will be stripped.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum Branch {
+    Local(Local),
+    Remote(Remote),
 }
 
 impl Branch {
-    /// Helper to create a remote `Branch` with a name
-    pub fn remote(name: &str, remote: &str) -> Self {
-        Self {
-            name: BranchName(name.to_string()),
-            locality: BranchType::Remote {
-                name: Some(remote.to_string()),
-            },
-        }
+    /// Construct a [`Local`] branch.
+    pub fn local<R>(name: R) -> Self
+    where
+        R: AsRef<RefStr>,
+    {
+        Self::Local(Local::new(name))
     }
 
-    /// Helper to create a remote `Branch` with a name
-    pub fn local(name: &str) -> Self {
-        Self {
-            name: BranchName(name.to_string()),
-            locality: BranchType::Local,
-        }
+    /// Construct a [`Remote`] branch.
+    /// The `remote` is the remote name of the reference name while
+    /// the `name` is the suffix, i.e. `refs/remotes/<remote>/<name>`.
+    pub fn remote<R>(remote: Component<'_>, name: R) -> Self
+    where
+        R: AsRef<RefStr>,
+    {
+        Self::Remote(Remote::new(remote, name))
     }
 
-    /// Get the name of the `Branch`.
-    pub fn refname(&self) -> String {
-        let branch_name = &self.name.0;
-        match self.locality {
-            BranchType::Local => format!("refs/heads/{}", branch_name),
-            BranchType::Remote { ref name } => match name {
-                None => branch_name.to_string(),
-                Some(remote_name) => format!("refs/remotes/{}/{}", remote_name, branch_name),
-            },
+    pub fn refname(&self) -> Qualified {
+        match self {
+            Branch::Local(local) => local.refname(),
+            Branch::Remote(remote) => remote.refname(),
         }
     }
 }
 
-impl<'repo> TryFrom<git2::Reference<'repo>> for Branch {
-    type Error = Error;
+impl TryFrom<&git2::Reference<'_>> for Branch {
+    type Error = error::Branch;
 
-    fn try_from(reference: git2::Reference) -> Result<Self, Self::Error> {
-        let is_remote = ext::is_remote(&reference);
-        let is_tag = reference.is_tag();
-        let is_note = reference.is_note();
-        let name = BranchName::try_from(reference.name_bytes())?;
+    fn try_from(reference: &git2::Reference<'_>) -> Result<Self, Self::Error> {
+        let name = str::from_utf8(reference.name_bytes())?;
+        Self::from_str(name)
+    }
+}
 
-        // Best effort to not return tags or notes. Assuming everything after that is a
-        // branch.
-        if is_tag || is_note {
-            return Err(Error::NotBranch(name));
-        }
+impl TryFrom<&str> for Branch {
+    type Error = error::Branch;
 
-        if is_remote {
-            let mut split = name.0.splitn(2, '/');
-            let remote_name = split
-                .next()
-                .ok_or_else(|| Error::ParseRemoteBranch(name.clone()))?;
-            let name = split
-                .next()
-                .ok_or_else(|| Error::ParseRemoteBranch(name.clone()))?;
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        Self::from_str(name)
+    }
+}
 
-            Ok(Self {
-                name: BranchName(name.to_string()),
-                locality: BranchType::Remote {
-                    name: Some(remote_name.to_string()),
-                },
-            })
+impl FromStr for Branch {
+    type Err = error::Branch;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        let name = RefStr::try_from_str(name)?;
+        let name = match name.to_namespaced() {
+            None => name
+                .qualified()
+                .ok_or_else(|| error::Branch::NotQualified(name.to_string()))?,
+            Some(name) => name.strip_namespace_recursive(),
+        };
+
+        let (_ref, category, c, cs) = name.non_empty_components();
+
+        if category == component::HEADS {
+            Ok(Self::Local(Local::new(refstr_join(c, cs))))
+        } else if category == component::REMOTES {
+            Ok(Self::Remote(Remote::new(c, cs.collect::<RefString>())))
         } else {
-            Ok(Self {
-                name,
-                locality: BranchType::Local,
-            })
+            Err(error::Branch::NotBranch(name.into()))
         }
+    }
+}
+
+/// A `Local` represents a local branch, i.e. it is a reference under
+/// `refs/heads`.
+///
+/// Note that if a `Local` is created from a [`git2::Reference`] then
+/// any `refs/namespaces` will be stripped.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Local {
+    name: RefString,
+}
+
+impl Local {
+    /// Construct a new `Local` with the given `name`.
+    ///
+    /// If the name is qualified with `refs/heads`, this will be
+    /// shortened to the suffix. To get the `Qualified` name again,
+    /// use [`Local::refname`].
+    pub fn new<R>(name: R) -> Self
+    where
+        R: AsRef<RefStr>,
+    {
+        match name.as_ref().qualified() {
+            None => Self {
+                name: name.as_ref().to_ref_string(),
+            },
+            Some(qualified) => {
+                let (_refs, heads, c, cs) = qualified.non_empty_components();
+                if heads == component::HEADS {
+                    Self {
+                        name: refstr_join(c, cs),
+                    }
+                } else {
+                    Self {
+                        name: name.as_ref().to_ref_string(),
+                    }
+                }
+            },
+        }
+    }
+
+    /// Return the fully qualified `Local` refname,
+    /// e.g. `refs/heads/fix/ref-format`.
+    pub fn refname(&self) -> Qualified {
+        lit::refs_heads(&self.name).into()
+    }
+}
+
+impl TryFrom<&git2::Reference<'_>> for Local {
+    type Error = error::Local;
+
+    fn try_from(reference: &git2::Reference) -> Result<Self, Self::Error> {
+        let name = str::from_utf8(reference.name_bytes())?;
+        Self::from_str(name)
+    }
+}
+
+impl TryFrom<&str> for Local {
+    type Error = error::Local;
+
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        Self::from_str(name)
+    }
+}
+
+impl FromStr for Local {
+    type Err = error::Local;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        let name = RefStr::try_from_str(name)?;
+        let name = match name.to_namespaced() {
+            None => name
+                .qualified()
+                .ok_or_else(|| error::Local::NotQualified(name.to_string()))?,
+            Some(name) => name.strip_namespace_recursive(),
+        };
+
+        let (_ref, heads, c, cs) = name.non_empty_components();
+        if heads == component::HEADS {
+            Ok(Self::new(refstr_join(c, cs)))
+        } else {
+            Err(error::Local::NotHeads(name.into()))
+        }
+    }
+}
+
+/// A `Remote` represents a remote branch, i.e. it is a reference under
+/// `refs/remotes`.
+///
+/// Note that if a `Remote` is created from a [`git2::Reference`] then
+/// any `refs/namespaces` will be stripped.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Remote {
+    remote: RefString,
+    name: RefString,
+}
+
+impl Remote {
+    /// Construct a new `Remote` with the given `name` and `remote`.
+    ///
+    /// ## Note
+    /// `name` is expected to be in short form, i.e. not begin with
+    /// `refs`.
+    ///
+    /// If you are creating a `Remote` with a name that begins with
+    /// `refs/remotes`, use [`Remote::from_refs_remotes`] instead.
+    ///
+    /// To get the `Qualified` name, use [`Remote::refname`].
+    pub fn new<R>(remote: Component, name: R) -> Self
+    where
+        R: AsRef<RefStr>,
+    {
+        Self {
+            name: name.as_ref().to_ref_string(),
+            remote: remote.to_ref_string(),
+        }
+    }
+
+    /// Parse the `name` from the form `refs/remotes/<remote>/<rest>`.
+    ///
+    /// If the `name` is not of this form, then `None` is returned.
+    pub fn from_refs_remotes<R>(name: R) -> Option<Self>
+    where
+        R: AsRef<RefStr>,
+    {
+        let qualified = name.as_ref().qualified()?;
+        let (_refs, remotes, remote, cs) = qualified.non_empty_components();
+        (remotes == component::REMOTES).then_some(Self {
+            name: cs.collect(),
+            remote: remote.to_ref_string(),
+        })
+    }
+
+    /// Give back the fully qualified `Remote` refname,
+    /// e.g. `refs/remotes/origin/fix/ref-format`.
+    pub fn refname(&self) -> Qualified {
+        lit::refs_remotes(self.remote.join(&self.name)).into()
+    }
+}
+
+impl TryFrom<&git2::Reference<'_>> for Remote {
+    type Error = error::Remote;
+
+    fn try_from(reference: &git2::Reference) -> Result<Self, Self::Error> {
+        let name = str::from_utf8(reference.name_bytes())?;
+        Self::from_str(name)
+    }
+}
+
+impl TryFrom<&str> for Remote {
+    type Error = error::Remote;
+
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        Self::from_str(name)
+    }
+}
+
+impl FromStr for Remote {
+    type Err = error::Remote;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        let name = RefStr::try_from_str(name)?;
+        let name = match name.to_namespaced() {
+            None => name
+                .qualified()
+                .ok_or_else(|| error::Remote::NotQualified(name.to_string()))?,
+            Some(name) => name.strip_namespace_recursive(),
+        };
+
+        let (_ref, remotes, remote, cs) = name.non_empty_components();
+        if remotes == component::REMOTES {
+            Ok(Self::new(remote, cs.collect::<RefString>()))
+        } else {
+            Err(error::Remote::NotRemotes(name.into()))
+        }
+    }
+}
+
+pub mod error {
+    use git_ref_format::RefString;
+    use thiserror::Error;
+
+    #[derive(Debug, Error)]
+    pub enum Branch {
+        #[error("the refname '{0}' did not begin with 'refs/heads' or 'refs/remotes'")]
+        NotBranch(RefString),
+        #[error("the refname '{0}' did not begin with 'refs/heads' or 'refs/remotes'")]
+        NotQualified(String),
+        #[error(transparent)]
+        RefFormat(#[from] git_ref_format::Error),
+        #[error(transparent)]
+        Utf8(#[from] std::str::Utf8Error),
+    }
+
+    #[derive(Debug, Error)]
+    pub enum Local {
+        #[error("the refname '{0}' did not begin with 'refs/heads'")]
+        NotHeads(RefString),
+        #[error("the refname '{0}' did not begin with 'refs/heads'")]
+        NotQualified(String),
+        #[error(transparent)]
+        RefFormat(#[from] git_ref_format::Error),
+        #[error(transparent)]
+        Utf8(#[from] std::str::Utf8Error),
+    }
+
+    #[derive(Debug, Error)]
+    pub enum Remote {
+        #[error("the refname '{0}' did not begin with 'refs/remotes'")]
+        NotQualified(String),
+        #[error("the refname '{0}' did not begin with 'refs/remotes'")]
+        NotRemotes(RefString),
+        #[error(transparent)]
+        RefFormat(#[from] git_ref_format::Error),
+        #[error(transparent)]
+        Utf8(#[from] std::str::Utf8Error),
     }
 }

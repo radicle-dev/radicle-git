@@ -1,14 +1,14 @@
 // Copyright © 2022 The Radicle Git Contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Unit tests for radicle_surf::vcs::git and its submodules.
+//! Unit tests for radicle_surf::git and its submodules.
 
 #[cfg(feature = "serialize")]
-use radicle_surf::git::{Author, BranchType, Commit};
+use radicle_surf::git::{Author, Commit};
 use radicle_surf::{
     diff::*,
     file_system::{unsound, DirectoryEntry, Path},
-    git::{error::Error, Branch, Glob, Namespace, Oid, Repository, TagName},
+    git::{error::Error, Branch, Glob, Namespace, Oid, Repository},
 };
 
 const GIT_PLATINUM: &str = "../data/git-platinum";
@@ -17,22 +17,27 @@ const GIT_PLATINUM: &str = "../data/git-platinum";
 #[test]
 // An issue with submodules, see: https://github.com/radicle-dev/radicle-surf/issues/54
 fn test_submodule_failure() {
+    use git_ref_format::refname;
+
     let repo = Repository::discover(".").unwrap();
-    repo.as_ref().root_dir(&Branch::local("main")).unwrap();
+    repo.as_ref()
+        .root_dir(&Branch::local(refname!("main")))
+        .unwrap();
 }
 
 #[cfg(test)]
 mod namespace {
     use super::*;
+    use git_ref_format::{name::component, refname};
     use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn switch_to_banana() -> Result<(), Error> {
         let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history_master = repo.history(&Branch::local("master"))?;
+        let history_master = repo.history(&Branch::local(refname!("master")))?;
         repo.switch_namespace("golden")?;
-        let history_banana = repo.history(&Branch::local("banana"))?;
+        let history_banana = repo.history(&Branch::local(refname!("banana")))?;
 
         assert_ne!(history_master.head(), history_banana.head());
 
@@ -43,28 +48,34 @@ mod namespace {
     fn me_namespace() -> Result<(), Error> {
         let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.history(&Branch::local("master"))?;
+        let history = repo.history(&Branch::local(refname!("master")))?;
 
-        assert_eq!(repo.which_namespace(), Ok(None));
+        assert_eq!(repo.which_namespace().unwrap(), None);
 
         repo.switch_namespace("me")?;
-        assert_eq!(repo.which_namespace(), Ok(Some(Namespace::try_from("me")?)));
+        assert_eq!(
+            repo.which_namespace().unwrap(),
+            Some(Namespace::try_from("me")?)
+        );
 
-        let history_feature = repo.history(&Branch::local("feature/#1194"))?;
+        let history_feature = repo.history(&Branch::local(refname!("feature/#1194")))?;
         assert_eq!(history.head(), history_feature.head());
 
-        let expected_branches: Vec<Branch> = vec![Branch::local("feature/#1194")];
+        let expected_branches: Vec<Branch> = vec![Branch::local(refname!("feature/#1194"))];
         let mut branches = repo
             .branches(&Glob::heads("*")?)?
-            .collect::<Result<Vec<Branch>, Error>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
 
-        let expected_branches: Vec<Branch> = vec![Branch::remote("feature/#1194", "fein")];
+        let expected_branches: Vec<Branch> = vec![Branch::remote(
+            component!("fein"),
+            refname!("heads/feature/#1194"),
+        )];
         let mut branches = repo
             .branches(&Glob::remotes("fein/*")?)?
-            .collect::<Result<Vec<Branch>, Error>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
@@ -76,36 +87,42 @@ mod namespace {
     fn golden_namespace() -> Result<(), Error> {
         let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.history(&Branch::local("master"))?;
+        let history = repo.history(&Branch::local(refname!("master")))?;
 
-        assert_eq!(repo.which_namespace(), Ok(None));
+        assert_eq!(repo.which_namespace().unwrap(), None);
 
         repo.switch_namespace("golden")?;
 
         assert_eq!(
-            repo.which_namespace(),
-            Ok(Some(Namespace::try_from("golden")?))
+            repo.which_namespace().unwrap(),
+            Some(Namespace::try_from("golden")?)
         );
 
-        let golden_history = repo.history(&Branch::local("master"))?;
+        let golden_history = repo.history(&Branch::local(refname!("master")))?;
         assert_eq!(history.head(), golden_history.head());
 
-        let expected_branches: Vec<Branch> = vec![Branch::local("banana"), Branch::local("master")];
+        let expected_branches: Vec<Branch> = vec![
+            Branch::local(refname!("banana")),
+            Branch::local(refname!("master")),
+        ];
         let mut branches = repo
             .branches(&Glob::heads("*")?)?
-            .collect::<Result<Vec<Branch>, Error>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
 
+        // NOTE: these tests used to remove the categories, i.e. heads & tags, but that
+        // was specialised logic based on the radicle-link storage layout.
+        let remote = component!("kickflip");
         let expected_branches: Vec<Branch> = vec![
-            Branch::remote("fakie/bigspin", "kickflip"),
-            Branch::remote("heelflip", "kickflip"),
-            Branch::remote("v0.1.0", "kickflip"),
+            Branch::remote(remote.clone(), refname!("heads/fakie/bigspin")),
+            Branch::remote(remote.clone(), refname!("heads/heelflip")),
+            Branch::remote(remote, refname!("tags/v0.1.0")),
         ];
         let mut branches = repo
             .branches(&Glob::remotes("kickflip/*")?)?
-            .collect::<Result<Vec<Branch>, Error>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
@@ -117,22 +134,22 @@ mod namespace {
     fn silver_namespace() -> Result<(), Error> {
         let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let history = repo.history(&Branch::local("master"))?;
+        let history = repo.history(&Branch::local(refname!("master")))?;
 
-        assert_eq!(repo.which_namespace(), Ok(None));
+        assert_eq!(repo.which_namespace().unwrap(), None);
 
         repo.switch_namespace("golden/silver")?;
         assert_eq!(
-            repo.which_namespace(),
-            Ok(Some(Namespace::try_from("golden/silver")?))
+            repo.which_namespace().unwrap(),
+            Some(Namespace::try_from("golden/silver")?)
         );
-        let silver_history = repo.history(&Branch::local("master"))?;
+        let silver_history = repo.history(&Branch::local(refname!("master")))?;
         assert_ne!(history.head(), silver_history.head());
 
-        let expected_branches: Vec<Branch> = vec![Branch::local("master")];
+        let expected_branches: Vec<Branch> = vec![Branch::local(refname!("master"))];
         let mut branches = repo
             .branches(&Glob::heads("*")?.and_remotes("*")?)?
-            .collect::<Result<Vec<Branch>, Error>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
         branches.sort();
 
         assert_eq!(expected_branches, branches);
@@ -143,6 +160,8 @@ mod namespace {
 
 #[cfg(test)]
 mod rev {
+    use git_ref_format::{name::component, refname};
+
     use super::*;
     use std::str::FromStr;
 
@@ -161,7 +180,8 @@ mod rev {
     fn _master() -> Result<(), Error> {
         let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let mut history = repo.history(&Branch::remote("master", "origin"))?;
+        let mut history =
+            repo.history(&Branch::remote(component!("origin"), refname!("master")))?;
 
         let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         assert!(
@@ -228,7 +248,7 @@ mod rev {
     fn tag() -> Result<(), Error> {
         let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let rev = TagName::new("v0.2.0")?;
+        let rev = refname!("refs/tags/v0.2.0");
         let history = repo.history(&rev)?;
 
         let commit1 = Oid::from_str("2429f097664f9af0c5b7b389ab998b2199ffa977")?;
@@ -240,6 +260,8 @@ mod rev {
 
 #[cfg(test)]
 mod last_commit {
+    use git_ref_format::refname;
+
     use super::*;
     use std::str::FromStr;
 
@@ -344,7 +366,7 @@ mod last_commit {
     fn root() {
         let repo = Repository::open(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
-        let rev = Branch::local("master");
+        let rev = Branch::local(refname!("master"));
         let root_last_commit_id = repo
             .as_ref()
             .last_commit(Path::root(), &rev)
@@ -353,7 +375,7 @@ mod last_commit {
 
         let expected_oid = repo
             .as_ref()
-            .history(&Branch::local("master"))
+            .history(&Branch::local(refname!("master")))
             .unwrap()
             .head()
             .id;
@@ -365,7 +387,7 @@ mod last_commit {
         let repo = Repository::open(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
         let repo = repo.as_ref();
-        let history = repo.history(&Branch::local("dev")).unwrap();
+        let history = repo.history(&Branch::local(refname!("dev"))).unwrap();
         let file_commit = history.by_path(unsound::path::new("~/bin/cat")).next();
         assert!(file_commit.is_some());
         println!("file commit: {:?}", &file_commit);
@@ -375,6 +397,7 @@ mod last_commit {
 #[cfg(test)]
 mod diff {
     use super::*;
+    use git_ref_format::refname;
     use pretty_assertions::assert_eq;
     use std::str::FromStr;
 
@@ -463,7 +486,10 @@ mod diff {
     fn test_branch_diff() -> Result<(), Error> {
         let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
-        let diff = repo.diff(&Branch::local("master"), &Branch::local("dev"))?;
+        let diff = repo.diff(
+            &Branch::local(refname!("master")),
+            &Branch::local(refname!("dev")),
+        )?;
 
         println!("Diff two branches: master -> dev");
         println!(
@@ -569,6 +595,7 @@ mod diff {
 
 #[cfg(test)]
 mod threading {
+    use git_ref_format::{name::component, refname};
     use radicle_surf::git::Glob;
 
     use super::*;
@@ -581,19 +608,21 @@ mod threading {
         let mut branches = locked_repo
             .as_ref()
             .branches(&Glob::heads("*")?.and_remotes("*")?)?
-            .collect::<Result<Vec<Branch>, Error>>()?;
+            .collect::<Result<Vec<_>, _>>()?;
         branches.sort();
 
+        let origin = component!("origin");
+        let banana = component!("banana");
         assert_eq!(
             branches,
             vec![
-                Branch::remote("HEAD", "origin"),
-                Branch::local("dev"),
-                Branch::remote("dev", "origin"),
-                Branch::local("master"),
-                Branch::remote("master", "origin"),
-                Branch::remote("orange/pineapple", "banana"),
-                Branch::remote("pineapple", "banana"),
+                Branch::local(refname!("dev")),
+                Branch::local(refname!("master")),
+                Branch::remote(banana.clone(), refname!("orange/pineapple")),
+                Branch::remote(banana, refname!("pineapple")),
+                Branch::remote(origin.clone(), refname!("HEAD")),
+                Branch::remote(origin.clone(), refname!("dev")),
+                Branch::remote(origin, refname!("master")),
             ]
         );
 
@@ -641,28 +670,29 @@ mod commit {
 #[cfg(feature = "serialize")]
 #[cfg(test)]
 mod branch {
-    use super::*;
+    use git_ref_format::{RefStr, RefString};
+    use git_ref_format_test::gen;
     use proptest::prelude::*;
     use test_helpers::roundtrip;
 
+    use super::*;
+
     proptest! {
         #[test]
-        fn prop_test_branch(branch in branch_strategy()) {
+        fn prop_test_branch(branch in gen_branch()) {
             roundtrip::json(branch)
         }
     }
 
-    fn branch_strategy() -> impl Strategy<Value = Branch> {
+    fn gen_branch() -> impl Strategy<Value = Branch> {
         prop_oneof![
-            any::<String>().prop_map(|name| Branch {
-                name: BranchName::new(&name),
-                locality: BranchType::Local
-            }),
-            (any::<String>(), any::<String>()).prop_map(|(name, remote_name)| Branch {
-                name: BranchName::new(&name),
-                locality: BranchType::Remote {
-                    name: Some(remote_name),
-                },
+            gen::valid().prop_map(|name| Branch::local(RefString::try_from(name).unwrap())),
+            (gen::valid(), gen::valid()).prop_map(|(remote, name): (String, String)| {
+                let remote =
+                    RefStr::try_from_str(&remote).expect("BUG: reference strings should be valid");
+                let name =
+                    RefStr::try_from_str(&name).expect("BUG: reference strings should be valid");
+                Branch::remote(remote.head(), name)
             })
         ]
     }
@@ -671,7 +701,7 @@ mod branch {
 #[cfg(test)]
 mod reference {
     use super::*;
-    use radicle_surf::git::{Glob, Tag};
+    use radicle_surf::git::Glob;
 
     #[test]
     fn test_branches() {
@@ -679,7 +709,7 @@ mod reference {
         let repo = repo.as_ref();
         let branches = repo.branches(&Glob::heads("*").unwrap()).unwrap();
         for b in branches {
-            println!("{}", b.unwrap().name);
+            println!("{}", b.unwrap().refname());
         }
         let branches = repo
             .branches(&Glob::heads("*").unwrap().and_remotes("banana/*").unwrap())
@@ -696,7 +726,7 @@ mod reference {
         let tags = repo_ref
             .tags(&Glob::tags("*").unwrap())
             .unwrap()
-            .collect::<Result<Vec<Tag>, Error>>()
+            .collect::<Result<Vec<_>, _>>()
             .unwrap();
         assert_eq!(tags.len(), 6);
         let root_dir = repo_ref.root_dir(&tags[0]).unwrap();
@@ -722,14 +752,18 @@ mod reference {
 
 mod code_browsing {
     use super::*;
+
+    use git_ref_format::refname;
     use radicle_surf::{file_system::Directory, git::RepositoryRef};
 
     #[test]
     fn iterate_root_dir_recursive() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
-        let root_dir = repo.root_dir(&Branch::local("master")).unwrap();
+
+        let root_dir = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
         let count = println_dir(&root_dir, &repo, 0);
+
         assert_eq!(count, 36); // Check total file count.
 
         /// Prints items in `dir` with `indent_level`.
@@ -753,7 +787,7 @@ mod code_browsing {
     fn browse_repo_lazily() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
-        let root_dir = repo.root_dir(&Branch::local("master")).unwrap();
+        let root_dir = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
         let count = root_dir.contents(&repo).unwrap().iter().count();
         assert_eq!(count, 8);
         let count = traverse(&root_dir, &repo);
@@ -775,7 +809,7 @@ mod code_browsing {
     fn test_file_history() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
-        let history = repo.history(&Branch::local("dev")).unwrap();
+        let history = repo.history(&Branch::local(refname!("dev"))).unwrap();
         let path = unsound::path::new("README.md");
         let mut file_history = history.by_path(path);
         let commit = file_history.next().unwrap().unwrap();

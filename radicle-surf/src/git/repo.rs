@@ -18,32 +18,25 @@
 use crate::{
     diff::*,
     file_system,
-    file_system::{directory, DirectoryEntry, Label},
-    git::{
-        error::*,
-        Branch,
-        BranchName,
-        Commit,
-        Glob,
-        History,
-        Namespace,
-        Revision,
-        Signature,
-        Stats,
-        Tag,
-        TagName,
+    file_system::{
+        directory::{self, Directory, DirectoryEntry, FileContent},
+        Label,
     },
+    git::{error::*, Branch, Commit, Glob, History, Namespace, Revision, Signature, Stats, Tag},
 };
-use directory::{Directory, FileContent};
+use git_ref_format::RefString;
 use radicle_git_ext::Oid;
 use std::{
-    collections::{btree_set, BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet},
     convert::TryFrom,
     path::PathBuf,
     str,
 };
 
 use super::commit::ToCommit;
+
+pub mod iter;
+pub use iter::{Branches, Namespaces, Tags};
 
 /// Wrapper around the `git2`'s `git2::Repository` type.
 /// This is to to limit the functionality that we can do
@@ -74,67 +67,6 @@ impl<'a> From<&'a git2::Repository> for RepositoryRef<'a> {
     }
 }
 
-// I think the following `Tags` and `Branches` would be merged
-// using Generic associated types supported in Rust 1.65.0.
-
-/// An iterator for tags.
-pub struct Tags<'a> {
-    references: Vec<git2::References<'a>>,
-    current: usize,
-}
-
-impl<'a> Iterator for Tags<'a> {
-    type Item = Result<Tag, Error>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.current < self.references.len() {
-            match self.references.get_mut(self.current) {
-                Some(refs) => match refs.next() {
-                    Some(res) => return Some(res.map_err(Error::Git).and_then(Tag::try_from)),
-                    None => self.current += 1,
-                },
-                None => break,
-            }
-        }
-        None
-    }
-}
-
-/// An iterator for branches.
-pub struct Branches<'a> {
-    references: Vec<git2::References<'a>>,
-    current: usize,
-}
-
-impl<'a> Iterator for Branches<'a> {
-    type Item = Result<Branch, Error>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.current < self.references.len() {
-            match self.references.get_mut(self.current) {
-                Some(refs) => match refs.next() {
-                    Some(res) => return Some(res.map_err(Error::Git).and_then(Branch::try_from)),
-                    None => self.current += 1,
-                },
-                None => break,
-            }
-        }
-        None
-    }
-}
-
-/// An iterator for namespaces.
-pub struct Namespaces {
-    namespaces: btree_set::IntoIter<Namespace>,
-}
-
-impl Iterator for Namespaces {
-    type Item = Namespace;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.namespaces.next()
-    }
-}
-
 impl<'a> RepositoryRef<'a> {
     /// What is the current namespace we're browsing in.
     pub fn which_namespace(&self) -> Result<Option<Namespace>, Error> {
@@ -146,28 +78,22 @@ impl<'a> RepositoryRef<'a> {
 
     /// Returns an iterator of branches that match `pattern`.
     pub fn branches(&self, pattern: &Glob<Branch>) -> Result<Branches, Error> {
-        let mut branches = Branches {
-            references: vec![],
-            current: 0,
-        };
+        let mut branches = Branches::default();
         for glob in pattern.globs().iter() {
             let namespaced = self.namespaced_refname(glob)?;
             let references = self.repo_ref.references_glob(&namespaced)?;
-            branches.references.push(references);
+            branches.push(references);
         }
         Ok(branches)
     }
 
     /// Returns an iterator of tags that match `pattern`.
     pub fn tags(&self, pattern: &Glob<Tag>) -> Result<Tags, Error> {
-        let mut tags = Tags {
-            references: vec![],
-            current: 0,
-        };
+        let mut tags = Tags::default();
         for glob in pattern.globs().iter() {
             let namespaced = self.namespaced_refname(glob)?;
             let references = self.repo_ref.references_glob(&namespaced)?;
-            tags.references.push(references);
+            tags.push(references);
         }
         Ok(tags)
     }
@@ -187,9 +113,7 @@ impl<'a> RepositoryRef<'a> {
                 .collect::<Result<BTreeSet<Namespace>, Error>>()?;
             set.extend(new_set);
         }
-        Ok(Namespaces {
-            namespaces: set.into_iter(),
-        })
+        Ok(Namespaces::new(set))
     }
 
     /// Get the [`Diff`] between two commits.
@@ -341,21 +265,22 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Lists branch names with `filter`.
-    pub fn branch_names(&self, filter: &Glob<Branch>) -> Result<Vec<BranchName>, Error> {
-        let branches: Result<Vec<BranchName>, Error> =
-            self.branches(filter)?.map(|b| b.map(|b| b.name)).collect();
-        let mut branches = branches?;
+    pub fn branch_names(&self, filter: &Glob<Branch>) -> Result<Vec<RefString>, Error> {
+        let mut branches = self
+            .branches(filter)?
+            .map(|b| b.map(|b| b.refname().into()))
+            .collect::<Result<Vec<_>, _>>()?;
         branches.sort();
 
         Ok(branches)
     }
 
     /// Lists tag names in the local RefScope.
-    pub fn tag_names(&self) -> Result<Vec<TagName>, Error> {
+    pub fn tag_names(&self) -> Result<Vec<RefString>, Error> {
         let mut tags = self
             .tags(&Glob::tags("*")?)?
-            .map(|t| t.map(|t| t.name()))
-            .collect::<Result<Vec<TagName>, Error>>()?;
+            .map(|t| t.map_err(Error::from).map(|t| t.refname().into()))
+            .collect::<Result<Vec<_>, Error>>()?;
         tags.sort();
 
         Ok(tags)

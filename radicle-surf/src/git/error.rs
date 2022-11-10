@@ -18,31 +18,18 @@
 //! Collection of errors and helper instances that can occur when performing
 //! operations from [`crate::git`].
 
-use crate::{
-    diff,
-    file_system,
-    git::{BranchName, Namespace, TagName},
-};
+use crate::{diff, file_system, git, git::Namespace};
 use std::str;
 use thiserror::Error;
 
 /// Enumeration of errors that can occur in operations from [`crate::git`].
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
-    /// The user tried to fetch a branch, but the name provided does not
-    /// exist as a branch. This could mean that the branch does not exist
-    /// or that a tag or commit was provided by accident.
-    #[error("provided branch name does not exist: {0}")]
-    NotBranch(BranchName),
-    /// We tried to convert a name into its remote and branch name parts.
-    #[error("could not parse '{0}' into a remote name and branch name")]
-    ParseRemoteBranch(BranchName),
-    /// The user tried to fetch a tag, but the name provided does not
-    /// exist as a tag. This could mean that the tag does not exist
-    /// or that a branch or commit was provided by accident.
-    #[error("provided tag name does not exist: {0}")]
-    NotTag(TagName),
+    #[error(transparent)]
+    BranchIter(#[from] git::repo::iter::error::Branch),
+    #[error(transparent)]
+    TagIter(#[from] git::repo::iter::error::Tag),
     /// A `revspec` was provided that could not be parsed into a branch, tag, or
     /// commit object.
     #[error("provided revspec '{rev}' could not be parsed into a git object")]
