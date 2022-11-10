@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::vcs::git::{self, error::Error, ext};
+use crate::git::{self, error::Error, ext};
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, convert::TryFrom, fmt, str};

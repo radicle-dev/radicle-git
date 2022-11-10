@@ -669,54 +669,9 @@ mod branch {
 }
 
 #[cfg(test)]
-mod ext {
-    use radicle_surf::vcs::git::ext::*;
-
-    #[test]
-    fn test_try_extract_refname() {
-        assert_eq!(try_extract_refname("refs/heads/dev"), Ok("dev".to_string()));
-
-        assert_eq!(
-            try_extract_refname("refs/heads/master"),
-            Ok("master".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/remotes/banana/pineapple"),
-            Ok("banana/pineapple".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/remotes/origin/master"),
-            Ok("origin/master".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/namespaces/golden/refs/heads/banana"),
-            Ok("banana".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/namespaces/golden/refs/tags/v0.1.0"),
-            Ok("v0.1.0".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/namespaces/golden/refs/namespaces/silver/refs/heads/master"),
-            Ok("master".to_string())
-        );
-
-        assert_eq!(
-            try_extract_refname("refs/namespaces/golden/refs/remotes/kickflip/heads/heelflip"),
-            Ok("kickflip/heelflip".to_string())
-        );
-    }
-}
-
-#[cfg(test)]
 mod reference {
     use super::*;
-    use radicle_surf::vcs::git::{Glob, Tag};
+    use radicle_surf::git::{Glob, Tag};
 
     #[test]
     fn test_branches() {

@@ -24,10 +24,7 @@ use serde::{Deserialize, Serialize};
 
 use radicle_git_ext::Oid;
 
-use crate::{
-    git::{commit::ToCommit, BranchName, Glob, RepositoryRef},
-    vcs::git::{self, error::Error, TagName},
-};
+use crate::git::{self, commit::ToCommit, error::Error, BranchName, Glob, RepositoryRef, TagName};
 
 /// Types of a peer.
 pub enum Category<P, U> {

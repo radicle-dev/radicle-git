@@ -17,7 +17,7 @@
 
 use crate::{
     file_system,
-    vcs::git::{commit::ToCommit, Commit, Error, RepositoryRef},
+    git::{commit::ToCommit, Commit, Error, RepositoryRef},
 };
 use std::convert::TryFrom;
 

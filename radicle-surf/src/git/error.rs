@@ -16,17 +16,17 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! Collection of errors and helper instances that can occur when performing
-//! operations from [`crate::vcs::git`].
+//! operations from [`crate::git`].
 
 use crate::{
     diff,
     file_system,
-    vcs::git::{BranchName, Namespace, TagName},
+    git::{BranchName, Namespace, TagName},
 };
 use std::str;
 use thiserror::Error;
 
-/// Enumeration of errors that can occur in operations from [`crate::vcs::git`].
+/// Enumeration of errors that can occur in operations from [`crate::git`].
 #[derive(Debug, PartialEq, Error)]
 #[non_exhaustive]
 pub enum Error {

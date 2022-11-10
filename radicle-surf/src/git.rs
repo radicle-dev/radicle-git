@@ -121,8 +121,6 @@ pub trait Revision {
     fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error>;
 }
 
-
-
 impl Revision for Oid {
     fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Error> {
         Ok(*self)

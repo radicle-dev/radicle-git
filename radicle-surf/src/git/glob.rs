@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::vcs::git::Error;
+use crate::git::Error;
 use git_ref_format::refspec::PatternString;
 use std::{convert::TryFrom, marker::PhantomData, str};
 

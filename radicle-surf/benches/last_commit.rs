@@ -18,7 +18,7 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use radicle_surf::{
     file_system::{unsound, Path},
-    vcs::git::{Branch, Repository},
+    git::{Branch, Repository},
 };
 
 fn last_commit_comparison(c: &mut Criterion) {

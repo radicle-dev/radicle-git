@@ -20,7 +20,7 @@ extern crate radicle_surf;
 use std::{env::Args, str::FromStr, time::Instant};
 
 use radicle_git_ext::Oid;
-use radicle_surf::{diff::Diff, vcs::git};
+use radicle_surf::{diff::Diff, git};
 
 fn main() {
     let options = get_options_or_exit();

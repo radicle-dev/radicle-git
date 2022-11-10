@@ -26,10 +26,9 @@ use serde::{
 use crate::{
     diff,
     file_system,
-    git::Glob,
+    git::{self, BranchName, Glob, RepositoryRef},
     person::Person,
     revision::Revision,
-    vcs::git::{self, BranchName, RepositoryRef},
 };
 
 use radicle_git_ext::Oid;

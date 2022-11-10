@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::vcs::git::{self, error::Error, Author};
+use crate::git::{self, error::Error, Author};
 use git_ref_format::RefString;
 use radicle_git_ext::Oid;
 use std::{convert::TryFrom, fmt, str};

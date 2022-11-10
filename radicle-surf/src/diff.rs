@@ -24,7 +24,7 @@ use serde::{ser, Serialize, Serializer};
 
 use crate::{
     file_system::{Directory, Path},
-    vcs::git::{Error, RepositoryRef},
+    git::{Error, RepositoryRef},
 };
 
 pub mod git;

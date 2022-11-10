@@ -19,7 +19,7 @@ use crate::{
     diff::*,
     file_system,
     file_system::{directory, DirectoryEntry, Label},
-    vcs::git::{
+    git::{
         error::*,
         Branch,
         BranchName,

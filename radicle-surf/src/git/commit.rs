@@ -17,7 +17,7 @@
 
 use crate::{
     file_system::{self, directory},
-    vcs::git::{error::Error, Branch, RepositoryRef, Tag, TagName},
+    git::{error::Error, Branch, RepositoryRef, Tag, TagName},
 };
 use radicle_git_ext::Oid;
 use std::{convert::TryFrom, str};

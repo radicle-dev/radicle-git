@@ -82,7 +82,7 @@
 //! ```
 pub mod diff;
 pub mod file_system;
-pub mod vcs;
+pub mod git;
 
 pub mod commit;
 pub use commit::{commit, commits, Commit};
@@ -103,5 +103,3 @@ pub use syntax::SYNTAX_SET;
 
 // Private modules
 mod nonempty;
-
-pub use crate::vcs::git;
