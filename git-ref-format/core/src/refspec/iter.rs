@@ -6,7 +6,7 @@
 use std::fmt::{self, Display};
 
 use super::PatternStr;
-use crate::RefStr;
+use crate::{lit, RefStr};
 
 pub type Iter<'a> = std::str::Split<'a, char>;
 
@@ -37,6 +37,13 @@ impl Display for Component<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+impl<T: lit::Lit> From<T> for Component<'static> {
+    #[inline]
+    fn from(_: T) -> Self {
+        Self::Normal(T::NAME)
     }
 }
 
