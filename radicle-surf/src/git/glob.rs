@@ -15,9 +15,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::git::Error;
-use git_ref_format::refspec::PatternString;
 use std::{convert::TryFrom, marker::PhantomData, str};
+
+use git_ref_format::refspec::PatternString;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error(transparent)]
+    RefFormat(#[from] git_ref_format::Error),
+}
 
 /// A collection of globs for T (a git reference type).
 pub struct Glob<T> {

@@ -15,16 +15,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{
-    file_system::{self, directory},
-    git::{error::Error, Branch, RepositoryRef, Tag},
-};
-use git_ref_format::{Qualified, RefString};
-use radicle_git_ext::Oid;
 use std::{convert::TryFrom, str};
+
+use radicle_git_ext::Oid;
+use thiserror::Error;
 
 #[cfg(feature = "serialize")]
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+
+#[derive(Debug, Error)]
+pub enum Error {
+    /// When trying to get the summary for a [`git2::Commit`] some action
+    /// failed.
+    #[error("an error occurred trying to get a commit's summary")]
+    MissingSummary,
+    #[error(transparent)]
+    Utf8Error(#[from] str::Utf8Error),
+}
 
 /// `Author` is the static information of a [`git2::Signature`].
 #[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
@@ -120,16 +127,6 @@ impl Commit {
             .unwrap_or(&self.message)
             .trim()
     }
-
-    /// Retrieves the file with `path` in this commit.
-    pub fn get_file<'a>(
-        &'a self,
-        repo: &'a RepositoryRef,
-        path: file_system::Path,
-    ) -> Result<directory::FileContent, Error> {
-        let git2_commit = repo.get_git2_commit(self.id)?;
-        repo.get_commit_file(&git2_commit, path)
-    }
 }
 
 #[cfg(feature = "serialize")]
@@ -178,53 +175,5 @@ impl<'repo> TryFrom<git2::Commit<'repo>> for Commit {
             summary,
             parents,
         })
-    }
-}
-
-/// A common trait for anything that can convert to a `Commit`.
-pub trait ToCommit {
-    /// Converts to a commit in `repo`.
-    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error>;
-}
-
-impl ToCommit for Commit {
-    fn to_commit(self, _repo: &RepositoryRef) -> Result<Commit, Error> {
-        Ok(self)
-    }
-}
-
-impl ToCommit for &str {
-    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
-        repo.commit(self)
-    }
-}
-
-impl ToCommit for Oid {
-    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
-        repo.commit(self)
-    }
-}
-
-impl ToCommit for &Branch {
-    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
-        repo.commit(self)
-    }
-}
-
-impl ToCommit for &Tag {
-    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
-        repo.commit(self)
-    }
-}
-
-impl ToCommit for &RefString {
-    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
-        repo.commit(self)
-    }
-}
-
-impl ToCommit for &Qualified<'_> {
-    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Error> {
-        repo.commit(self)
     }
 }

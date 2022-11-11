@@ -27,7 +27,7 @@ use serde::{
 use crate::{
     diff,
     file_system,
-    git::{self, Glob, RepositoryRef},
+    git::{self, glob, Glob, RepositoryRef},
     person::Person,
     revision::Revision,
 };
@@ -251,7 +251,10 @@ pub enum Error {
 
     /// An error occurred during a git operation.
     #[error(transparent)]
-    Git(#[from] git::error::Error),
+    Git(#[from] git::Error),
+
+    #[error(transparent)]
+    Glob(#[from] glob::Error),
 
     /// Trying to find a file path which could not be found.
     #[error("the path '{0}' was not found")]

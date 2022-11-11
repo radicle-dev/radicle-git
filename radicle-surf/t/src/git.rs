@@ -8,7 +8,7 @@ use radicle_surf::git::{Author, Commit};
 use radicle_surf::{
     diff::*,
     file_system::{unsound, DirectoryEntry, Path},
-    git::{error::Error, Branch, Glob, Namespace, Oid, Repository},
+    git::{Branch, Error, Glob, Namespace, Oid, Repository},
 };
 
 const GIT_PLATINUM: &str = "../data/git-platinum";
@@ -813,8 +813,8 @@ mod code_browsing {
         let path = unsound::path::new("README.md");
         let mut file_history = history.by_path(path);
         let commit = file_history.next().unwrap().unwrap();
-        let file = commit
-            .get_file(&repo, unsound::path::new("README.md"))
+        let file = repo
+            .get_commit_file(&commit.id, unsound::path::new("README.md"))
             .unwrap();
         assert_eq!(file.size(), 67);
     }

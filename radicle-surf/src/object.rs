@@ -90,7 +90,7 @@ pub enum Error {
 
     /// An error occurred during a git operation.
     #[error(transparent)]
-    Git(#[from] git::error::Error),
+    Git(#[from] git::Error),
 
     /// Trying to find a file path which could not be found.
     #[error("the path '{0}' was not found")]

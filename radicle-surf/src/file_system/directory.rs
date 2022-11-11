@@ -26,7 +26,11 @@ use crate::{
 };
 use git2::Blob;
 use radicle_git_ext::Oid;
-use std::{collections::BTreeMap, convert::TryFrom, path};
+use std::{
+    collections::BTreeMap,
+    convert::{Infallible, TryFrom},
+    path,
+};
 
 /// Represents a `file` in a git repo.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -289,7 +293,9 @@ impl Directory {
 }
 
 impl Revision for Directory {
-    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, git::Error> {
+    type Error = Infallible;
+
+    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Self::Error> {
         Ok(self.oid)
     }
 }
