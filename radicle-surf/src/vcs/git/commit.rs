@@ -121,11 +121,11 @@ impl Commit {
     }
 
     /// Retrieves the file with `path` in this commit.
-    pub fn get_file(
-        &self,
-        repo: &RepositoryRef,
+    pub fn get_file<'a>(
+        &'a self,
+        repo: &'a RepositoryRef,
         path: file_system::Path,
-    ) -> Result<directory::File, Error> {
+    ) -> Result<directory::FileContent, Error> {
         let git2_commit = repo.get_git2_commit(self.id)?;
         repo.get_commit_file(&git2_commit, path)
     }

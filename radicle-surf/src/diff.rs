@@ -17,12 +17,15 @@
 
 #![allow(dead_code, unused_variables, missing_docs)]
 
-use std::{cell::RefCell, cmp::Ordering, convert::TryFrom, ops::Deref, rc::Rc, slice};
+use std::{convert::TryFrom, slice};
 
 #[cfg(feature = "serialize")]
 use serde::{ser, Serialize, Serializer};
 
-use crate::file_system::{Directory, DirectoryContents, Path};
+use crate::{
+    file_system::{Directory, Path},
+    vcs::git::{Error, RepositoryRef},
+};
 
 pub mod git;
 
@@ -293,14 +296,7 @@ impl Diff {
     // TODO: Direction of comparison is not obvious with this signature.
     // For now using conventional approach with the right being "newer".
     #[allow(clippy::self_named_constructors)]
-    pub fn diff(left: Directory, right: Directory) -> Self {
-        let mut diff = Diff::new();
-        let path = Rc::new(RefCell::new(Path::from_labels(
-            right.current().clone(),
-            &[],
-        )));
-        Diff::collect_diff(&left, &right, &path, &mut diff);
-
+    pub fn diff(left: Directory, right: Directory, repo: RepositoryRef) -> Result<Self, Error> {
         // TODO: Some of the deleted files may actually be moved (renamed) to one of the
         // created files. Finding out which of the deleted files were deleted
         // and which were moved will probably require performing some variant of
@@ -308,180 +304,7 @@ impl Diff {
         // decision can be based on heuristics, e.g. the file can be considered
         // moved, if len(LCS) > 0,25 * min(size(d), size(c)), and
         // deleted otherwise.
-
-        diff
-    }
-
-    fn collect_diff(
-        old: &Directory,
-        new: &Directory,
-        parent_path: &Rc<RefCell<Path>>,
-        diff: &mut Diff,
-    ) {
-        let mut old_iter = old.contents();
-        let mut new_iter = new.contents();
-        let mut old_entry_opt = old_iter.next();
-        let mut new_entry_opt = new_iter.next();
-
-        while old_entry_opt.is_some() || new_entry_opt.is_some() {
-            match (&old_entry_opt, &new_entry_opt) {
-                (Some(ref old_entry), Some(ref new_entry)) => {
-                    match new_entry.label().cmp(old_entry.label()) {
-                        Ordering::Greater => {
-                            diff.add_deleted_files(old_entry, parent_path);
-                            old_entry_opt = old_iter.next();
-                        },
-                        Ordering::Less => {
-                            diff.add_created_files(new_entry, parent_path);
-                            new_entry_opt = new_iter.next();
-                        },
-                        Ordering::Equal => match (new_entry, old_entry) {
-                            (
-                                DirectoryContents::File {
-                                    name: new_file_name,
-                                    file: new_file,
-                                },
-                                DirectoryContents::File {
-                                    name: old_file_name,
-                                    file: old_file,
-                                },
-                            ) => {
-                                if old_file.size != new_file.size
-                                    || old_file.checksum() != new_file.checksum()
-                                {
-                                    let mut path = parent_path.borrow().clone();
-                                    path.push(new_file_name.clone());
-
-                                    diff.add_modified_file(path, vec![], None);
-                                }
-                                old_entry_opt = old_iter.next();
-                                new_entry_opt = new_iter.next();
-                            },
-                            (
-                                DirectoryContents::File {
-                                    name: new_file_name,
-                                    file: new_file,
-                                },
-                                DirectoryContents::Directory(old_dir),
-                            ) => {
-                                let mut path = parent_path.borrow().clone();
-                                path.push(new_file_name.clone());
-
-                                diff.add_created_file(
-                                    path,
-                                    FileDiff::Plain {
-                                        hunks: Hunks::default(),
-                                    },
-                                );
-                                diff.add_deleted_files(old_entry, parent_path);
-
-                                old_entry_opt = old_iter.next();
-                                new_entry_opt = new_iter.next();
-                            },
-                            (
-                                DirectoryContents::Directory(new_dir),
-                                DirectoryContents::File {
-                                    name: old_file_name,
-                                    file: old_file,
-                                },
-                            ) => {
-                                let mut path = parent_path.borrow().clone();
-                                path.push(old_file_name.clone());
-
-                                diff.add_created_files(new_entry, parent_path);
-                                diff.add_deleted_file(
-                                    path,
-                                    FileDiff::Plain {
-                                        hunks: Hunks::default(),
-                                    },
-                                );
-
-                                old_entry_opt = old_iter.next();
-                                new_entry_opt = new_iter.next();
-                            },
-                            (
-                                DirectoryContents::Directory(new_dir),
-                                DirectoryContents::Directory(old_dir),
-                            ) => {
-                                parent_path.borrow_mut().push(new_dir.current().clone());
-                                Diff::collect_diff(
-                                    old_dir.deref(),
-                                    new_dir.deref(),
-                                    parent_path,
-                                    diff,
-                                );
-                                parent_path.borrow_mut().pop();
-                                old_entry_opt = old_iter.next();
-                                new_entry_opt = new_iter.next();
-                            },
-                        },
-                    }
-                },
-                (Some(old_entry), None) => {
-                    diff.add_deleted_files(old_entry, parent_path);
-                    old_entry_opt = old_iter.next();
-                },
-                (None, Some(new_entry)) => {
-                    diff.add_created_files(new_entry, parent_path);
-                    new_entry_opt = new_iter.next();
-                },
-                (None, None) => break,
-            }
-        }
-    }
-
-    // if entry is a file, then return this file,
-    // or a list of files in the directory tree otherwise
-    fn collect_files_from_entry<F, T>(
-        entry: &DirectoryContents,
-        parent_path: &Rc<RefCell<Path>>,
-        mapper: F,
-    ) -> Vec<T>
-    where
-        F: Fn(Path) -> T + Copy,
-    {
-        match entry {
-            DirectoryContents::Directory(dir) => Diff::collect_files(dir, parent_path, mapper),
-            DirectoryContents::File { name, .. } => {
-                let mut path = parent_path.borrow().clone();
-                path.push(name.clone());
-
-                vec![mapper(path)]
-            },
-        }
-    }
-
-    fn collect_files<F, T>(dir: &Directory, parent_path: &Rc<RefCell<Path>>, mapper: F) -> Vec<T>
-    where
-        F: Fn(Path) -> T + Copy,
-    {
-        let mut files: Vec<T> = Vec::new();
-        Diff::collect_files_inner(dir, parent_path, mapper, &mut files);
-        files
-    }
-
-    fn collect_files_inner<'a, F, T>(
-        dir: &'a Directory,
-        parent_path: &Rc<RefCell<Path>>,
-        mapper: F,
-        files: &mut Vec<T>,
-    ) where
-        F: Fn(Path) -> T + Copy,
-    {
-        parent_path.borrow_mut().push(dir.current().clone());
-        for entry in dir.contents() {
-            match entry {
-                DirectoryContents::Directory(subdir) => {
-                    Diff::collect_files_inner(subdir, parent_path, mapper, files);
-                },
-                DirectoryContents::File { name, .. } => {
-                    let mut path = parent_path.borrow().clone();
-                    path.push(name.clone());
-                    files.push(mapper(path));
-                },
-            }
-        }
-        parent_path.borrow_mut().pop();
+        repo.diff(left, right)
     }
 
     pub(crate) fn add_modified_file(
@@ -522,30 +345,8 @@ impl Diff {
         self.created.push(CreateFile { path, diff });
     }
 
-    fn add_created_files(&mut self, dc: &DirectoryContents, parent_path: &Rc<RefCell<Path>>) {
-        let mut new_files: Vec<CreateFile> =
-            Diff::collect_files_from_entry(dc, parent_path, |path| CreateFile {
-                path,
-                diff: FileDiff::Plain {
-                    hunks: Hunks::default(),
-                },
-            });
-        self.created.append(&mut new_files);
-    }
-
     pub(crate) fn add_deleted_file(&mut self, path: Path, diff: FileDiff) {
         self.deleted.push(DeleteFile { path, diff });
-    }
-
-    fn add_deleted_files(&mut self, dc: &DirectoryContents, parent_path: &Rc<RefCell<Path>>) {
-        let mut new_files: Vec<DeleteFile> =
-            Diff::collect_files_from_entry(dc, parent_path, |path| DeleteFile {
-                path,
-                diff: FileDiff::Plain {
-                    hunks: Hunks::default(),
-                },
-            });
-        self.deleted.append(&mut new_files);
     }
 
     pub fn stats(&self) -> Stats {
