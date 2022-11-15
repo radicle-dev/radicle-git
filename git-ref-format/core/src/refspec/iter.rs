@@ -66,6 +66,17 @@ impl<'a> Iterator for Components<'a> {
     }
 }
 
+impl<'a> DoubleEndedIterator for Components<'a> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back().map(|next| match next {
+            "*" => Component::Glob(None),
+            x if x.contains('*') => Component::Glob(Some(PatternStr::from_str(x))),
+            x => Component::Normal(RefStr::from_str(x)),
+        })
+    }
+}
+
 impl<'a> From<&'a PatternStr> for Components<'a> {
     #[inline]
     fn from(p: &'a PatternStr) -> Self {
