@@ -17,7 +17,7 @@ const GIT_PLATINUM: &str = "../data/git-platinum";
 #[test]
 // An issue with submodules, see: https://github.com/radicle-dev/radicle-surf/issues/54
 fn test_submodule_failure() {
-    let repo = Repository::new("../..").unwrap();
+    let repo = Repository::discover(".").unwrap();
     repo.as_ref().snapshot(&Branch::local("main")).unwrap();
 }
 
@@ -28,7 +28,7 @@ mod namespace {
 
     #[test]
     fn switch_to_banana() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let history_master = repo.history(&Branch::local("master"))?;
         repo.switch_namespace("golden")?;
@@ -41,7 +41,7 @@ mod namespace {
 
     #[test]
     fn me_namespace() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let history = repo.history(&Branch::local("master"))?;
 
@@ -74,7 +74,7 @@ mod namespace {
 
     #[test]
     fn golden_namespace() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let history = repo.history(&Branch::local("master"))?;
 
@@ -115,7 +115,7 @@ mod namespace {
 
     #[test]
     fn silver_namespace() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let history = repo.history(&Branch::local("master"))?;
 
@@ -159,7 +159,7 @@ mod rev {
     // * Expand "Options" and select "clean checkout".
     #[test]
     fn _master() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let mut history = repo.history(&Branch::remote("master", "origin"))?;
 
@@ -184,7 +184,7 @@ mod rev {
 
     #[test]
     fn commit() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         let mut history = repo.history(rev)?;
@@ -197,7 +197,7 @@ mod rev {
 
     #[test]
     fn commit_parents() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
         let history = repo.history(rev)?;
@@ -213,7 +213,7 @@ mod rev {
 
     #[test]
     fn commit_short() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let rev = repo.oid("3873745c8")?;
         let mut history = repo.history(rev)?;
@@ -226,7 +226,7 @@ mod rev {
 
     #[test]
     fn tag() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let rev = TagName::new("v0.2.0")?;
         let history = repo.history(&rev)?;
@@ -245,7 +245,7 @@ mod last_commit {
 
     #[test]
     fn readme_missing_and_memory() {
-        let repo = Repository::new(GIT_PLATINUM)
+        let repo = Repository::open(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
         let oid =
             Oid::from_str("d3464e33d75c75c99bfb90fa2e9d16efc0b7d0e3").expect("Failed to parse SHA");
@@ -274,7 +274,7 @@ mod last_commit {
 
     #[test]
     fn folder_svelte() {
-        let repo = Repository::new(GIT_PLATINUM)
+        let repo = Repository::open(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
         // Check that last commit is the actual last commit even if head commit differs.
         let oid =
@@ -293,7 +293,7 @@ mod last_commit {
 
     #[test]
     fn nest_directory() {
-        let repo = Repository::new(GIT_PLATINUM)
+        let repo = Repository::open(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
         // Check that last commit is the actual last commit even if head commit differs.
         let oid =
@@ -316,7 +316,7 @@ mod last_commit {
     #[test]
     #[cfg(not(windows))]
     fn can_get_last_commit_for_special_filenames() {
-        let repo = Repository::new(GIT_PLATINUM)
+        let repo = Repository::open(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
 
         // Check that last commit is the actual last commit even if head commit differs.
@@ -342,7 +342,7 @@ mod last_commit {
 
     #[test]
     fn root() {
-        let repo = Repository::new(GIT_PLATINUM)
+        let repo = Repository::open(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
         let rev = Branch::local("master");
         let root_last_commit_id = repo
@@ -362,7 +362,7 @@ mod last_commit {
 
     #[test]
     fn binary_file() {
-        let repo = Repository::new(GIT_PLATINUM)
+        let repo = Repository::open(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
         let repo = repo.as_ref();
         let history = repo.history(&Branch::local("dev")).unwrap();
@@ -380,7 +380,7 @@ mod diff {
 
     #[test]
     fn test_initial_diff() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let oid = Oid::from_str("d3464e33d75c75c99bfb90fa2e9d16efc0b7d0e3")?;
         let commit = repo.commit(oid).unwrap();
@@ -415,7 +415,7 @@ mod diff {
 
     #[test]
     fn test_diff_of_rev() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let diff = repo.diff_from_parent("80bacafba303bf0cdf6142921f430ff265f25095")?;
         assert_eq!(diff.created.len(), 0);
@@ -427,7 +427,7 @@ mod diff {
 
     #[test]
     fn test_diff() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let oid = "80bacafba303bf0cdf6142921f430ff265f25095";
         let commit = repo.commit(oid).unwrap();
@@ -461,7 +461,7 @@ mod diff {
 
     #[test]
     fn test_branch_diff() -> Result<(), Error> {
-        let repo = Repository::new(GIT_PLATINUM)?;
+        let repo = Repository::open(GIT_PLATINUM)?;
         let repo = repo.as_ref();
         let diff = repo.diff(&Branch::local("master"), &Branch::local("dev"))?;
 
@@ -576,7 +576,7 @@ mod threading {
 
     #[test]
     fn basic_test() -> Result<(), Error> {
-        let shared_repo = Mutex::new(Repository::new(GIT_PLATINUM)?);
+        let shared_repo = Mutex::new(Repository::open(GIT_PLATINUM)?);
         let locked_repo: MutexGuard<Repository> = shared_repo.lock().unwrap();
         let mut branches = locked_repo
             .as_ref()
@@ -720,7 +720,7 @@ mod reference {
 
     #[test]
     fn test_branches() {
-        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
         let branches = repo.branches(&Glob::heads("*").unwrap()).unwrap();
         for b in branches {
@@ -736,7 +736,7 @@ mod reference {
 
     #[test]
     fn test_tag_snapshot() {
-        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo_ref = repo.as_ref();
         let tags = repo_ref
             .tags(&Glob::tags("*").unwrap())
@@ -750,7 +750,7 @@ mod reference {
 
     #[test]
     fn test_namespaces() {
-        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
         let namespaces = repo.namespaces(&Glob::namespaces("*").unwrap()).unwrap();
         assert_eq!(namespaces.count(), 3);
@@ -771,7 +771,7 @@ mod code_browsing {
 
     #[test]
     fn iterate_root_dir_recursive() {
-        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
         let root_dir = repo.snapshot(&Branch::local("master")).unwrap();
         let count = println_dir(&root_dir, 0);
@@ -796,7 +796,7 @@ mod code_browsing {
 
     #[test]
     fn test_file_history() {
-        let repo = Repository::new(GIT_PLATINUM).unwrap();
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
         let history = repo.history(&Branch::local("dev")).unwrap();
         let path = unsound::path::new("README.md");

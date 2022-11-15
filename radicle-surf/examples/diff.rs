@@ -47,7 +47,7 @@ fn get_options_or_exit() -> Options {
 }
 
 fn init_repository_or_exit(path_to_repo: &str) -> git::Repository {
-    match git::Repository::new(path_to_repo) {
+    match git::Repository::open(path_to_repo) {
         Ok(repo) => repo,
         Err(e) => {
             println!("Failed to create repository: {:?}", e);

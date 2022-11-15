@@ -536,21 +536,28 @@ impl<'a> std::fmt::Debug for RepositoryRef<'a> {
 }
 
 impl Repository {
-    /// Open a git repository given its URI.
+    /// Open a git repository given its exact URI.
     ///
     /// # Errors
     ///
     /// * [`Error::Git`]
-    pub fn new(repo_uri: impl AsRef<std::path::Path>) -> Result<Self, Error> {
+    pub fn open(repo_uri: impl AsRef<std::path::Path>) -> Result<Self, Error> {
         git2::Repository::open(repo_uri)
+            .map(Repository)
+            .map_err(Error::from)
+    }
+
+    /// Attempt to open a git repository at or above `repo_uri` in the file
+    /// system.
+    pub fn discover(repo_uri: impl AsRef<std::path::Path>) -> Result<Self, Error> {
+        git2::Repository::discover(repo_uri)
             .map(Repository)
             .map_err(Error::from)
     }
 
     /// Since our operations are read-only when it comes to surfing a repository
     /// we have a separate struct called [`RepositoryRef`]. This turns an owned
-    /// [`Repository`], the one returned by [`Repository::new`], into a
-    /// [`RepositoryRef`].
+    /// [`Repository`] into a [`RepositoryRef`].
     pub fn as_ref(&'_ self) -> RepositoryRef<'_> {
         RepositoryRef { repo_ref: &self.0 }
     }

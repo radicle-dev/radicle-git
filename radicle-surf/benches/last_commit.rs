@@ -22,7 +22,7 @@ use radicle_surf::{
 };
 
 fn last_commit_comparison(c: &mut Criterion) {
-    let repo = Repository::new("./data/git-platinum")
+    let repo = Repository::open("./data/git-platinum")
         .expect("Could not retrieve ./data/git-platinum as git repository");
     let rev = Branch::local("master");
 
