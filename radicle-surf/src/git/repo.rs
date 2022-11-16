@@ -23,7 +23,7 @@ use std::{
 };
 
 use directory::{Directory, FileContent};
-use git_ref_format::RefString;
+use git_ref_format::{refspec::QualifiedPattern, Qualified, RefString};
 use radicle_git_ext::Oid;
 use thiserror::Error;
 
@@ -72,9 +72,13 @@ pub enum Error {
     Glob(#[from] glob::Error),
     #[error(transparent)]
     Namespace(#[from] namespace::Error),
+    #[error("the reference '{0}' should be of the form 'refs/<category>/<path>'")]
+    NotQualified(String),
     /// The requested file was not found.
     #[error("path not found for: {0}")]
     PathNotFound(file_system::Path),
+    #[error(transparent)]
+    RefFormat(#[from] git_ref_format::Error),
     #[error(transparent)]
     Revision(Box<dyn std::error::Error + Send + Sync + 'static>),
     /// A `revspec` was provided that could not be parsed into a branch, tag, or
@@ -131,8 +135,8 @@ impl<'a> RepositoryRef<'a> {
     /// Returns an iterator of branches that match `pattern`.
     pub fn branches(&self, pattern: &Glob<Branch>) -> Result<Branches, Error> {
         let mut branches = Branches::default();
-        for glob in pattern.globs().iter() {
-            let namespaced = self.namespaced_refname(glob)?;
+        for glob in pattern.globs() {
+            let namespaced = self.namespaced_pattern(glob)?;
             let references = self.repo_ref.references_glob(&namespaced)?;
             branches.push(references);
         }
@@ -142,8 +146,8 @@ impl<'a> RepositoryRef<'a> {
     /// Returns an iterator of tags that match `pattern`.
     pub fn tags(&self, pattern: &Glob<Tag>) -> Result<Tags, Error> {
         let mut tags = Tags::default();
-        for glob in pattern.globs().iter() {
-            let namespaced = self.namespaced_refname(glob)?;
+        for glob in pattern.globs() {
+            let namespaced = self.namespaced_pattern(glob)?;
             let references = self.repo_ref.references_glob(&namespaced)?;
             tags.push(references);
         }
@@ -153,14 +157,14 @@ impl<'a> RepositoryRef<'a> {
     /// Returns an iterator of namespaces that match `pattern`.
     pub fn namespaces(&self, pattern: &Glob<Namespace>) -> Result<Namespaces, Error> {
         let mut set = BTreeSet::new();
-        for glob in pattern.globs().iter() {
+        for glob in pattern.globs() {
             let new_set = self
                 .repo_ref
                 .references_glob(glob)?
                 .map(|reference| {
                     reference
                         .map_err(Error::Git)
-                        .and_then(|r| Namespace::try_from(r).map_err(Error::from))
+                        .and_then(|r| Namespace::try_from(&r).map_err(Error::from))
                 })
                 .collect::<Result<BTreeSet<Namespace>, Error>>()?;
             set.extend(new_set);
@@ -366,10 +370,25 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Returns a full reference name with namespace(s) included.
-    pub(crate) fn namespaced_refname(&self, refname: &str) -> Result<String, Error> {
+    pub(crate) fn namespaced_refname(
+        &'a self,
+        refname: &Qualified<'a>,
+    ) -> Result<Qualified<'a>, Error> {
         let fullname = match self.which_namespace()? {
-            Some(namespace) => namespace.append_refname(refname),
-            None => refname.to_string(),
+            Some(namespace) => namespace.to_namespaced(refname).into_qualified(),
+            None => refname.clone(),
+        };
+        Ok(fullname)
+    }
+
+    /// Returns a full reference name with namespace(s) included.
+    pub(crate) fn namespaced_pattern(
+        &'a self,
+        refname: &QualifiedPattern<'a>,
+    ) -> Result<QualifiedPattern<'a>, Error> {
+        let fullname = match self.which_namespace()? {
+            Some(namespace) => namespace.to_namespaced_pattern(refname).into_qualified(),
+            None => refname.clone(),
         };
         Ok(fullname)
     }
@@ -408,12 +427,12 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Lists branches that are reachable from `oid`.
-    pub fn revision_branches(&self, oid: &Oid, glob: &Glob<Branch>) -> Result<Vec<Branch>, Error> {
+    pub fn revision_branches(&self, oid: &Oid, glob: Glob<Branch>) -> Result<Vec<Branch>, Error> {
         let mut contained_branches = vec![];
-        for branch in self.branches(glob)? {
+        for branch in self.branches(&glob)? {
             let branch = branch?;
             let namespaced = self.namespaced_refname(&branch.refname())?;
-            let reference = self.repo_ref.find_reference(&namespaced)?;
+            let reference = self.repo_ref.find_reference(namespaced.as_str())?;
             if self.reachable_from(&reference, oid)? {
                 contained_branches.push(branch);
             }

@@ -8,7 +8,7 @@ use radicle_surf::git::{Author, Commit};
 use radicle_surf::{
     diff::*,
     file_system::{unsound, DirectoryEntry, Path},
-    git::{Branch, Error, Glob, Namespace, Oid, Repository},
+    git::{Branch, Error, Glob, Oid, Repository},
 };
 
 const GIT_PLATINUM: &str = "../data/git-platinum";
@@ -53,10 +53,7 @@ mod namespace {
         assert_eq!(repo.which_namespace().unwrap(), None);
 
         repo.switch_namespace("me")?;
-        assert_eq!(
-            repo.which_namespace().unwrap(),
-            Some(Namespace::try_from("me")?)
-        );
+        assert_eq!(repo.which_namespace().unwrap(), Some("me".parse()?));
 
         let history_feature = repo.history(&Branch::local(refname!("feature/#1194")))?;
         assert_eq!(history.head(), history_feature.head());
@@ -93,10 +90,7 @@ mod namespace {
 
         repo.switch_namespace("golden")?;
 
-        assert_eq!(
-            repo.which_namespace().unwrap(),
-            Some(Namespace::try_from("golden")?)
-        );
+        assert_eq!(repo.which_namespace().unwrap(), Some("golden".parse()?));
 
         let golden_history = repo.history(&Branch::local(refname!("master")))?;
         assert_eq!(history.head(), golden_history.head());
@@ -141,7 +135,7 @@ mod namespace {
         repo.switch_namespace("golden/silver")?;
         assert_eq!(
             repo.which_namespace().unwrap(),
-            Some(Namespace::try_from("golden/silver")?)
+            Some("golden/silver".parse()?)
         );
         let silver_history = repo.history(&Branch::local(refname!("master")))?;
         assert_ne!(history.head(), silver_history.head());

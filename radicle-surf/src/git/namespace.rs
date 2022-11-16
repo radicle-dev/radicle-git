@@ -15,8 +15,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{convert::TryFrom, fmt, str};
+use std::{
+    convert::TryFrom,
+    fmt,
+    str::{self, FromStr},
+};
 
+use git_ref_format::{
+    refspec::{NamespacedPattern, PatternString, QualifiedPattern},
+    Component,
+    Namespaced,
+    Qualified,
+    RefStr,
+    RefString,
+};
 use nonempty::NonEmpty;
 pub use radicle_git_ext::Oid;
 use thiserror::Error;
@@ -25,49 +37,113 @@ use thiserror::Error;
 pub enum Error {
     /// When parsing a namespace we may come across one that was an empty
     /// string.
-    #[error("tried parsing the namespace but it was empty")]
+    #[error("namespaces must not be empty")]
     EmptyNamespace,
+    #[error(transparent)]
+    RefFormat(#[from] git_ref_format::Error),
     #[error(transparent)]
     Utf8(#[from] str::Utf8Error),
 }
 
 /// A `Namespace` value allows us to switch the git namespace of
 /// a repo.
+///
+/// A `Namespace` is one or more name components separated by `/`, e.g. `surf`,
+/// `surf/git`.
+///
+/// For each `Namespace`, the reference name will add a single `refs/namespaces`
+/// prefix, e.g. `refs/namespaces/surf`,
+/// `refs/namespaces/surf/refs/namespaces/git`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Namespace {
-    /// Since namespaces can be nested we have a vector of strings.
-    /// This means that the namespaces `"foo/bar"` is represented as
-    /// `vec!["foo", "bar"]`.
-    pub(super) values: NonEmpty<String>,
+    // XXX: we rely on RefString being non-empty here, which
+    // git-ref-format ensures that there's no way to construct one.
+    pub(super) namespaces: RefString,
 }
 
 impl Namespace {
-    /// Appends a `refname` to this namespace, and returns
-    /// the full reference path.
-    pub fn append_refname(&self, refname: &str) -> String {
-        let mut prefix = String::new();
-        for value in self.values.iter() {
-            prefix = format!("{}refs/namespaces/{}/", &prefix, value);
+    /// Take a `Qualified` reference name and convert it to a `Namespaced` using
+    /// this `Namespace`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let ns = "surf/git".parse::<Namespace>();
+    /// let name = ns.to_namespaced(qualified!("refs/heads/main"));
+    /// assert_eq!(
+    ///     name.as_str(),
+    ///     "refs/namespaces/surf/refs/namespaces/git/refs/heads/main"
+    /// );
+    /// ```
+    pub(crate) fn to_namespaced<'a>(&self, name: &Qualified<'a>) -> Namespaced<'a> {
+        let mut components = self.namespaces.components().rev();
+        let mut namespaced = name.with_namespace(
+            components
+                .next()
+                .expect("BUG: 'namespaces' cannot be empty"),
+        );
+        for ns in components {
+            let qualified = namespaced.into_qualified();
+            namespaced = qualified.with_namespace(ns);
         }
-        format!("{}{}", &prefix, refname)
+        namespaced
+    }
+
+    /// Take a `QualifiedPattern` reference name and convert it to a
+    /// `NamespacedPattern` using this `Namespace`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let ns = "surf/git".parse::<Namespace>();
+    /// let name = ns.to_namespaced(pattern!("refs/heads/*").to_qualified().unwrap());
+    /// assert_eq!(
+    ///     name.as_str(),
+    ///     "refs/namespaces/surf/refs/namespaces/git/refs/heads/*"
+    /// );
+    /// ```
+    pub(crate) fn to_namespaced_pattern<'a>(
+        &self,
+        pat: &QualifiedPattern<'a>,
+    ) -> NamespacedPattern<'a> {
+        let pattern = PatternString::from(self.namespaces.clone());
+        let mut components = pattern.components().rev();
+        let mut namespaced = pat
+            .with_namespace(
+                components
+                    .next()
+                    .expect("BUG: 'namespaces' cannot be empty"),
+            )
+            .expect("BUG: 'namespace' cannot have globs");
+        for ns in components {
+            let qualified = namespaced.into_qualified();
+            namespaced = qualified
+                .with_namespace(ns)
+                .expect("BUG: 'namespaces' cannot have globs");
+        }
+        namespaced
     }
 }
 
 impl fmt::Display for Namespace {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let values: Vec<_> = self.values.clone().into();
-        write!(f, "{}", values.join("/"))
+        write!(f, "{}", self.namespaces)
+    }
+}
+
+impl<'a> From<NonEmpty<Component<'a>>> for Namespace {
+    fn from(cs: NonEmpty<Component<'a>>) -> Self {
+        Self {
+            namespaces: cs.into_iter().collect::<RefString>(),
+        }
     }
 }
 
 impl TryFrom<&str> for Namespace {
     type Error = Error;
 
-    fn try_from(namespace: &str) -> Result<Self, Self::Error> {
-        let values = namespace.split('/').map(|n| n.to_string()).collect();
-        NonEmpty::from_vec(values)
-            .map(|values| Self { values })
-            .ok_or(Error::EmptyNamespace)
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        Self::from_str(name)
     }
 }
 
@@ -77,29 +153,38 @@ impl TryFrom<&[u8]> for Namespace {
     fn try_from(namespace: &[u8]) -> Result<Self, Self::Error> {
         str::from_utf8(namespace)
             .map_err(Error::from)
-            .and_then(Namespace::try_from)
+            .and_then(Self::from_str)
     }
 }
 
-impl TryFrom<git2::Reference<'_>> for Namespace {
+impl FromStr for Namespace {
+    type Err = Error;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        let namespaces = RefStr::try_from_str(name)?.to_ref_string();
+        Ok(Self { namespaces })
+    }
+}
+
+impl From<Namespaced<'_>> for Namespace {
+    fn from(namespaced: Namespaced<'_>) -> Self {
+        let mut namespaces = namespaced.namespace().to_ref_string();
+        let mut qualified = namespaced.strip_namespace();
+        while let Some(namespaced) = qualified.to_namespaced() {
+            namespaces.push(namespaced.namespace());
+            qualified = namespaced.strip_namespace();
+        }
+        Self { namespaces }
+    }
+}
+
+impl TryFrom<&git2::Reference<'_>> for Namespace {
     type Error = Error;
 
-    fn try_from(reference: git2::Reference) -> Result<Self, Self::Error> {
-        let re = regex::Regex::new(r"refs/namespaces/([^/]+)/").unwrap();
-        let ref_name = str::from_utf8(reference.name_bytes())?;
-        let values = re
-            .find_iter(ref_name)
-            .map(|m| {
-                String::from(
-                    m.as_str()
-                        .trim_start_matches("refs/namespaces/")
-                        .trim_end_matches('/'),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        NonEmpty::from_vec(values)
-            .map(|values| Self { values })
+    fn try_from(reference: &git2::Reference) -> Result<Self, Self::Error> {
+        let name = RefStr::try_from_str(str::from_utf8(reference.name_bytes())?)?;
+        name.to_namespaced()
             .ok_or(Error::EmptyNamespace)
+            .map(Self::from)
     }
 }
