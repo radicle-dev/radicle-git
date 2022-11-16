@@ -309,7 +309,7 @@ impl RefString {
     ///
     /// This is a consuming version of [`RefString::push`] which can be chained.
     /// Prefer this over chaining calls to [`RefStr::join`] if the
-    /// intermediate values are not neede.
+    /// intermediate values are not needed.
     pub fn and<R>(self, other: R) -> Self
     where
         R: AsRef<RefStr>,
