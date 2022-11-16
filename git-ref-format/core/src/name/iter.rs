@@ -9,7 +9,7 @@ use std::{
     ops::Deref,
 };
 
-use super::{RefStr, RefString};
+use super::RefStr;
 use crate::lit;
 
 pub type Iter<'a> = std::str::Split<'a, char>;
@@ -52,9 +52,10 @@ pub struct Component<'a>(Cow<'a, RefStr>);
 
 impl<'a> Component<'a> {
     #[inline]
-    pub fn from_refstring(r: RefString) -> Option<Self> {
+    pub fn from_refstr(r: impl Into<Cow<'a, RefStr>>) -> Option<Self> {
+        let r = r.into();
         if !r.contains('/') {
-            Some(Self(Cow::Owned(r)))
+            Some(Self(r))
         } else {
             None
         }
