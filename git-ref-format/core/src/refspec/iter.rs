@@ -85,3 +85,19 @@ impl<'a> From<&'a PatternStr> for Components<'a> {
         }
     }
 }
+
+pub mod component {
+    use super::Component;
+    use crate::name;
+
+    pub const STAR: Component = Component::Glob(None);
+    pub const HEADS: Component = Component::Normal(name::HEADS);
+    pub const MAIN: Component = Component::Normal(name::MAIN);
+    pub const MASTER: Component = Component::Normal(name::MASTER);
+    pub const NAMESPACES: Component = Component::Normal(name::NAMESPACES);
+    pub const NOTES: Component = Component::Normal(name::NOTES);
+    pub const ORIGIN: Component = Component::Normal(name::ORIGIN);
+    pub const REFS: Component = Component::Normal(name::REFS);
+    pub const REMOTES: Component = Component::Normal(name::REMOTES);
+    pub const TAGS: Component = Component::Normal(name::TAGS);
+}

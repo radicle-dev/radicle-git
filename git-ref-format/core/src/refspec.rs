@@ -16,7 +16,7 @@ use thiserror::Error;
 use crate::{check, lit, RefStr, RefString};
 
 mod iter;
-pub use iter::{Component, Components, Iter};
+pub use iter::{component, Component, Components, Iter};
 
 pub const STAR: &PatternStr = PatternStr::from_str("*");
 
