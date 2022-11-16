@@ -17,8 +17,9 @@
 
 //! Represents revisions
 
+use std::collections::BTreeSet;
+
 use git_ref_format::{lit, Qualified, RefString};
-use nonempty::NonEmpty;
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -104,9 +105,9 @@ pub struct Revisions<P, U> {
     /// The user who owns these revisions.
     pub user: U,
     /// List of branch reference names.
-    pub branches: NonEmpty<RefString>,
+    pub branches: BTreeSet<RefString>,
     /// List of tag reference names.
-    pub tags: Vec<RefString>,
+    pub tags: BTreeSet<RefString>,
 }
 
 /// Provide the [`Revisions`] for the given `peer_id`, looking for the
@@ -117,26 +118,22 @@ pub struct Revisions<P, U> {
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn remote<P, U>(
-    repo: &RepositoryRef,
-    peer_id: P,
-    user: U,
-) -> Result<Option<Revisions<P, U>>, Error>
+pub fn remote<P, U>(repo: &RepositoryRef, peer_id: P, user: U) -> Result<Revisions<P, U>, Error>
 where
     P: Clone + ToString,
 {
-    let remote_branches =
-        repo.branch_names(&Glob::remotes(&format!("{}/*", peer_id.to_string()))?)?;
-    Ok(
-        NonEmpty::from_vec(remote_branches).map(|branches| Revisions {
-            peer_id,
-            user,
-            branches,
-            // TODO(rudolfs): implement remote peer tags once we decide how
-            // https://radicle.community/t/git-tags/214
-            tags: vec![],
-        }),
-    )
+    let branches = repo
+        .branch_names(&Glob::remotes(&format!("{}/*", peer_id.to_string()))?)?
+        .map(|name| name.map(RefString::from))
+        .collect::<Result<_, _>>()?;
+    Ok(Revisions {
+        peer_id,
+        user,
+        branches,
+        // TODO(rudolfs): implement remote peer tags once we decide how
+        // https://radicle.community/t/git-tags/214
+        tags: BTreeSet::new(),
+    })
 }
 
 /// Provide the [`Revisions`] for the given `peer_id`, looking for the
@@ -147,24 +144,24 @@ where
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn local<P, U>(
-    repo: &RepositoryRef,
-    peer_id: P,
-    user: U,
-) -> Result<Option<Revisions<P, U>>, Error>
+pub fn local<P, U>(repo: &RepositoryRef, peer_id: P, user: U) -> Result<Revisions<P, U>, Error>
 where
     P: Clone + ToString,
 {
-    let local_branches = repo.branch_names(&Glob::heads("*")?)?;
-    let tags = repo.tag_names()?;
-    Ok(
-        NonEmpty::from_vec(local_branches).map(|branches| Revisions {
-            peer_id,
-            user,
-            branches,
-            tags,
-        }),
-    )
+    let branches = repo
+        .branch_names(&Glob::heads("*")?)?
+        .map(|name| name.map(RefString::from))
+        .collect::<Result<_, _>>()?;
+    let tags = repo
+        .tag_names()?
+        .map(|name| name.map(RefString::from))
+        .collect::<Result<_, _>>()?;
+    Ok(Revisions {
+        peer_id,
+        user,
+        branches,
+        tags,
+    })
 }
 
 /// Provide the [`Revisions`] of a peer.
@@ -178,10 +175,7 @@ where
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn revisions<P, U>(
-    repo: &RepositoryRef,
-    peer: Category<P, U>,
-) -> Result<Option<Revisions<P, U>>, Error>
+pub fn revisions<P, U>(repo: &RepositoryRef, peer: Category<P, U>) -> Result<Revisions<P, U>, Error>
 where
     P: Clone + ToString,
 {

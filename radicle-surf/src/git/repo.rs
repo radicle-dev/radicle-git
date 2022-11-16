@@ -23,7 +23,7 @@ use std::{
 };
 
 use directory::{Directory, FileContent};
-use git_ref_format::{refspec::QualifiedPattern, Qualified, RefString};
+use git_ref_format::{refspec::QualifiedPattern, Qualified};
 use radicle_git_ext::Oid;
 use thiserror::Error;
 
@@ -50,6 +50,8 @@ use crate::{
 
 pub mod iter;
 pub use iter::{Branches, Namespaces, Tags};
+
+use self::iter::{BranchNames, TagNames};
 
 /// Enumeration of errors that can occur in operations from [`crate::git`].
 #[derive(Debug, Error)]
@@ -336,25 +338,13 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Lists branch names with `filter`.
-    pub fn branch_names(&self, filter: &Glob<Branch>) -> Result<Vec<RefString>, Error> {
-        let mut branches = self
-            .branches(filter)?
-            .map(|b| b.map(|b| b.refname().into()))
-            .collect::<Result<Vec<_>, _>>()?;
-        branches.sort();
-
-        Ok(branches)
+    pub fn branch_names(&self, filter: &Glob<Branch>) -> Result<BranchNames, Error> {
+        Ok(self.branches(filter)?.names())
     }
 
     /// Lists tag names in the local RefScope.
-    pub fn tag_names(&self) -> Result<Vec<RefString>, Error> {
-        let mut tags = self
-            .tags(&Glob::tags("*")?)?
-            .map(|t| t.map_err(Error::from).map(|t| t.refname().into()))
-            .collect::<Result<Vec<_>, Error>>()?;
-        tags.sort();
-
-        Ok(tags)
+    pub fn tag_names(&self) -> Result<TagNames, Error> {
+        Ok(self.tags(&Glob::tags("*")?)?.names())
     }
 
     /// Returns the Oid of the current HEAD
