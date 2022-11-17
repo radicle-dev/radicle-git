@@ -17,13 +17,13 @@
 
 #![allow(dead_code, unused_variables, missing_docs)]
 
-use std::{convert::TryFrom, slice};
+use std::{convert::TryFrom, path::PathBuf, slice};
 
 #[cfg(feature = "serialize")]
 use serde::{ser, Serialize, Serializer};
 
 use crate::{
-    file_system::{Directory, Path},
+    file_system::Directory,
     git::{Error, Repository},
 };
 
@@ -52,14 +52,14 @@ impl Default for Diff {
 #[cfg_attr(feature = "serialize", derive(Serialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CreateFile {
-    pub path: Path,
+    pub path: PathBuf,
     pub diff: FileDiff,
 }
 
 #[cfg_attr(feature = "serialize", derive(Serialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeleteFile {
-    pub path: Path,
+    pub path: PathBuf,
     pub diff: FileDiff,
 }
 
@@ -70,8 +70,8 @@ pub struct DeleteFile {
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MoveFile {
-    pub old_path: Path,
-    pub new_path: Path,
+    pub old_path: PathBuf,
+    pub new_path: PathBuf,
 }
 
 #[cfg_attr(
@@ -81,8 +81,8 @@ pub struct MoveFile {
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CopyFile {
-    pub old_path: Path,
-    pub new_path: Path,
+    pub old_path: PathBuf,
+    pub new_path: PathBuf,
 }
 
 #[cfg_attr(
@@ -104,7 +104,7 @@ pub enum EofNewLine {
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModifiedFile {
-    pub path: Path,
+    pub path: PathBuf,
     pub diff: FileDiff,
     pub eof: Option<EofNewLine>,
 }
@@ -309,7 +309,7 @@ impl Diff {
 
     pub(crate) fn add_modified_file(
         &mut self,
-        path: Path,
+        path: PathBuf,
         hunks: impl Into<Hunks>,
         eof: Option<EofNewLine>,
     ) {
@@ -325,15 +325,15 @@ impl Diff {
         });
     }
 
-    pub(crate) fn add_moved_file(&mut self, old_path: Path, new_path: Path) {
+    pub(crate) fn add_moved_file(&mut self, old_path: PathBuf, new_path: PathBuf) {
         self.moved.push(MoveFile { old_path, new_path });
     }
 
-    pub(crate) fn add_copied_file(&mut self, old_path: Path, new_path: Path) {
+    pub(crate) fn add_copied_file(&mut self, old_path: PathBuf, new_path: PathBuf) {
         self.copied.push(CopyFile { old_path, new_path });
     }
 
-    pub(crate) fn add_modified_binary_file(&mut self, path: Path) {
+    pub(crate) fn add_modified_binary_file(&mut self, path: PathBuf) {
         self.modified.push(ModifiedFile {
             path,
             diff: FileDiff::Binary,
@@ -341,11 +341,11 @@ impl Diff {
         });
     }
 
-    pub(crate) fn add_created_file(&mut self, path: Path, diff: FileDiff) {
+    pub(crate) fn add_created_file(&mut self, path: PathBuf, diff: FileDiff) {
         self.created.push(CreateFile { path, diff });
     }
 
-    pub(crate) fn add_deleted_file(&mut self, path: Path, diff: FileDiff) {
+    pub(crate) fn add_deleted_file(&mut self, path: PathBuf, diff: FileDiff) {
         self.deleted.push(DeleteFile { path, diff });
     }
 

@@ -7,7 +7,7 @@
 use radicle_surf::git::{Author, Commit};
 use radicle_surf::{
     diff::*,
-    file_system::{directory, unsound, Path},
+    file_system::directory,
     git::{Branch, Error, Glob, Oid, Repository},
 };
 
@@ -246,7 +246,10 @@ mod last_commit {
     use git_ref_format::refname;
 
     use super::*;
-    use std::str::FromStr;
+    use std::{
+        path::{Path, PathBuf},
+        str::FromStr,
+    };
 
     #[test]
     fn readme_missing_and_memory() {
@@ -257,10 +260,7 @@ mod last_commit {
 
         // memory.rs is commited later so it should not exist here.
         let memory_last_commit_oid = repo
-            .last_commit(
-                Path::with_root(&[unsound::label::new("src"), unsound::label::new("memory.rs")]),
-                oid,
-            )
+            .last_commit(Path::new("src/memory.rs"), oid)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
@@ -268,7 +268,7 @@ mod last_commit {
 
         // README.md exists in this commit.
         let readme_last_commit = repo
-            .last_commit(Path::with_root(&[unsound::label::new("README.md")]), oid)
+            .last_commit(Path::new("README.md"), oid)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
@@ -286,7 +286,7 @@ mod last_commit {
         let expected_commit_id = Oid::from_str("f3a089488f4cfd1a240a9c01b3fcc4c34a4e97b2").unwrap();
 
         let folder_svelte = repo
-            .last_commit(unsound::path::new("~/examples/Folder.svelte"), oid)
+            .last_commit(Path::new("examples/Folder.svelte"), oid)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
@@ -305,7 +305,7 @@ mod last_commit {
 
         let nested_directory_tree_commit_id = repo
             .last_commit(
-                unsound::path::new("~/this/is/a/really/deeply/nested/directory/tree"),
+                Path::new("this/is/a/really/deeply/nested/directory/tree"),
                 oid,
             )
             .expect("Failed to get last commit")
@@ -327,13 +327,13 @@ mod last_commit {
         let expected_commit_id = Oid::from_str("a0dd9122d33dff2a35f564d564db127152c88e02").unwrap();
 
         let backslash_commit_id = repo
-            .last_commit(unsound::path::new("~/special/faux\\path"), oid)
+            .last_commit(Path::new(r"special/faux\\path"), oid)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
         assert_eq!(backslash_commit_id, Some(expected_commit_id));
 
         let ogre_commit_id = repo
-            .last_commit(unsound::path::new("~/special/👹👹👹"), oid)
+            .last_commit(Path::new("special/👹👹👹"), oid)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
         assert_eq!(ogre_commit_id, Some(expected_commit_id));
@@ -345,7 +345,7 @@ mod last_commit {
             .expect("Could not retrieve ./data/git-platinum as git repository");
         let rev = Branch::local(refname!("master"));
         let root_last_commit_id = repo
-            .last_commit(Path::root(), &rev)
+            .last_commit(&PathBuf::new(), &rev)
             .expect("Failed to get last commit")
             .map(|commit| commit.id);
 
@@ -362,7 +362,7 @@ mod last_commit {
         let repo = Repository::open(GIT_PLATINUM)
             .expect("Could not retrieve ./data/git-platinum as git repository");
         let history = repo.history(&Branch::local(refname!("dev"))).unwrap();
-        let file_commit = history.by_path(unsound::path::new("~/bin/cat")).next();
+        let file_commit = history.by_path(Path::new("bin/cat")).next();
         assert!(file_commit.is_some());
         println!("file commit: {:?}", &file_commit);
     }
@@ -373,7 +373,7 @@ mod diff {
     use super::*;
     use git_ref_format::refname;
     use pretty_assertions::assert_eq;
-    use std::str::FromStr;
+    use std::{path::Path, str::FromStr};
 
     #[test]
     fn test_initial_diff() -> Result<(), Error> {
@@ -386,7 +386,7 @@ mod diff {
 
         let expected_diff = Diff {
             created: vec![CreateFile {
-                path: Path::with_root(&[unsound::label::new("README.md")]),
+                path: Path::new("README.md").to_path_buf(),
                 diff: FileDiff::Plain {
                     hunks: vec![Hunk {
                         header: Line::from(b"@@ -0,0 +1 @@\n".to_vec()),
@@ -434,7 +434,7 @@ mod diff {
                 moved: vec![],
                 copied: vec![],
                 modified: vec![ModifiedFile {
-                    path: Path::with_root(&[unsound::label::new("README.md")]),
+                    path: Path::new("README.md").to_path_buf(),
                     diff: FileDiff::Plain {
                         hunks: vec![Hunk {
                             header: Line::from(b"@@ -1 +1,2 @@\n".to_vec()),
@@ -474,16 +474,16 @@ mod diff {
         assert_eq!(diff.moved.len(), 1);
         assert_eq!(diff.modified.len(), 2);
         for c in diff.created.iter() {
-            println!("created: {}", &c.path);
+            println!("created: {:?}", &c.path);
         }
         for d in diff.deleted.iter() {
-            println!("deleted: {}", &d.path);
+            println!("deleted: {:?}", &d.path);
         }
         for m in diff.moved.iter() {
-            println!("moved: {} -> {}", &m.old_path, &m.new_path);
+            println!("moved: {:?} -> {:?}", &m.old_path, &m.new_path);
         }
         for m in diff.modified.iter() {
-            println!("modified: {}", &m.path);
+            println!("modified: {:?}", &m.path);
         }
         Ok(())
     }
@@ -717,6 +717,8 @@ mod reference {
 }
 
 mod code_browsing {
+    use std::path::Path;
+
     use super::*;
 
     use git_ref_format::refname;
@@ -740,7 +742,7 @@ mod code_browsing {
                 repo,
                 (0, 0),
                 &mut |(count, indent_level), entry| {
-                    println!("> {}{}", " ".repeat(indent_level * 4), entry.label());
+                    println!("> {}{}", " ".repeat(indent_level * 4), entry.name());
                     match entry {
                         directory::Entry::File(_) => Ok((count + 1, indent_level)),
                         directory::Entry::Directory(_) => Ok((count + 1, indent_level + 1)),
@@ -775,11 +777,11 @@ mod code_browsing {
     fn test_file_history() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         let history = repo.history(&Branch::local(refname!("dev"))).unwrap();
-        let path = unsound::path::new("README.md");
+        let path = Path::new("README.md");
         let mut file_history = history.by_path(path);
         let commit = file_history.next().unwrap().unwrap();
         let file = repo
-            .get_commit_file(&commit.id, unsound::path::new("README.md"))
+            .get_commit_file(&commit.id, &Path::new("README.md"))
             .unwrap();
         assert_eq!(file.size(), 67);
     }

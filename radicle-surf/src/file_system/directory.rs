@@ -22,18 +22,15 @@
 
 use std::{
     collections::BTreeMap,
-    convert::{Infallible, Into},
-    path,
+    convert::{Infallible, Into as _},
+    path::{Path, PathBuf},
 };
 
 use git2::Blob;
 use radicle_git_ext::{is_not_found_err, Oid};
 use radicle_std_ext::result::ResultExt as _;
 
-use crate::{
-    file_system::{path::*, Error},
-    git::{Repository, Revision},
-};
+use crate::git::{Repository, Revision};
 
 pub mod error {
     use thiserror::Error;
@@ -52,8 +49,6 @@ pub mod error {
     pub enum Entry {
         #[error("the entry name was not valid UTF-8")]
         Utf8Error,
-        #[error(transparent)]
-        Label(#[from] super::Error),
     }
 
     #[derive(Debug, Error, PartialEq)]
@@ -74,11 +69,32 @@ pub mod error {
 /// [`File::content`].
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct File {
-    pub(crate) name: Label,
-    pub(crate) id: Oid,
+    /// The name of the file.
+    name: String,
+    /// The relative path of the file, not including the `name`,
+    /// in respect to the root of the git repository.
+    prefix: PathBuf,
+    /// The object identifier of the git blob of this file.
+    id: Oid,
 }
 
 impl File {
+    /// Construct a new `File`.
+    ///
+    /// The `path` must be the prefix location of the directory, and
+    /// so should not end in `name`.
+    ///
+    /// The `id` must point to a git blob.
+    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid) -> Self {
+        debug_assert!(
+            !prefix.ends_with(&name),
+            "prefix = {:?}, name = {}",
+            prefix,
+            name
+        );
+        Self { name, prefix, id }
+    }
+
     /// The name of this `File`.
     pub fn name(&self) -> &str {
         self.name.as_str()
@@ -89,17 +105,18 @@ impl File {
         self.id
     }
 
-    /// Create a new `File` with the `name` and `id` provided.
+    /// Return the exact path for this `File`, including the `name` of
+    /// the directory itself.
     ///
-    /// The `id` must point to a `git` blob.
-    pub fn new(name: String, id: Oid) -> Self {
-        Self {
-            name: Label {
-                label: name,
-                hidden: false,
-            },
-            id,
-        }
+    /// The path is relative to the git repository root.
+    pub fn path(&self) -> PathBuf {
+        self.prefix.join(&self.name)
+    }
+
+    /// Return the [`Path`] where this `File` is located, relative to the
+    /// git repository root.
+    pub fn location(&self) -> &Path {
+        &self.prefix
     }
 
     /// Get the [`FileContent`] for this `File`.
@@ -140,12 +157,12 @@ impl<'a> FileContent<'a> {
 
 /// A representations of a [`Directory`]'s entries.
 pub struct Entries {
-    listing: BTreeMap<Label, Entry>,
+    listing: BTreeMap<String, Entry>,
 }
 
 impl Entries {
-    /// Return the [`Label`]s of each [`Entry`].
-    pub fn names(&self) -> impl Iterator<Item = &Label> {
+    /// Return the name of each [`Entry`].
+    pub fn names(&self) -> impl Iterator<Item = &String> {
         self.listing.keys()
     }
 
@@ -154,8 +171,8 @@ impl Entries {
         self.listing.values()
     }
 
-    /// Return each [`Label`] and [`Entry`].
-    pub fn iter(&self) -> impl Iterator<Item = (&Label, &Entry)> {
+    /// Return each [`Entry`] and its name.
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Entry)> {
         self.listing.iter()
     }
 }
@@ -172,22 +189,22 @@ pub enum Entry {
 impl Entry {
     /// Get a label for the `Entriess`, either the name of the [`File`]
     /// or the name of the [`Directory`].
-    pub fn label(&self) -> &Label {
+    pub fn name(&self) -> &String {
         match self {
             Entry::File(file) => &file.name,
             Entry::Directory(directory) => directory.name(),
         }
     }
 
-    pub(crate) fn from_entry(entry: &git2::TreeEntry) -> Result<Option<Self>, error::Entry> {
-        let name = Label {
-            label: entry.name().ok_or(error::Entry::Utf8Error)?.to_string(),
-            hidden: false,
-        };
+    pub(crate) fn from_entry(
+        entry: &git2::TreeEntry,
+        path: PathBuf,
+    ) -> Result<Option<Self>, error::Entry> {
+        let name = entry.name().ok_or(error::Entry::Utf8Error)?.to_string();
         let id = entry.id().into();
         Ok(entry.kind().and_then(|kind| match kind {
-            git2::ObjectType::Tree => Some(Self::Directory(Directory { name, id })),
-            git2::ObjectType::Blob => Some(Self::File(File { name, id })),
+            git2::ObjectType::Tree => Some(Self::Directory(Directory::new(name, path, id))),
+            git2::ObjectType::Blob => Some(Self::File(File::new(name, path, id))),
             _ => None,
         }))
     }
@@ -204,21 +221,63 @@ impl Entry {
 /// [git-tree]: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Directory {
-    pub(crate) name: Label,
-    pub(crate) id: Oid,
+    /// The name of the directoy.
+    name: String,
+    /// The relative path of the directory, not including the `name`,
+    /// in respect to the root of the git repository.
+    prefix: PathBuf,
+    /// The object identifier of the git tree of this directory.
+    id: Oid,
 }
 
 impl Directory {
-    /// Get the name of the current `Directory`.
-    pub fn name(&self) -> &Label {
-        &self.name
+    /// Creates a directory given its `id`.
+    ///
+    /// The `name` and `prefix` are both set to be empty.
+    ///
+    /// The `id` must point to a `git` tree.
+    pub(crate) fn root(id: Oid) -> Self {
+        Self::new("".to_string(), PathBuf::new(), id)
     }
 
     /// Creates a directory given its `name` and `id`.
     ///
+    /// The `path` must be the prefix location of the directory, and
+    /// so should not end in `name`.
+    ///
     /// The `id` must point to a `git` tree.
-    pub fn new(name: Label, id: Oid) -> Self {
-        Self { name, id }
+    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid) -> Self {
+        debug_assert!(
+            name.is_empty() || !prefix.ends_with(&name),
+            "prefix = {:?}, name = {}",
+            prefix,
+            name
+        );
+        Self { name, prefix, id }
+    }
+
+    /// Get the name of the current `Directory`.
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    /// The object identifier of this `File`.
+    pub fn id(&self) -> Oid {
+        self.id
+    }
+
+    /// Return the exact path for this `Directory`, including the `name` of the
+    /// directory itself.
+    ///
+    /// The path is relative to the git repository root.
+    pub fn path(&self) -> PathBuf {
+        self.prefix.join(&self.name)
+    }
+
+    /// Return the [`Path`] where this `Directory` is located, relative to the
+    /// git repository root.
+    pub fn location(&self) -> &Path {
+        &self.prefix
     }
 
     /// Return the [`Entries`] for this `Directory`'s `Oid`.
@@ -238,15 +297,15 @@ impl Directory {
         let mut error = None;
 
         // Walks only the first level of entries.
-        tree.walk(git2::TreeWalkMode::PreOrder, |_s, entry| {
-            match Entry::from_entry(entry) {
+        tree.walk(git2::TreeWalkMode::PreOrder, |path, entry| {
+            match Entry::from_entry(entry, Path::new(path).to_path_buf()) {
                 Ok(Some(entry)) => match entry {
                     Entry::File(_) => {
-                        entries.insert(entry.label().clone(), entry);
+                        entries.insert(entry.name().clone(), entry);
                         git2::TreeWalkResult::Ok
                     },
                     Entry::Directory(_) => {
-                        entries.insert(entry.label().clone(), entry);
+                        entries.insert(entry.name().clone(), entry);
                         // Skip nested directories
                         git2::TreeWalkResult::Skip
                     },
@@ -266,45 +325,52 @@ impl Directory {
     }
 
     /// Find the [`Entry`] found at `path`, if it exists.
-    pub fn find_entry(
+    pub fn find_entry<P>(
         &self,
-        path: &path::Path,
+        path: &P,
         repo: &Repository,
-    ) -> Result<Option<Entry>, crate::git::Error> {
+    ) -> Result<Option<Entry>, crate::git::Error>
+    where
+        P: AsRef<Path>,
+    {
         // Search the path in git2 tree.
         let git2_tree = repo.git2_repo().find_tree(self.id.into())?;
         let entry = git2_tree
-            .get_path(path)
+            .get_path(path.as_ref())
             .map(Some)
             .or_matches::<git2::Error, _, _>(is_not_found_err, || Ok(None))?;
 
         Ok(entry
-            .and_then(|entry| Entry::from_entry(&entry).transpose())
+            .and_then(|entry| Entry::from_entry(&entry, path.as_ref().to_path_buf()).transpose())
             .transpose()
             .unwrap())
     }
 
     /// Find the `Oid`, for a [`File`], found at `path`, if it exists.
-    pub fn find_file(
+    pub fn find_file<P>(
         &self,
-        path: Path,
+        path: &P,
         repo: &Repository,
-    ) -> Result<Option<Oid>, crate::git::Error> {
-        let path_buf: std::path::PathBuf = (&path).into();
-        Ok(match self.find_entry(path_buf.as_path(), repo)? {
+    ) -> Result<Option<Oid>, crate::git::Error>
+    where
+        P: AsRef<Path>,
+    {
+        Ok(match self.find_entry(path, repo)? {
             Some(Entry::File(f)) => Some(f.id),
             _ => None,
         })
     }
 
     /// Find the `Directory` found at `path`, if it exists.
-    pub fn find_directory(
+    pub fn find_directory<P>(
         &self,
-        path: Path,
+        path: P,
         repo: &Repository,
-    ) -> Result<Option<Self>, crate::git::Error> {
-        let path_buf: std::path::PathBuf = (&path).into();
-        Ok(match self.find_entry(path_buf.as_path(), repo)? {
+    ) -> Result<Option<Self>, crate::git::Error>
+    where
+        P: AsRef<Path>,
+    {
+        Ok(match self.find_entry(&path, repo)? {
             Some(Entry::Directory(d)) => Some(d),
             _ => None,
         })
@@ -313,7 +379,7 @@ impl Directory {
     // TODO(fintan): This is going to be a bit trickier so going to leave it out for
     // now
     #[allow(dead_code)]
-    fn fuzzy_find(_label: Label) -> Vec<Self> {
+    fn fuzzy_find(_label: &Path) -> Vec<Self> {
         unimplemented!()
     }
 

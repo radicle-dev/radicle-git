@@ -6,6 +6,3 @@ mod git;
 
 #[cfg(test)]
 mod diff;
-
-#[cfg(test)]
-mod file_system;

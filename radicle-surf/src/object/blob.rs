@@ -18,7 +18,10 @@
 //! Represents git object type 'blob', i.e. actual file contents.
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
-use std::str::{self, FromStr as _};
+use std::{
+    path::{Path, PathBuf},
+    str,
+};
 
 #[cfg(feature = "serialize")]
 use serde::{
@@ -28,7 +31,6 @@ use serde::{
 
 use crate::{
     commit,
-    file_system,
     git::Repository,
     object::{Error, Info, ObjectType},
     revision::Revision,
@@ -44,7 +46,7 @@ pub struct Blob {
     /// Extra info for the file.
     pub info: Info,
     /// Absolute path to the object from the root of the repo.
-    pub path: String,
+    pub path: PathBuf,
 }
 
 impl Blob {
@@ -114,38 +116,42 @@ impl Serialize for BlobContent {
 ///
 /// Will return [`Error`] if the project doesn't exist or a surf interaction
 /// fails.
-pub fn blob(
-    repo: &Repository,
-    maybe_revision: Option<Revision>,
-    path: &str,
-) -> Result<Blob, Error> {
+pub fn blob<P>(repo: &Repository, maybe_revision: Option<Revision>, path: &P) -> Result<Blob, Error>
+where
+    P: AsRef<Path>,
+{
     make_blob(repo, maybe_revision, path, content)
 }
 
-fn make_blob<C>(
+fn make_blob<P, C>(
     repo: &Repository,
     maybe_revision: Option<Revision>,
-    path: &str,
+    path: &P,
     content: C,
 ) -> Result<Blob, Error>
 where
+    P: AsRef<Path>,
     C: FnOnce(&[u8]) -> BlobContent,
 {
+    let path = path.as_ref();
     let revision = maybe_revision.unwrap();
     let root = repo.root_dir(&revision)?;
-    let p = file_system::Path::from_str(path)?;
 
     let file = root
-        .find_file(p.clone(), repo)?
-        .ok_or_else(|| Error::PathNotFound(p.clone()))?;
-
-    let mut commit_path = file_system::Path::root();
-    commit_path.append(p.clone());
+        .find_file(&path, repo)?
+        .ok_or_else(|| Error::PathNotFound(path.to_path_buf()))?;
 
     let last_commit = repo
-        .last_commit(commit_path, &revision)?
+        .last_commit(path, &revision)?
         .map(|c| commit::Header::from(&c));
-    let (_rest, last) = p.split_last();
+    // TODO: fuck this
+    let name = path
+        .file_name()
+        .unwrap()
+        .to_os_string()
+        .into_string()
+        .ok()
+        .unwrap();
 
     let file_content = repo.file_content(file)?;
     let content = content(file_content.as_bytes());
@@ -153,11 +159,11 @@ where
     Ok(Blob {
         content,
         info: Info {
-            name: last.to_string(),
+            name,
             object_type: ObjectType::Blob,
             last_commit,
         },
-        path: path.to_string(),
+        path: path.to_path_buf(),
     })
 }
 

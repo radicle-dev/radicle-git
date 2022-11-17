@@ -58,13 +58,13 @@ fn init_repository_or_exit(path_to_repo: &str) -> git::Repository {
 
 fn print_diff_summary(diff: &Diff, elapsed_nanos: u128) {
     diff.created.iter().for_each(|created| {
-        println!("+++ {}", created.path);
+        println!("+++ {:?}", created.path);
     });
     diff.deleted.iter().for_each(|deleted| {
-        println!("--- {}", deleted.path);
+        println!("--- {:?}", deleted.path);
     });
     diff.modified.iter().for_each(|modified| {
-        println!("mod {}", modified.path);
+        println!("mod {:?}", modified.path);
     });
 
     println!(

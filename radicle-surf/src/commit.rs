@@ -17,6 +17,8 @@
 
 //! Represents a commit.
 
+use std::path::PathBuf;
+
 use git_ref_format::RefString;
 #[cfg(feature = "serialize")]
 use serde::{
@@ -26,7 +28,6 @@ use serde::{
 
 use crate::{
     diff,
-    file_system,
     git::{self, glob, Glob, Repository},
     person::Person,
     revision::Revision,
@@ -245,10 +246,6 @@ pub fn commits(repo: &Repository, maybe_revision: Option<Revision>) -> Result<Co
 /// An error reported by commit API.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    /// An error occurred during a file system operation.
-    #[error(transparent)]
-    FileSystem(#[from] file_system::Error),
-
     /// An error occurred during a git operation.
     #[error(transparent)]
     Git(#[from] git::Error),
@@ -258,5 +255,5 @@ pub enum Error {
 
     /// Trying to find a file path which could not be found.
     #[error("the path '{0}' was not found")]
-    PathNotFound(file_system::Path),
+    PathNotFound(PathBuf),
 }

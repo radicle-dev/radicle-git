@@ -17,15 +17,12 @@
 
 use std::convert::TryFrom;
 
-use crate::{
-    diff::{self, Diff, EofNewLine, Hunk, Hunks, Line, LineDiff},
-    file_system::Path,
-};
+use crate::diff::{self, Diff, EofNewLine, Hunk, Hunks, Line, LineDiff};
 
 pub mod error {
-    use thiserror::Error;
+    use std::path::PathBuf;
 
-    use crate::file_system::{self, Path};
+    use thiserror::Error;
 
     #[derive(Debug, Error, PartialEq, Eq)]
     #[non_exhaustive]
@@ -54,8 +51,6 @@ pub mod error {
         #[error("git delta type is not handled")]
         DeltaUnhandled(git2::Delta),
         #[error(transparent)]
-        FileSystem(#[from] file_system::Error),
-        #[error(transparent)]
         Git(#[from] git2::Error),
         #[error(transparent)]
         Hunk(#[from] Hunk),
@@ -63,7 +58,7 @@ pub mod error {
         Line(#[from] LineDiff),
         /// A patch is unavailable.
         #[error("couldn't retrieve patch for {0}")]
-        PatchUnavailable(Path),
+        PatchUnavailable(PathBuf),
         /// A The path of a file isn't available.
         #[error("couldn't retrieve file path")]
         PathUnavailable,
@@ -95,8 +90,10 @@ impl<'a> TryFrom<git2::Diff<'a>> for Diff {
             match delta.status() {
                 Delta::Added => {
                     let diff_file = delta.new_file();
-                    let path = diff_file.path().ok_or(error::Diff::PathUnavailable)?;
-                    let path = Path::try_from(path.to_path_buf())?;
+                    let path = diff_file
+                        .path()
+                        .ok_or(error::Diff::PathUnavailable)?
+                        .to_path_buf();
 
                     let patch = Patch::from_diff(&git_diff, idx)?;
                     if let Some(patch) = patch {
@@ -117,9 +114,10 @@ impl<'a> TryFrom<git2::Diff<'a>> for Diff {
                 },
                 Delta::Deleted => {
                     let diff_file = delta.old_file();
-                    let path = diff_file.path().ok_or(error::Diff::PathUnavailable)?;
-                    let path = Path::try_from(path.to_path_buf())?;
-
+                    let path = diff_file
+                        .path()
+                        .ok_or(error::Diff::PathUnavailable)?
+                        .to_path_buf();
                     let patch = Patch::from_diff(&git_diff, idx)?;
                     if let Some(patch) = patch {
                         diff.add_deleted_file(
@@ -139,9 +137,10 @@ impl<'a> TryFrom<git2::Diff<'a>> for Diff {
                 },
                 Delta::Modified => {
                     let diff_file = delta.new_file();
-                    let path = diff_file.path().ok_or(error::Diff::PathUnavailable)?;
-                    let path = Path::try_from(path.to_path_buf())?;
-
+                    let path = diff_file
+                        .path()
+                        .ok_or(error::Diff::PathUnavailable)?
+                        .to_path_buf();
                     let patch = Patch::from_diff(&git_diff, idx)?;
 
                     if let Some(patch) = patch {
@@ -200,10 +199,7 @@ impl<'a> TryFrom<git2::Diff<'a>> for Diff {
                         .path()
                         .ok_or(error::Diff::PathUnavailable)?;
 
-                    let old_path = Path::try_from(old.to_path_buf())?;
-                    let new_path = Path::try_from(new.to_path_buf())?;
-
-                    diff.add_moved_file(old_path, new_path);
+                    diff.add_moved_file(old.to_path_buf(), new.to_path_buf());
                 },
                 Delta::Copied => {
                     let old = delta
@@ -215,10 +211,7 @@ impl<'a> TryFrom<git2::Diff<'a>> for Diff {
                         .path()
                         .ok_or(error::Diff::PathUnavailable)?;
 
-                    let old_path = Path::try_from(old.to_path_buf())?;
-                    let new_path = Path::try_from(new.to_path_buf())?;
-
-                    diff.add_copied_file(old_path, new_path);
+                    diff.add_copied_file(old.to_path_buf(), new.to_path_buf());
                 },
                 status => {
                     return Err(error::Diff::DeltaUnhandled(status));

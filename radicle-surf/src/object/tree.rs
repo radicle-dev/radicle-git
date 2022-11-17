@@ -18,7 +18,7 @@
 //! Represents git object type 'tree', i.e. like directory entries in Unix.
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
-use std::str::FromStr as _;
+use std::path::{Path, PathBuf};
 
 use git_ref_format::refname;
 #[cfg(feature = "serialize")]
@@ -29,7 +29,7 @@ use serde::{
 
 use crate::{
     commit,
-    file_system::{self, directory},
+    file_system::directory,
     git::Repository,
     object::{Error, Info, ObjectType},
     revision::Revision,
@@ -38,7 +38,7 @@ use crate::{
 /// Result of a directory listing, carries other trees and blobs.
 pub struct Tree {
     /// Absolute path to the tree object from the repo root.
-    pub path: String,
+    pub path: PathBuf,
     /// Entries listed in that tree result.
     pub entries: Vec<TreeEntry>,
     /// Extra info for the tree object.
@@ -65,7 +65,7 @@ pub struct TreeEntry {
     /// Extra info for the entry.
     pub info: Info,
     /// Absolute path to the object from the root of the repo.
-    pub path: String,
+    pub path: PathBuf,
 }
 
 #[cfg(feature = "serialize")]
@@ -86,12 +86,15 @@ impl Serialize for TreeEntry {
 /// # Errors
 ///
 /// Will return [`Error`] if any of the surf interactions fail.
-pub fn tree(
+pub fn tree<P>(
     repo: &Repository,
     maybe_revision: Option<Revision>,
-    maybe_prefix: Option<String>,
-) -> Result<Tree, Error> {
-    let prefix = maybe_prefix.unwrap_or_default();
+    maybe_prefix: Option<&P>,
+) -> Result<Tree, Error>
+where
+    P: AsRef<Path>,
+{
+    let maybe_prefix = maybe_prefix.map(|p| p.as_ref());
     let rev = match maybe_revision {
         Some(r) => r,
         None => Revision::Branch {
@@ -100,51 +103,42 @@ pub fn tree(
         },
     };
 
-    let path = if prefix == "/" || prefix.is_empty() {
-        file_system::Path::root()
-    } else {
-        file_system::Path::from_str(&prefix)?
+    let prefix_dir = match maybe_prefix {
+        None => repo.root_dir(&rev)?,
+        Some(path) => repo
+            .root_dir(&rev)?
+            .find_directory(path, repo)?
+            .ok_or_else(|| Error::PathNotFound(path.to_path_buf()))?,
     };
 
-    let root_dir = repo.root_dir(&rev)?;
-    let prefix_dir = if path.is_root() {
-        root_dir
-    } else {
-        root_dir
-            .find_directory(path.clone(), repo)?
-            .ok_or_else(|| Error::PathNotFound(path.clone()))?
-    };
+    let mut entries = prefix_dir
+        .entries(repo)?
+        .entries()
+        .fold(Vec::new(), |mut entries, entry| {
+            let entry_path = match maybe_prefix {
+                Some(path) => {
+                    let mut path = path.to_path_buf();
+                    path.push(entry.name());
+                    path
+                },
+                None => PathBuf::new(),
+            };
 
-    let mut entries =
-        prefix_dir
-            .entries(repo)?
-            .iter()
-            .fold(Vec::new(), |mut entries, (label, entry)| {
-                let entry_path = if path.is_root() {
-                    file_system::Path::new(label.clone())
-                } else {
-                    let mut p = path.clone();
-                    p.push(label.clone());
-                    p
-                };
-                let mut commit_path = file_system::Path::root();
-                commit_path.append(entry_path.clone());
+            let info = Info {
+                name: entry.name().clone(),
+                object_type: match entry {
+                    directory::Entry::Directory(_) => ObjectType::Tree,
+                    directory::Entry::File { .. } => ObjectType::Blob,
+                },
+                last_commit: None,
+            };
 
-                let info = Info {
-                    name: label.to_string(),
-                    object_type: match entry {
-                        directory::Entry::Directory(_) => ObjectType::Tree,
-                        directory::Entry::File { .. } => ObjectType::Blob,
-                    },
-                    last_commit: None,
-                };
-
-                entries.push(TreeEntry {
-                    info,
-                    path: entry_path.to_string(),
-                });
-                entries
+            entries.push(TreeEntry {
+                info,
+                path: entry_path,
             });
+            entries
+        });
 
     // We want to ensure that in the response Tree entries come first. `Ord` being
     // derived on the enum ensures Variant declaration order.
@@ -152,17 +146,15 @@ pub fn tree(
     // https://doc.rust-lang.org/std/cmp/trait.Ord.html#derivable
     entries.sort_by(|a, b| a.info.object_type.cmp(&b.info.object_type));
 
-    let last_commit = if path.is_root() {
+    let last_commit = if maybe_prefix.is_none() {
         let history = repo.history(&rev)?;
         Some(commit::Header::from(history.head()))
     } else {
         None
     };
-    let name = if path.is_root() {
-        "".into()
-    } else {
-        let (_first, last) = path.split_last();
-        last.to_string()
+    let name = match maybe_prefix {
+        None => "".into(),
+        Some(path) => path.file_name().unwrap().to_str().unwrap().to_string(),
     };
     let info = Info {
         name,
@@ -171,7 +163,7 @@ pub fn tree(
     };
 
     Ok(Tree {
-        path: prefix,
+        path: maybe_prefix.map_or(PathBuf::new(), |path| path.to_path_buf()),
         entries,
         info,
     })
