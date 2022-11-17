@@ -32,7 +32,7 @@ mod path {
 mod directory {
     use git_ref_format::refname;
     use radicle_surf::{
-        file_system::DirectoryEntry,
+        file_system::directory,
         git::{Branch, Repository},
     };
     use std::path::Path;
@@ -40,38 +40,38 @@ mod directory {
     const GIT_PLATINUM: &str = "../data/git-platinum";
 
     #[test]
-    fn directory_get_path() {
+    fn directory_find_entry() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         let root = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
 
-        // get_path for a file.
+        // find_entry for a file.
         let path = Path::new("src/memory.rs");
-        let entry = root.get_path(path, &repo).unwrap();
-        assert!(matches!(entry, DirectoryEntry::File(_)));
+        let entry = root.find_entry(path, &repo).unwrap();
+        assert!(matches!(entry, Some(directory::Entry::File(_))));
 
-        // get_path for a directory.
+        // find_entry for a directory.
         let path = Path::new("this/is/a/really/deeply/nested/directory/tree");
-        let entry = root.get_path(path, &repo).unwrap();
-        assert!(matches!(entry, DirectoryEntry::Directory(_)));
+        let entry = root.find_entry(path, &repo).unwrap();
+        assert!(matches!(entry, Some(directory::Entry::Directory(_))));
 
-        // get_path for a non-leaf directory and its relative path.
+        // find_entry for a non-leaf directory and its relative path.
         let path = Path::new("text");
-        let entry = root.get_path(path, &repo).unwrap();
-        assert!(matches!(entry, DirectoryEntry::Directory(_)));
-        if let DirectoryEntry::Directory(sub_dir) = entry {
+        let entry = root.find_entry(path, &repo).unwrap();
+        assert!(matches!(entry, Some(directory::Entry::Directory(_))));
+        if let Some(directory::Entry::Directory(sub_dir)) = entry {
             let inner_path = Path::new("garden.txt");
-            let inner_entry = sub_dir.get_path(inner_path, &repo).unwrap();
-            assert!(matches!(inner_entry, DirectoryEntry::File(_)));
+            let inner_entry = sub_dir.find_entry(inner_path, &repo).unwrap();
+            assert!(matches!(inner_entry, Some(directory::Entry::File(_))));
         }
 
-        // get_path for non-existing file
+        // find_entry for non-existing file
         let path = Path::new("this/is/a/really/missing_file");
-        let result = root.get_path(path, &repo);
-        assert!(result.is_err());
+        let result = root.find_entry(path, &repo).unwrap();
+        assert_eq!(result, None);
 
-        // get_path for absolute path: fail.
+        // find_entry for absolute path: fail.
         let path = Path::new("/src/memory.rs");
-        let result = root.get_path(path, &repo);
+        let result = root.find_entry(path, &repo);
         assert!(result.is_err());
     }
 
@@ -89,9 +89,9 @@ mod directory {
          */
 
         let path = Path::new("src");
-        let entry = root.get_path(path, &repo).unwrap();
-        assert!(matches!(entry, DirectoryEntry::Directory(_)));
-        if let DirectoryEntry::Directory(d) = entry {
+        let entry = root.find_entry(path, &repo).unwrap();
+        assert!(matches!(entry, Some(directory::Entry::Directory(_))));
+        if let Some(directory::Entry::Directory(d)) = entry {
             assert_eq!(16297, d.size(&repo).unwrap());
         }
     }

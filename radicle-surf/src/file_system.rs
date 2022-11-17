@@ -111,8 +111,9 @@
 //! ```
 
 pub mod directory;
+pub use directory::{Directory, Entries, Entry, File, FileContent};
 mod error;
 pub use error::Error;
 mod path;
 
-pub use self::{directory::*, path::*};
+pub use self::path::*;

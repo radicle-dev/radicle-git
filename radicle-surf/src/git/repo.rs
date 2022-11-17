@@ -15,14 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    convert::TryFrom,
-    path::PathBuf,
-    str,
-};
+use std::{collections::BTreeSet, convert::TryFrom, path::PathBuf, str};
 
-use directory::{Directory, FileContent};
 use git_ref_format::{refspec::QualifiedPattern, Qualified};
 use radicle_git_ext::Oid;
 use thiserror::Error;
@@ -30,7 +24,7 @@ use thiserror::Error;
 use crate::{
     diff::{self, *},
     file_system,
-    file_system::{directory, DirectoryEntry, Label},
+    file_system::{directory::FileContent, Directory, Label},
     git::{
         commit,
         glob,
@@ -195,58 +189,8 @@ impl Repository {
         let tree = git2_commit.as_object().peel_to_tree()?;
         Ok(Directory {
             name: Label::root(),
-            oid: tree.id().into(),
+            id: tree.id().into(),
         })
-    }
-
-    /// Retrieves the content of a directory.
-    pub(crate) fn directory_get(
-        &self,
-        d: &Directory,
-    ) -> Result<BTreeMap<Label, DirectoryEntry>, Error> {
-        let git2_tree = self.inner.find_tree(d.oid.into())?;
-        let map = self.tree_first_level(git2_tree)?;
-        Ok(map)
-    }
-
-    /// Returns a map of the first level entries in `tree`.
-    fn tree_first_level(&self, tree: git2::Tree) -> Result<BTreeMap<Label, DirectoryEntry>, Error> {
-        let mut map = BTreeMap::new();
-
-        // Walks only the first level of entries.
-        tree.walk(git2::TreeWalkMode::PreOrder, |_s, entry| {
-            let oid = entry.id().into();
-            let label = match entry.name() {
-                Some(name) => match name.parse::<Label>() {
-                    Ok(label) => label,
-                    Err(_) => return git2::TreeWalkResult::Abort,
-                },
-                None => return git2::TreeWalkResult::Abort,
-            };
-
-            match entry.kind() {
-                Some(git2::ObjectType::Tree) => {
-                    let dir = Directory::new(label.clone(), oid);
-                    map.insert(label, DirectoryEntry::Directory(dir));
-                    return git2::TreeWalkResult::Skip; // Not go into nested
-                                                       // directories.
-                },
-                Some(git2::ObjectType::Blob) => {
-                    let f = directory::File {
-                        name: label.clone(),
-                        oid,
-                    };
-                    map.insert(label, DirectoryEntry::File(f));
-                },
-                _ => {
-                    return git2::TreeWalkResult::Skip;
-                },
-            }
-
-            git2::TreeWalkResult::Ok
-        })?;
-
-        Ok(map)
     }
 
     /// Returns the last commit, if exists, for a `path` in the history of
@@ -292,12 +236,6 @@ impl Repository {
     pub(crate) fn file_content(&self, object_id: Oid) -> Result<FileContent, Error> {
         let blob = self.inner.find_blob(object_id.into())?;
         Ok(FileContent::new(blob))
-    }
-
-    /// Return the size of a file
-    pub(crate) fn file_size(&self, oid: Oid) -> Result<usize, Error> {
-        let blob = self.inner.find_blob(oid.into())?;
-        Ok(blob.size())
     }
 
     /// Retrieves the file with `path` in this commit.
