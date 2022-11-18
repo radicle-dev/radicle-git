@@ -10,7 +10,7 @@ fn basic_test() -> Result<(), Error> {
     let shared_repo = Mutex::new(Repository::open(GIT_PLATINUM)?);
     let locked_repo: MutexGuard<Repository> = shared_repo.lock().unwrap();
     let mut branches = locked_repo
-        .branches(&Glob::heads("*")?.and_remotes("*")?)?
+        .branches(Glob::all_heads().branches().and(Glob::all_remotes()))?
         .collect::<Result<Vec<_>, _>>()?;
     branches.sort();
 

@@ -1,4 +1,4 @@
-use git_ref_format::{name::component, refname};
+use git_ref_format::{name::component, refname, refspec};
 use pretty_assertions::{assert_eq, assert_ne};
 use radicle_surf::git::{Branch, Error, Glob, Repository};
 
@@ -31,7 +31,7 @@ fn me_namespace() -> Result<(), Error> {
 
     let expected_branches: Vec<Branch> = vec![Branch::local(refname!("feature/#1194"))];
     let mut branches = repo
-        .branches(&Glob::heads("*")?)?
+        .branches(Glob::all_heads())?
         .collect::<Result<Vec<_>, _>>()?;
     branches.sort();
 
@@ -42,7 +42,7 @@ fn me_namespace() -> Result<(), Error> {
         refname!("heads/feature/#1194"),
     )];
     let mut branches = repo
-        .branches(&Glob::remotes("fein/*")?)?
+        .branches(Glob::remotes(refspec::pattern!("fein/*")))?
         .collect::<Result<Vec<_>, _>>()?;
     branches.sort();
 
@@ -70,7 +70,7 @@ fn golden_namespace() -> Result<(), Error> {
         Branch::local(refname!("master")),
     ];
     let mut branches = repo
-        .branches(&Glob::heads("*")?)?
+        .branches(Glob::all_heads())?
         .collect::<Result<Vec<_>, _>>()?;
     branches.sort();
 
@@ -85,7 +85,7 @@ fn golden_namespace() -> Result<(), Error> {
         Branch::remote(remote, refname!("tags/v0.1.0")),
     ];
     let mut branches = repo
-        .branches(&Glob::remotes("kickflip/*")?)?
+        .branches(Glob::remotes(refspec::pattern!("kickflip/*")))?
         .collect::<Result<Vec<_>, _>>()?;
     branches.sort();
 
@@ -111,7 +111,7 @@ fn silver_namespace() -> Result<(), Error> {
 
     let expected_branches: Vec<Branch> = vec![Branch::local(refname!("master"))];
     let mut branches = repo
-        .branches(&Glob::heads("*")?.and_remotes("*")?)?
+        .branches(Glob::all_heads().branches().and(Glob::all_remotes()))?
         .collect::<Result<Vec<_>, _>>()?;
     branches.sort();
 

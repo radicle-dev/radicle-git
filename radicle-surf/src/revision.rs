@@ -19,7 +19,7 @@
 
 use std::collections::BTreeSet;
 
-use git_ref_format::{lit, Qualified, RefString};
+use git_ref_format::{lit, refspec, Qualified, RefString};
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -118,12 +118,14 @@ pub struct Revisions<P, U> {
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn remote<P, U>(repo: &Repository, peer_id: P, user: U) -> Result<Revisions<P, U>, Error>
-where
-    P: Clone + ToString,
-{
+pub fn remote<U>(
+    repo: &Repository,
+    peer_id: RefString,
+    user: U,
+) -> Result<Revisions<RefString, U>, Error> {
+    let pattern = peer_id.to_pattern(refspec::pattern!("*"));
     let branches = repo
-        .branch_names(&Glob::remotes(&format!("{}/*", peer_id.to_string()))?)?
+        .branch_names(Glob::remotes(pattern))?
         .map(|name| name.map(RefString::from))
         .collect::<Result<_, _>>()?;
     Ok(Revisions {
@@ -144,12 +146,13 @@ where
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn local<P, U>(repo: &Repository, peer_id: P, user: U) -> Result<Revisions<P, U>, Error>
-where
-    P: Clone + ToString,
-{
+pub fn local<U>(
+    repo: &Repository,
+    peer_id: RefString,
+    user: U,
+) -> Result<Revisions<RefString, U>, Error> {
     let branches = repo
-        .branch_names(&Glob::heads("*")?)?
+        .branch_names(Glob::all_heads())?
         .map(|name| name.map(RefString::from))
         .collect::<Result<_, _>>()?;
     let tags = repo
@@ -175,10 +178,10 @@ where
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn revisions<P, U>(repo: &Repository, peer: Category<P, U>) -> Result<Revisions<P, U>, Error>
-where
-    P: Clone + ToString,
-{
+pub fn revisions<U>(
+    repo: &Repository,
+    peer: Category<RefString, U>,
+) -> Result<Revisions<RefString, U>, Error> {
     match peer {
         Category::Local { peer_id, user } => local(repo, peer_id, user),
         Category::Remote { peer_id, user } => remote(repo, peer_id, user),
