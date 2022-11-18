@@ -16,15 +16,16 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use git_ref_format::refname;
 use radicle_surf::{
     file_system::{unsound, Path},
-    vcs::git::{Branch, Repository},
+    git::{Branch, Repository},
 };
 
 fn last_commit_comparison(c: &mut Criterion) {
     let repo = Repository::open("./data/git-platinum")
         .expect("Could not retrieve ./data/git-platinum as git repository");
-    let rev = Branch::local("master");
+    let rev = Branch::local(refname!("master"));
 
     let mut group = c.benchmark_group("Last Commit");
     for path in [

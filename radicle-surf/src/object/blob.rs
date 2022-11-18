@@ -114,25 +114,21 @@ impl Serialize for BlobContent {
 ///
 /// Will return [`Error`] if the project doesn't exist or a surf interaction
 /// fails.
-pub fn blob<P>(
+pub fn blob(
     repo: &RepositoryRef,
-    maybe_revision: Option<Revision<P>>,
+    maybe_revision: Option<Revision>,
     path: &str,
-) -> Result<Blob, Error>
-where
-    P: ToString,
-{
+) -> Result<Blob, Error> {
     make_blob(repo, maybe_revision, path, content)
 }
 
-fn make_blob<P, C>(
+fn make_blob<C>(
     repo: &RepositoryRef,
-    maybe_revision: Option<Revision<P>>,
+    maybe_revision: Option<Revision>,
     path: &str,
     content: C,
 ) -> Result<Blob, Error>
 where
-    P: ToString,
     C: FnOnce(&[u8]) -> BlobContent,
 {
     let revision = maybe_revision.unwrap();

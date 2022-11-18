@@ -15,8 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#![deny(missing_docs, unused_import_braces, unused_qualifications, warnings)]
-
 //! Welcome to `radicle-surf`!
 //!
 //! `radicle-surf` is a system to describe a file-system in a VCS world.
@@ -82,9 +80,14 @@
 //! # Ok(())
 //! # }
 //! ```
+
+pub extern crate git_ref_format;
+
+extern crate radicle_git_ext as git_ext;
+
 pub mod diff;
 pub mod file_system;
-pub mod vcs;
+pub mod git;
 
 pub mod commit;
 pub use commit::{commit, commits, Commit};
@@ -105,5 +108,3 @@ pub use syntax::SYNTAX_SET;
 
 // Private modules
 mod nonempty;
-
-pub use crate::vcs::git;

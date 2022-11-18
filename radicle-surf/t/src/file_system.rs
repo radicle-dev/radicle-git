@@ -30,6 +30,7 @@ mod path {
 
 #[cfg(test)]
 mod directory {
+    use git_ref_format::refname;
     use radicle_surf::{
         file_system::DirectoryEntry,
         git::{Branch, Repository},
@@ -42,7 +43,7 @@ mod directory {
     fn directory_get_path() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
-        let root = repo.root_dir(&Branch::local("master")).unwrap();
+        let root = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
 
         // get_path for a file.
         let path = Path::new("src/memory.rs");
@@ -79,7 +80,7 @@ mod directory {
     fn directory_size() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
-        let root = repo.root_dir(&Branch::local("master")).unwrap();
+        let root = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
 
         /*
         git-platinum (master) $ ls -l src

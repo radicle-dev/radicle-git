@@ -67,6 +67,7 @@ use std::str::FromStr;
 
 // Re-export git2 as sub-module
 pub use git2::{self, Error as Git2Error, Time};
+use git_ref_format::{name::Components, Component, Qualified, RefString};
 pub use radicle_git_ext::Oid;
 
 mod repo;
@@ -81,15 +82,13 @@ pub use history::History;
 pub mod error;
 pub use error::Error;
 
-pub mod ext;
-
 /// Provides the data for talking about branches.
 pub mod branch;
-pub use branch::{Branch, BranchName, BranchType};
+pub use branch::{Branch, Local, Remote};
 
 /// Provides the data for talking about tags.
 pub mod tag;
-pub use tag::{Tag, TagName};
+pub use tag::Tag;
 
 /// Provides the data for talking about commits.
 pub mod commit;
@@ -115,39 +114,34 @@ impl From<git2::Buf> for Signature {
     }
 }
 
-/// Determines whether to look for local or remote references or both.
-pub enum RefScope {
-    /// List all branches by default.
-    All,
-    /// List only local branches.
-    Local,
-    /// List only remote branches.
-    Remote {
-        /// Name of the remote. If `None`, then get the reference from all
-        /// remotes.
-        name: Option<String>,
-    },
-}
-
-/// Turn an `Option<P>` into a [`RefScope`]. If the `P` is present then
-/// this is set as the remote of the `RefScope`. Otherwise, it's local
-/// branch.
-impl<P> From<Option<P>> for RefScope
-where
-    P: ToString,
-{
-    fn from(peer_id: Option<P>) -> Self {
-        peer_id.map_or(RefScope::Local, |peer_id| RefScope::Remote {
-            // We qualify the remotes as the PeerId + heads, otherwise we would grab the tags too.
-            name: Some(format!("{}/heads", peer_id.to_string())),
-        })
-    }
-}
-
 /// Supports various ways to specify a revision used in Git.
 pub trait Revision {
     /// Returns the object id of this revision in `repo`.
     fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error>;
+}
+
+impl Revision for RefString {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        repo.refname_to_oid(self.as_str())
+    }
+}
+
+impl Revision for &RefString {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        repo.refname_to_oid(self.as_str())
+    }
+}
+
+impl Revision for Qualified<'_> {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        repo.refname_to_oid(self.as_str())
+    }
+}
+
+impl Revision for &Qualified<'_> {
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+        repo.refname_to_oid(self.as_str())
+    }
 }
 
 impl Revision for Oid {
@@ -176,9 +170,6 @@ impl Revision for &Tag {
     }
 }
 
-impl Revision for &TagName {
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
-        let refname = repo.namespaced_refname(&self.refname())?;
-        Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
-    }
+pub(crate) fn refstr_join<'a>(c: Component<'a>, cs: Components<'a>) -> RefString {
+    std::iter::once(c).chain(cs).collect::<RefString>()
 }

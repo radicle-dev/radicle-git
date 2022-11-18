@@ -22,7 +22,7 @@
 
 use crate::{
     file_system::{error::LabelError, path::*, Error},
-    vcs::git::{self, RepositoryRef, Revision},
+    git::{self, RepositoryRef, Revision},
 };
 use git2::Blob;
 use radicle_git_ext::Oid;
