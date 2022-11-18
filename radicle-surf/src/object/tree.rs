@@ -28,7 +28,7 @@ use serde::{
 
 use crate::{
     commit,
-    file_system::{self, DirectoryContents},
+    file_system::{self, DirectoryEntry},
     git::RepositoryRef,
     object::{Error, Info, ObjectType},
     revision::Revision,
@@ -108,17 +108,18 @@ where
         file_system::Path::from_str(&prefix)?
     };
 
-    let root_dir = repo.snapshot(&rev)?;
+    let root_dir = repo.root_dir(&rev)?;
     let prefix_dir = if path.is_root() {
-        &root_dir
+        root_dir
     } else {
         root_dir
-            .find_directory(path.clone())
+            .find_directory(path.clone(), repo)
             .ok_or_else(|| Error::PathNotFound(path.clone()))?
     };
 
     let entries_results: Result<Vec<TreeEntry>, Error> = prefix_dir
-        .contents()
+        .contents(repo)?
+        .iter()
         .map(|entry| {
             let entry_path = if path.is_root() {
                 file_system::Path::new(entry.label().clone())
@@ -133,8 +134,8 @@ where
             let info = Info {
                 name: entry.label().to_string(),
                 object_type: match entry {
-                    DirectoryContents::Directory(_) => ObjectType::Tree,
-                    DirectoryContents::File { .. } => ObjectType::Blob,
+                    DirectoryEntry::Directory(_) => ObjectType::Tree,
+                    DirectoryEntry::File { .. } => ObjectType::Blob,
                 },
                 last_commit: None,
             };

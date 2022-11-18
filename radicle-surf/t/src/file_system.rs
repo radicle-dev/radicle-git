@@ -4,93 +4,6 @@
 //! Unit tests for radicle_surf::file_system
 
 #[cfg(test)]
-mod list_directory {
-    use radicle_surf::file_system::{unsound, Directory, File, Label};
-
-    #[test]
-    fn root_files() {
-        let mut directory = Directory::root();
-        directory.insert_file(
-            unsound::path::new("foo.hs"),
-            File::new(b"module BananaFoo ..."),
-        );
-        directory.insert_file(
-            unsound::path::new("bar.hs"),
-            File::new(b"module BananaBar ..."),
-        );
-        directory.insert_file(
-            unsound::path::new("baz.hs"),
-            File::new(b"module BananaBaz ..."),
-        );
-
-        let files: Vec<Label> = directory.contents().map(|c| c.label().clone()).collect();
-        assert_eq!(
-            files,
-            vec![
-                "bar.hs".parse::<Label>().unwrap(),
-                "baz.hs".parse::<Label>().unwrap(),
-                "foo.hs".parse::<Label>().unwrap(),
-            ]
-        );
-    }
-}
-
-#[cfg(test)]
-mod find_file {
-    use radicle_surf::file_system::{unsound, *};
-
-    #[test]
-    fn in_root() {
-        let file = File::new(b"module Banana ...");
-        let mut directory = Directory::root();
-        directory.insert_file(unsound::path::new("bar/foo.hs"), file.clone());
-
-        assert_eq!(
-            directory.find_file(unsound::path::new("bar/foo.hs")),
-            Some(&file)
-        );
-    }
-
-    #[test]
-    fn file_does_not_exist() {
-        let file_path = unsound::path::new("bar.hs");
-
-        let file = File::new(b"module Banana ...");
-
-        let mut directory = Directory::root();
-        directory.insert_file(unsound::path::new("foo.hs"), file);
-
-        assert_eq!(directory.find_file(file_path), None)
-    }
-}
-
-#[cfg(test)]
-mod directory_size {
-    use nonempty::NonEmpty;
-    use radicle_surf::file_system::{unsound, Directory, File};
-
-    #[test]
-    fn root_directory_files() {
-        let mut root = Directory::root();
-        root.insert_files(
-            &[],
-            NonEmpty::from((
-                (
-                    unsound::label::new("main.rs"),
-                    File::new(b"println!(\"Hello, world!\")"),
-                ),
-                vec![(
-                    unsound::label::new("lib.rs"),
-                    File::new(b"struct Hello(String)"),
-                )],
-            )),
-        );
-
-        assert_eq!(root.size(), 45);
-    }
-}
-
-#[cfg(test)]
 mod path {
     use radicle_surf::file_system::unsound;
 
@@ -112,5 +25,75 @@ mod path {
                 unsound::label::new("foo")
             )
         );
+    }
+}
+
+#[cfg(test)]
+mod directory {
+    use radicle_surf::{
+        file_system::DirectoryEntry,
+        git::{Branch, Repository},
+    };
+    use std::path::Path;
+
+    const GIT_PLATINUM: &str = "../data/git-platinum";
+
+    #[test]
+    fn directory_get_path() {
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
+        let repo = repo.as_ref();
+        let root = repo.root_dir(&Branch::local("master")).unwrap();
+
+        // get_path for a file.
+        let path = Path::new("src/memory.rs");
+        let entry = root.get_path(path, &repo).unwrap();
+        assert!(matches!(entry, DirectoryEntry::File(_)));
+
+        // get_path for a directory.
+        let path = Path::new("this/is/a/really/deeply/nested/directory/tree");
+        let entry = root.get_path(path, &repo).unwrap();
+        assert!(matches!(entry, DirectoryEntry::Directory(_)));
+
+        // get_path for a non-leaf directory and its relative path.
+        let path = Path::new("text");
+        let entry = root.get_path(path, &repo).unwrap();
+        assert!(matches!(entry, DirectoryEntry::Directory(_)));
+        if let DirectoryEntry::Directory(sub_dir) = entry {
+            let inner_path = Path::new("garden.txt");
+            let inner_entry = sub_dir.get_path(inner_path, &repo).unwrap();
+            assert!(matches!(inner_entry, DirectoryEntry::File(_)));
+        }
+
+        // get_path for non-existing file
+        let path = Path::new("this/is/a/really/missing_file");
+        let result = root.get_path(path, &repo);
+        assert!(result.is_err());
+
+        // get_path for absolute path: fail.
+        let path = Path::new("/src/memory.rs");
+        let result = root.get_path(path, &repo);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn directory_size() {
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
+        let repo = repo.as_ref();
+        let root = repo.root_dir(&Branch::local("master")).unwrap();
+
+        /*
+        git-platinum (master) $ ls -l src
+        -rw-r--r-- 1 pi pi 10044 Oct 31 11:32 Eval.hs
+        -rw-r--r-- 1 pi pi  6253 Oct 31 11:27 memory.rs
+
+        10044 + 6253 = 16297
+         */
+
+        let path = Path::new("src");
+        let entry = root.get_path(path, &repo).unwrap();
+        assert!(matches!(entry, DirectoryEntry::Directory(_)));
+        if let DirectoryEntry::Directory(d) = entry {
+            assert_eq!(16297, d.size(&repo).unwrap());
+        }
     }
 }

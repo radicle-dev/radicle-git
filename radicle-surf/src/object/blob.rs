@@ -136,11 +136,11 @@ where
     C: FnOnce(&[u8]) -> BlobContent,
 {
     let revision = maybe_revision.unwrap();
-    let root = repo.snapshot(&revision)?;
+    let root = repo.root_dir(&revision)?;
     let p = file_system::Path::from_str(path)?;
 
     let file = root
-        .find_file(p.clone())
+        .find_file(p.clone(), repo)
         .ok_or_else(|| Error::PathNotFound(p.clone()))?;
 
     let mut commit_path = file_system::Path::root();
@@ -151,7 +151,8 @@ where
         .map(|c| commit::Header::from(&c));
     let (_rest, last) = p.split_last();
 
-    let content = content(&file.contents);
+    let file_content = repo.file_content(file)?;
+    let content = content(file_content.as_bytes());
 
     Ok(Blob {
         content,

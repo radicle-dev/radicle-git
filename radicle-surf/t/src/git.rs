@@ -7,7 +7,7 @@
 use radicle_surf::git::{Author, BranchType, Commit};
 use radicle_surf::{
     diff::*,
-    file_system::{unsound, DirectoryContents, Path},
+    file_system::{unsound, DirectoryEntry, Path},
     git::{error::Error, Branch, Glob, Namespace, Oid, Repository, TagName},
 };
 
@@ -18,7 +18,7 @@ const GIT_PLATINUM: &str = "../data/git-platinum";
 // An issue with submodules, see: https://github.com/radicle-dev/radicle-surf/issues/54
 fn test_submodule_failure() {
     let repo = Repository::discover(".").unwrap();
-    repo.as_ref().snapshot(&Branch::local("main")).unwrap();
+    repo.as_ref().root_dir(&Branch::local("main")).unwrap();
 }
 
 #[cfg(test)]
@@ -744,8 +744,8 @@ mod reference {
             .collect::<Result<Vec<Tag>, Error>>()
             .unwrap();
         assert_eq!(tags.len(), 6);
-        let root_dir = repo_ref.snapshot(&tags[0]).unwrap();
-        assert_eq!(root_dir.contents().count(), 1);
+        let root_dir = repo_ref.root_dir(&tags[0]).unwrap();
+        assert_eq!(root_dir.contents(&repo_ref).unwrap().iter().count(), 1);
     }
 
     #[test]
@@ -767,27 +767,49 @@ mod reference {
 
 mod code_browsing {
     use super::*;
-    use radicle_surf::file_system::Directory;
+    use radicle_surf::{file_system::Directory, git::RepositoryRef};
 
     #[test]
     fn iterate_root_dir_recursive() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         let repo = repo.as_ref();
-        let root_dir = repo.snapshot(&Branch::local("master")).unwrap();
-        let count = println_dir(&root_dir, 0);
+        let root_dir = repo.root_dir(&Branch::local("master")).unwrap();
+        let count = println_dir(&root_dir, &repo, 0);
         assert_eq!(count, 36); // Check total file count.
 
         /// Prints items in `dir` with `indent_level`.
         /// For sub-directories, will do Depth-First-Search and print
         /// recursively.
         /// Returns the number of items visited (i.e. printed)
-        fn println_dir(dir: &Directory, indent_level: usize) -> i32 {
+        fn println_dir(dir: &Directory, repo: &RepositoryRef, indent_level: usize) -> i32 {
             let mut count = 0;
-            for item in dir.contents() {
+            for item in dir.contents(repo).unwrap().iter() {
                 println!("> {}{}", " ".repeat(indent_level * 4), &item.label());
                 count += 1;
-                if let DirectoryContents::Directory(sub_dir) = item {
-                    count += println_dir(sub_dir, indent_level + 1);
+                if let DirectoryEntry::Directory(sub_dir) = item {
+                    count += println_dir(sub_dir, repo, indent_level + 1);
+                }
+            }
+            count
+        }
+    }
+
+    #[test]
+    fn browse_repo_lazily() {
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
+        let repo = repo.as_ref();
+        let root_dir = repo.root_dir(&Branch::local("master")).unwrap();
+        let count = root_dir.contents(&repo).unwrap().iter().count();
+        assert_eq!(count, 8);
+        let count = traverse(&root_dir, &repo);
+        assert_eq!(count, 36);
+
+        fn traverse(dir: &Directory, repo: &RepositoryRef) -> i32 {
+            let mut count = 0;
+            for item in dir.contents(repo).unwrap().iter() {
+                count += 1;
+                if let DirectoryEntry::Directory(sub_dir) = item {
+                    count += traverse(sub_dir, repo)
                 }
             }
             count
