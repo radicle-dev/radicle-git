@@ -17,7 +17,7 @@
 
 use crate::{
     file_system,
-    git::{commit::ToCommit, Commit, Error, RepositoryRef},
+    git::{Commit, Error, RepositoryRef, ToCommit},
 };
 use std::convert::TryFrom;
 
@@ -38,7 +38,9 @@ enum FilterBy {
 impl<'a> History<'a> {
     /// Creates a new history starting from `head`, in `repo`.
     pub fn new<C: ToCommit>(repo: RepositoryRef<'a>, head: C) -> Result<Self, Error> {
-        let head = head.to_commit(&repo)?;
+        let head = head
+            .to_commit(&repo)
+            .map_err(|err| Error::ToCommit(err.into()))?;
         let mut revwalk = repo.repo_ref.revwalk()?;
         revwalk.push(head.id.into())?;
         let history = Self {

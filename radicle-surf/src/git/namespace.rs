@@ -15,10 +15,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::git::error::Error;
+use std::{convert::TryFrom, fmt, str};
+
 use nonempty::NonEmpty;
 pub use radicle_git_ext::Oid;
-use std::{convert::TryFrom, fmt, str};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    /// When parsing a namespace we may come across one that was an empty
+    /// string.
+    #[error("tried parsing the namespace but it was empty")]
+    EmptyNamespace,
+    #[error(transparent)]
+    Utf8(#[from] str::Utf8Error),
+}
 
 /// A `Namespace` value allows us to switch the git namespace of
 /// a repo.

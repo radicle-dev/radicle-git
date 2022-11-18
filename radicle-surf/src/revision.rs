@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 
 use radicle_git_ext::Oid;
 
-use crate::git::{self, commit::ToCommit, error::Error, Glob, RepositoryRef};
+use crate::git::{self, Error, Glob, RepositoryRef};
 
 /// Types of a peer.
 pub enum Category<P, U> {
@@ -76,7 +76,9 @@ pub enum Revision {
 }
 
 impl git::Revision for &Revision {
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+    type Error = git2::Error;
+
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
         match self {
             Revision::Tag { name } => match name.qualified() {
                 None => Qualified::from(lit::refs_tags(name)).object_id(repo),
@@ -90,12 +92,6 @@ impl git::Revision for &Revision {
             },
             Revision::Sha { sha } => Ok(*sha),
         }
-    }
-}
-
-impl ToCommit for &Revision {
-    fn to_commit(self, repo: &RepositoryRef) -> Result<git::Commit, Error> {
-        repo.commit(self)
     }
 }
 

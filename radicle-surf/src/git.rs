@@ -63,7 +63,7 @@
 //! # }
 //! ```
 
-use std::str::FromStr;
+use std::{convert::Infallible, str::FromStr};
 
 // Re-export git2 as sub-module
 pub use git2::{self, Error as Git2Error, Time};
@@ -71,16 +71,13 @@ use git_ref_format::{name::Components, Component, Qualified, RefString};
 pub use radicle_git_ext::Oid;
 
 mod repo;
-pub use repo::{Repository, RepositoryRef};
+pub use repo::{Error, Repository, RepositoryRef};
 
-mod glob;
+pub mod glob;
 pub use glob::Glob;
 
 mod history;
 pub use history::History;
-
-pub mod error;
-pub use error::Error;
 
 /// Provides the data for talking about branches.
 pub mod branch;
@@ -116,57 +113,100 @@ impl From<git2::Buf> for Signature {
 
 /// Supports various ways to specify a revision used in Git.
 pub trait Revision {
+    type Error: std::error::Error + Send + Sync + 'static;
+
     /// Returns the object id of this revision in `repo`.
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error>;
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error>;
 }
 
 impl Revision for RefString {
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
-        repo.refname_to_oid(self.as_str())
+    type Error = git2::Error;
+
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+        repo.repo_ref.refname_to_id(self.as_str()).map(Oid::from)
     }
 }
 
 impl Revision for &RefString {
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
-        repo.refname_to_oid(self.as_str())
+    type Error = git2::Error;
+
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+        repo.repo_ref.refname_to_id(self.as_str()).map(Oid::from)
     }
 }
 
 impl Revision for Qualified<'_> {
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
-        repo.refname_to_oid(self.as_str())
+    type Error = git2::Error;
+
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+        repo.repo_ref.refname_to_id(self.as_str()).map(Oid::from)
     }
 }
 
 impl Revision for &Qualified<'_> {
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
-        repo.refname_to_oid(self.as_str())
+    type Error = git2::Error;
+
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+        repo.repo_ref.refname_to_id(self.as_str()).map(Oid::from)
     }
 }
 
 impl Revision for Oid {
-    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Error> {
+    type Error = Infallible;
+
+    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Self::Error> {
         Ok(*self)
     }
 }
 
 impl Revision for &str {
-    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Error> {
-        Oid::from_str(self).map_err(Error::Git)
+    type Error = git2::Error;
+
+    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+        Oid::from_str(self).map(Oid::from)
     }
 }
 
 impl Revision for &Branch {
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
+    type Error = Error;
+
+    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
         let refname = repo.namespaced_refname(&self.refname())?;
         Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
     }
 }
 
 impl Revision for &Tag {
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Error> {
-        let refname = repo.namespaced_refname(&self.refname())?;
-        Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
+    type Error = Infallible;
+
+    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+        Ok(self.id())
+    }
+}
+
+/// A common trait for anything that can convert to a `Commit`.
+pub trait ToCommit {
+    type Error: std::error::Error + Send + Sync + 'static;
+
+    /// Converts to a commit in `repo`.
+    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Self::Error>;
+}
+
+impl ToCommit for Commit {
+    type Error = Infallible;
+
+    fn to_commit(self, _repo: &RepositoryRef) -> Result<Commit, Self::Error> {
+        Ok(self)
+    }
+}
+
+impl<R: Revision> ToCommit for R {
+    type Error = Error;
+
+    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Self::Error> {
+        let oid = repo.object_id(&self)?;
+        let commit = repo.repo_ref.find_commit(oid.into())?;
+        Ok(Commit::try_from(commit)?)
     }
 }
 

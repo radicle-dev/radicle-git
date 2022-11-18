@@ -15,17 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{
-    diff::*,
-    file_system,
-    file_system::{
-        directory::{self, Directory, DirectoryEntry, FileContent},
-        Label,
-    },
-    git::{error::*, Branch, Commit, Glob, History, Namespace, Revision, Signature, Stats, Tag},
-};
-use git_ref_format::RefString;
-use radicle_git_ext::Oid;
 use std::{
     collections::{BTreeMap, BTreeSet},
     convert::TryFrom,
@@ -33,10 +22,73 @@ use std::{
     str,
 };
 
-use super::commit::ToCommit;
+use directory::{Directory, FileContent};
+use git_ref_format::RefString;
+use radicle_git_ext::Oid;
+use thiserror::Error;
+
+use crate::{
+    diff::{self, *},
+    file_system,
+    file_system::{directory, DirectoryEntry, Label},
+    git::{
+        commit,
+        glob,
+        namespace,
+        Branch,
+        Commit,
+        Glob,
+        History,
+        Namespace,
+        Revision,
+        Signature,
+        Stats,
+        Tag,
+        ToCommit,
+    },
+};
 
 pub mod iter;
 pub use iter::{Branches, Namespaces, Tags};
+
+/// Enumeration of errors that can occur in operations from [`crate::git`].
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum Error {
+    #[error(transparent)]
+    Branches(#[from] iter::error::Branch),
+    #[error(transparent)]
+    Commit(#[from] commit::Error),
+    /// An error that comes from performing a *diff* operations.
+    #[error(transparent)]
+    Diff(#[from] diff::git::error::Diff),
+    /// An error that comes from performing a [`crate::file_system`] operation.
+    #[error(transparent)]
+    FileSystem(#[from] file_system::Error),
+    /// A wrapper around the generic [`git2::Error`].
+    #[error(transparent)]
+    Git(#[from] git2::Error),
+    #[error(transparent)]
+    Glob(#[from] glob::Error),
+    #[error(transparent)]
+    Namespace(#[from] namespace::Error),
+    /// The requested file was not found.
+    #[error("path not found for: {0}")]
+    PathNotFound(file_system::Path),
+    #[error(transparent)]
+    Revision(Box<dyn std::error::Error + Send + Sync + 'static>),
+    /// A `revspec` was provided that could not be parsed into a branch, tag, or
+    /// commit object.
+    #[error("provided revspec '{rev}' could not be parsed into a git object")]
+    RevParseFailure {
+        /// The provided revspec that failed to parse.
+        rev: String,
+    },
+    #[error(transparent)]
+    ToCommit(Box<dyn std::error::Error + Send + Sync + 'static>),
+    #[error(transparent)]
+    Tags(#[from] iter::error::Tag),
+}
 
 /// Wrapper around the `git2`'s `git2::Repository` type.
 /// This is to to limit the functionality that we can do
@@ -72,7 +124,7 @@ impl<'a> RepositoryRef<'a> {
     pub fn which_namespace(&self) -> Result<Option<Namespace>, Error> {
         self.repo_ref
             .namespace_bytes()
-            .map(Namespace::try_from)
+            .map(|ns| Namespace::try_from(ns).map_err(Error::from))
             .transpose()
     }
 
@@ -108,7 +160,7 @@ impl<'a> RepositoryRef<'a> {
                 .map(|reference| {
                     reference
                         .map_err(Error::Git)
-                        .and_then(|r| Namespace::try_from(r).map_err(|_| Error::EmptyNamespace))
+                        .and_then(|r| Namespace::try_from(r).map_err(Error::from))
                 })
                 .collect::<Result<BTreeSet<Namespace>, Error>>()?;
             set.extend(new_set);
@@ -118,22 +170,24 @@ impl<'a> RepositoryRef<'a> {
 
     /// Get the [`Diff`] between two commits.
     pub fn diff(&self, from: impl Revision, to: impl Revision) -> Result<Diff, Error> {
-        let from_commit = self.get_git2_commit(from.object_id(self)?)?;
-        let to_commit = self.get_git2_commit(to.object_id(self)?)?;
+        let from_commit = self.get_git2_commit(self.object_id(&from)?)?;
+        let to_commit = self.get_git2_commit(self.object_id(&to)?)?;
         self.diff_commits(None, Some(&from_commit), &to_commit)
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
 
     /// Get the [`Diff`] of a commit with no parents.
     pub fn initial_diff<R: Revision>(&self, rev: R) -> Result<Diff, Error> {
-        let commit = self.get_git2_commit(rev.object_id(self)?)?;
+        let commit = self.get_git2_commit(self.object_id(&rev)?)?;
         self.diff_commits(None, None, &commit)
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
 
     /// Get the diff introduced by a particlar rev.
     pub fn diff_from_parent<C: ToCommit>(&self, commit: C) -> Result<Diff, Error> {
-        let commit = commit.to_commit(self)?;
+        let commit = commit
+            .to_commit(self)
+            .map_err(|err| Error::ToCommit(err.into()))?;
         match commit.parents.first() {
             Some(parent) => self.diff(*parent, commit.id),
             None => self.initial_diff(commit.id),
@@ -150,7 +204,9 @@ impl<'a> RepositoryRef<'a> {
     /// To visit inside any nested sub-directories, call `directory.get(&repo)`
     /// on the sub-directory.
     pub fn root_dir<C: ToCommit>(&self, commit: C) -> Result<Directory, Error> {
-        let commit = commit.to_commit(self)?;
+        let commit = commit
+            .to_commit(self)
+            .map_err(|err| Error::ToCommit(err.into()))?;
         let git2_commit = self.repo_ref.find_commit((commit.id).into())?;
         let tree = git2_commit.as_object().peel_to_tree()?;
         Ok(Directory {
@@ -222,11 +278,7 @@ impl<'a> RepositoryRef<'a> {
 
     /// Returns a commit for `rev` if exists.
     pub fn commit<R: Revision>(&self, rev: R) -> Result<Commit, Error> {
-        let oid = rev.object_id(self)?;
-        match self.repo_ref.find_commit(oid.into()) {
-            Ok(commit) => Commit::try_from(commit),
-            Err(e) => Err(Error::Git(e)),
-        }
+        rev.to_commit(self)
     }
 
     /// Gets stats of `commit`.
@@ -262,6 +314,21 @@ impl<'a> RepositoryRef<'a> {
     pub(crate) fn file_size(&self, oid: Oid) -> Result<usize, Error> {
         let blob = self.repo_ref.find_blob(oid.into())?;
         Ok(blob.size())
+    }
+
+    /// Retrieves the file with `path` in this commit.
+    pub fn get_commit_file<R: Revision>(
+        &self,
+        rev: &R,
+        path: file_system::Path,
+    ) -> Result<FileContent, crate::git::Error> {
+        let id = self.object_id(rev)?;
+        let commit = self.get_git2_commit(id)?;
+        let tree = commit.tree()?;
+        let entry = tree.get_path(PathBuf::from(&path).as_ref())?;
+        let object = entry.to_object(self.repo_ref)?;
+        let blob = object.into_blob().map_err(|_| Error::PathNotFound(path))?;
+        Ok(FileContent::new(blob))
     }
 
     /// Lists branch names with `filter`.
@@ -305,11 +372,6 @@ impl<'a> RepositoryRef<'a> {
             None => refname.to_string(),
         };
         Ok(fullname)
-    }
-
-    pub(crate) fn refname_to_oid(&self, refname: &str) -> Result<Oid, Error> {
-        let oid = self.repo_ref.refname_to_id(refname)?;
-        Ok(oid.into())
     }
 
     /// Get a particular `git2::Commit` of `oid`.
@@ -368,18 +430,6 @@ impl<'a> RepositoryRef<'a> {
         Ok(other == git2_oid || is_descendant)
     }
 
-    pub(crate) fn get_commit_file(
-        &self,
-        git2_commit: &git2::Commit,
-        path: file_system::Path,
-    ) -> Result<FileContent, Error> {
-        let git2_tree = git2_commit.tree()?;
-        let entry = git2_tree.get_path(PathBuf::from(&path).as_ref())?;
-        let object = entry.to_object(self.repo_ref)?;
-        let blob = object.into_blob().map_err(|_| Error::PathNotFound(path))?;
-        Ok(FileContent::new(blob))
-    }
-
     pub(crate) fn diff_commit_and_parents(
         &self,
         path: &file_system::Path,
@@ -426,6 +476,10 @@ impl<'a> RepositoryRef<'a> {
     /// Returns the history with the `head` commit.
     pub fn history<C: ToCommit>(&self, head: C) -> Result<History, Error> {
         History::new(*self, head)
+    }
+
+    pub(super) fn object_id<R: Revision>(&self, r: &R) -> Result<Oid, Error> {
+        r.object_id(self).map_err(|err| Error::Revision(err.into()))
     }
 }
 
