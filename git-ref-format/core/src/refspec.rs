@@ -13,10 +13,10 @@ use std::{
 
 use thiserror::Error;
 
-use crate::{check, RefStr, RefString};
+use crate::{check, lit, RefStr, RefString};
 
 mod iter;
-pub use iter::{Component, Components, Iter};
+pub use iter::{component, Component, Components, Iter};
 
 pub const STAR: &PatternStr = PatternStr::from_str("*");
 
@@ -51,6 +51,16 @@ impl PatternStr {
         let mut buf = self.to_owned();
         buf.push(other);
         buf
+    }
+
+    #[inline]
+    pub fn qualified(&self) -> Option<QualifiedPattern> {
+        QualifiedPattern::from_patternstr(self)
+    }
+
+    #[inline]
+    pub fn to_namespaced(&self) -> Option<NamespacedPattern> {
+        self.into()
     }
 
     #[inline]
@@ -290,5 +300,261 @@ impl Display for PatternString {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+/// A fully-qualified refspec.
+///
+/// A refspec is qualified _iff_ it starts with "refs/" and has at least three
+/// components. This implies that a [`QualifiedPattern`] ref has a category,
+/// such as "refs/heads/*".
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
+pub struct QualifiedPattern<'a>(pub(crate) Cow<'a, PatternStr>);
+
+impl<'a> QualifiedPattern<'a> {
+    pub fn from_patternstr(r: impl Into<Cow<'a, PatternStr>>) -> Option<Self> {
+        Self::_from_patternstr(r.into())
+    }
+
+    fn _from_patternstr(r: Cow<'a, PatternStr>) -> Option<Self> {
+        let mut iter = r.iter();
+        match (iter.next()?, iter.next()?, iter.next()?) {
+            ("refs", _, _) => Some(QualifiedPattern(r)),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub fn as_str(&self) -> &str {
+        self.as_ref()
+    }
+
+    #[inline]
+    pub fn join<'b, R>(&self, other: R) -> QualifiedPattern<'b>
+    where
+        R: AsRef<RefStr>,
+    {
+        QualifiedPattern(Cow::Owned(self.0.join(other)))
+    }
+
+    #[inline]
+    pub fn to_namespaced(&self) -> Option<NamespacedPattern> {
+        self.0.as_ref().into()
+    }
+
+    /// Add a namespace.
+    ///
+    /// Creates a new [`NamespacedPattern`] by prefxing `self` with
+    /// "refs/namespaces/<ns>".
+    pub fn with_namespace<'b>(
+        &self,
+        ns: Component<'b>,
+    ) -> Result<NamespacedPattern<'a>, DuplicateGlob> {
+        PatternString::from_components(
+            IntoIterator::into_iter([lit::Refs.into(), lit::Namespaces.into(), ns])
+                .chain(self.components()),
+        )
+        .map(|pat| NamespacedPattern(Cow::Owned(pat)))
+    }
+
+    /// Like [`Self::non_empty_components`], but with string slices.
+    pub fn non_empty_iter(&self) -> (&str, &str, &str, Iter) {
+        let mut iter = self.iter();
+        (
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter.next().unwrap(),
+            iter,
+        )
+    }
+
+    /// Return the first three [`Component`]s, and a possibly empty iterator
+    /// over the remaining ones.
+    ///
+    /// A qualified ref is guaranteed to have at least three components, which
+    /// this method provides a witness of. This is useful eg. for pattern
+    /// matching on the prefix.
+    pub fn non_empty_components(&self) -> (Component, Component, Component, Components) {
+        let mut cs = self.components();
+        (
+            cs.next().unwrap(),
+            cs.next().unwrap(),
+            cs.next().unwrap(),
+            cs,
+        )
+    }
+
+    #[inline]
+    pub fn to_owned<'b>(&self) -> QualifiedPattern<'b> {
+        QualifiedPattern(Cow::Owned(self.0.clone().into_owned()))
+    }
+
+    #[inline]
+    pub fn into_owned<'b>(self) -> QualifiedPattern<'b> {
+        QualifiedPattern(Cow::Owned(self.0.into_owned()))
+    }
+
+    #[inline]
+    pub fn into_patternstring(self) -> PatternString {
+        self.into()
+    }
+}
+
+impl Deref for QualifiedPattern<'_> {
+    type Target = PatternStr;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<PatternStr> for QualifiedPattern<'_> {
+    #[inline]
+    fn as_ref(&self) -> &PatternStr {
+        self
+    }
+}
+
+impl AsRef<str> for QualifiedPattern<'_> {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl AsRef<Self> for QualifiedPattern<'_> {
+    #[inline]
+    fn as_ref(&self) -> &Self {
+        self
+    }
+}
+
+impl<'a> From<QualifiedPattern<'a>> for Cow<'a, PatternStr> {
+    #[inline]
+    fn from(q: QualifiedPattern<'a>) -> Self {
+        q.0
+    }
+}
+
+impl From<QualifiedPattern<'_>> for PatternString {
+    #[inline]
+    fn from(q: QualifiedPattern) -> Self {
+        q.0.into_owned()
+    }
+}
+
+/// A [`PatternString`] ref under a git namespace.
+///
+/// A ref is namespaced if it starts with "refs/namespaces/", another path
+/// component, and "refs/". Eg.
+///
+///     refs/namespaces/xyz/refs/heads/main
+///
+/// Note that namespaces can be nested, so the result of
+/// [`NamespacedPattern::strip_namespace`] may be convertible to a
+/// [`NamespacedPattern`] again. For example:
+///
+/// ```no_run
+/// let full = pattern!("refs/namespaces/a/refs/namespaces/b/refs/heads/*");
+/// let namespaced = full.to_namespaced().unwrap();
+/// let strip_first = namespaced.strip_namespace();
+/// let nested = strip_first.namespaced().unwrap();
+/// let strip_second = nested.strip_namespace();
+///
+/// assert_eq!("a", namespaced.namespace().as_str());
+/// assert_eq!("b", nested.namespace().as_str());
+/// assert_eq!("refs/namespaces/b/refs/heads/*", strip_first.as_str());
+/// assert_eq!("refs/heads/*", strip_second.as_str());
+/// ```
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
+pub struct NamespacedPattern<'a>(Cow<'a, PatternStr>);
+
+impl<'a> NamespacedPattern<'a> {
+    pub fn namespace(&self) -> Component {
+        self.components().nth(2).unwrap()
+    }
+
+    pub fn strip_namespace(&self) -> PatternString {
+        PatternString::from_components(self.components().skip(3))
+            .expect("BUG: NamespacedPattern was constructed with a duplicate glob")
+    }
+
+    pub fn strip_namespace_recursive(&self) -> PatternString {
+        let mut strip = self.strip_namespace();
+        while let Some(ns) = strip.to_namespaced() {
+            strip = ns.strip_namespace();
+        }
+        strip
+    }
+
+    #[inline]
+    pub fn to_owned<'b>(&self) -> NamespacedPattern<'b> {
+        NamespacedPattern(Cow::Owned(self.0.clone().into_owned()))
+    }
+
+    #[inline]
+    pub fn into_owned<'b>(self) -> NamespacedPattern<'b> {
+        NamespacedPattern(Cow::Owned(self.0.into_owned()))
+    }
+
+    #[inline]
+    pub fn into_qualified(self) -> QualifiedPattern<'a> {
+        self.into()
+    }
+}
+
+impl Deref for NamespacedPattern<'_> {
+    type Target = PatternStr;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.borrow()
+    }
+}
+
+impl AsRef<PatternStr> for NamespacedPattern<'_> {
+    #[inline]
+    fn as_ref(&self) -> &PatternStr {
+        self.0.as_ref()
+    }
+}
+
+impl AsRef<str> for NamespacedPattern<'_> {
+    #[inline]
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl Borrow<PatternStr> for NamespacedPattern<'_> {
+    #[inline]
+    fn borrow(&self) -> &PatternStr {
+        PatternStr::from_str(self.0.as_str())
+    }
+}
+
+impl<'a> From<NamespacedPattern<'a>> for QualifiedPattern<'a> {
+    #[inline]
+    fn from(ns: NamespacedPattern<'a>) -> Self {
+        Self(ns.0)
+    }
+}
+
+impl<'a> From<&'a PatternStr> for Option<NamespacedPattern<'a>> {
+    fn from(rs: &'a PatternStr) -> Self {
+        let mut cs = rs.iter();
+        match (cs.next()?, cs.next()?, cs.next()?, cs.next()?) {
+            ("refs", "namespaces", _, "refs") => Some(NamespacedPattern(Cow::from(rs))),
+
+            _ => None,
+        }
+    }
+}
+
+impl Display for NamespacedPattern<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }

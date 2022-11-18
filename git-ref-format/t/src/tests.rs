@@ -266,6 +266,82 @@ fn with_pattern_and() {
 }
 
 #[test]
+fn pattern_is_qualified() {
+    assert!(refspec::pattern!("refs/heads/*").qualified().is_some())
+}
+
+#[test]
+fn pattern_is_not_qualified() {
+    assert!(refspec::pattern!("heads/*").qualified().is_none())
+}
+
+#[test]
+fn pattern_with_namespaced() {
+    assert_eq!(
+        "refs/namespaces/a/refs/heads/*",
+        refspec::pattern!("refs/heads/*")
+            .qualified()
+            .unwrap()
+            .with_namespace(refspec::Component::Normal(refname!("a").as_ref()))
+            .unwrap()
+            .as_str(),
+    )
+}
+
+#[test]
+fn pattern_not_namespaced_because_not_qualified() {
+    assert!(refspec::pattern!("refs/namespaces/foo/*")
+        .to_namespaced()
+        .is_none())
+}
+
+#[test]
+fn pattern_namespaced() {
+    assert!(refspec::pattern!("refs/namespaces/a/refs/foo/*")
+        .to_namespaced()
+        .is_some())
+}
+
+#[test]
+fn pattern_strip_namespace() {
+    assert_eq!(
+        "refs/rad/*",
+        refspec::pattern!("refs/namespaces/xyz/refs/rad/*")
+            .to_namespaced()
+            .unwrap()
+            .strip_namespace()
+            .as_str()
+    )
+}
+
+#[test]
+fn pattern_strip_nested_namespaces() {
+    let full = refspec::pattern!("refs/namespaces/a/refs/namespaces/b/refs/heads/*");
+    let namespaced = full.to_namespaced().unwrap();
+    let strip_first = namespaced.strip_namespace();
+    let nested = strip_first.to_namespaced().unwrap();
+    let strip_second = nested.strip_namespace();
+
+    assert_eq!("a", namespaced.namespace().as_str());
+    assert_eq!("b", nested.namespace().as_str());
+    assert_eq!("refs/namespaces/b/refs/heads/*", strip_first.as_str());
+    assert_eq!("refs/heads/*", strip_second.as_str());
+}
+
+#[test]
+fn pattern_qualified_with_namespace() {
+    assert_eq!(
+        "refs/namespaces/a/refs/heads/*",
+        refspec::pattern!("refs/heads/*")
+            .qualified()
+            .unwrap()
+            .with_namespace(refspec::Component::Normal(refname!("a").as_ref()))
+            .unwrap()
+            .as_str(),
+    )
+}
+
+#[test]
 fn collect() {
     assert_eq!(
         "refs/heads/main",

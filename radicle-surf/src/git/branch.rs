@@ -37,6 +37,18 @@ impl Branch {
         Self::Remote(Remote::new(remote, name))
     }
 
+    /// Return the short `Branch` refname,
+    /// e.g. `fix/ref-format`.
+    pub fn short_name(&self) -> &RefString {
+        match self {
+            Branch::Local(local) => local.short_name(),
+            Branch::Remote(remote) => remote.short_name(),
+        }
+    }
+
+    /// Give back the fully qualified `Branch` refname,
+    /// e.g. `refs/remotes/origin/fix/ref-format`,
+    /// `refs/heads/fix/ref-format`.
     pub fn refname(&self) -> Qualified {
         match self {
             Branch::Local(local) => local.refname(),
@@ -124,6 +136,12 @@ impl Local {
                 }
             },
         }
+    }
+
+    /// Return the short `Local` refname,
+    /// e.g. `fix/ref-format`.
+    pub fn short_name(&self) -> &RefString {
+        &self.name
     }
 
     /// Return the fully qualified `Local` refname,
@@ -217,6 +235,18 @@ impl Remote {
             name: cs.collect(),
             remote: remote.to_ref_string(),
         })
+    }
+
+    /// Return the short `Remote` refname,
+    /// e.g. `fix/ref-format`.
+    pub fn short_name(&self) -> &RefString {
+        &self.name
+    }
+
+    /// Return the remote of the `Remote`'s refname,
+    /// e.g. `origin`.
+    pub fn remote(&self) -> &RefString {
+        &self.remote
     }
 
     /// Give back the fully qualified `Remote` refname,

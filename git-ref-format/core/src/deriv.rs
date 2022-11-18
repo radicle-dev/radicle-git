@@ -9,7 +9,14 @@ use std::{
     ops::Deref,
 };
 
-use crate::{lit, name, Component, RefStr, RefString};
+use crate::{
+    lit,
+    name,
+    refspec::{PatternStr, QualifiedPattern},
+    Component,
+    RefStr,
+    RefString,
+};
 
 /// A fully-qualified refname.
 ///
@@ -72,6 +79,13 @@ impl<'a> Qualified<'a> {
         R: AsRef<RefStr>,
     {
         Qualified(self.0.join(other).into())
+    }
+
+    pub fn to_pattern<P>(&self, pattern: P) -> QualifiedPattern
+    where
+        P: AsRef<PatternStr>,
+    {
+        QualifiedPattern(Cow::Owned(RefStr::to_pattern(self, pattern.as_ref())))
     }
 
     #[inline]

@@ -34,6 +34,17 @@ impl<'a> Iterator for Components<'a> {
     }
 }
 
+impl<'a> DoubleEndedIterator for Components<'a> {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner
+            .next_back()
+            .map(RefStr::from_str)
+            .map(Cow::from)
+            .map(Component)
+    }
+}
+
 impl<'a> From<&'a RefStr> for Components<'a> {
     #[inline]
     fn from(rs: &'a RefStr) -> Self {

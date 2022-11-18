@@ -39,17 +39,19 @@ impl Tag {
         }
     }
 
-    /// Return the fully qualified `Tag` refname,
-    /// e.g. `refs/tags/release/v1`.
-    pub fn refname(&self) -> Qualified {
-        lit::refs_tags(self.name()).into()
-    }
-
-    fn name(&self) -> &RefString {
+    /// Return the short `Tag` refname,
+    /// e.g. `release/v1`.
+    pub fn short_name(&self) -> &RefString {
         match &self {
             Tag::Light { name, .. } => name,
             Tag::Annotated { name, .. } => name,
         }
+    }
+
+    /// Return the fully qualified `Tag` refname,
+    /// e.g. `refs/tags/release/v1`.
+    pub fn refname(&self) -> Qualified {
+        lit::refs_tags(self.short_name()).into()
     }
 }
 
