@@ -22,11 +22,6 @@ use std::{convert::TryFrom, path::PathBuf, slice};
 #[cfg(feature = "serialize")]
 use serde::{ser, Serialize, Serializer};
 
-use crate::{
-    file_system::Directory,
-    git::{Error, Repository},
-};
-
 pub mod git;
 
 #[cfg_attr(
@@ -291,20 +286,6 @@ impl Diff {
             copied: Vec::new(),
             modified: Vec::new(),
         }
-    }
-
-    // TODO: Direction of comparison is not obvious with this signature.
-    // For now using conventional approach with the right being "newer".
-    #[allow(clippy::self_named_constructors)]
-    pub fn diff(left: Directory, right: Directory, repo: Repository) -> Result<Self, Error> {
-        // TODO: Some of the deleted files may actually be moved (renamed) to one of the
-        // created files. Finding out which of the deleted files were deleted
-        // and which were moved will probably require performing some variant of
-        // the longest common substring algorithm for each pair in D x C. Final
-        // decision can be based on heuristics, e.g. the file can be considered
-        // moved, if len(LCS) > 0,25 * min(size(d), size(c)), and
-        // deleted otherwise.
-        repo.diff(left, right)
     }
 
     pub(crate) fn add_modified_file(
