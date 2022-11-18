@@ -11,9 +11,6 @@ keywords = ["git", "references"]
 doctest = false
 test = false
 
-[features]
-link-literals = []
-
 [dependencies]
 thiserror = "1.0"
 

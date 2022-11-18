@@ -45,19 +45,6 @@ pub enum KnownLit {
     Remotes,
     Tags,
     Notes,
-
-    #[cfg(feature = "link-literals")]
-    Rad,
-    #[cfg(feature = "link-literals")]
-    Id,
-    #[cfg(feature = "link-literals")]
-    Ids,
-    #[cfg(feature = "link-literals")]
-    Selv,
-    #[cfg(feature = "link-literals")]
-    SignedRefs,
-    #[cfg(feature = "link-literals")]
-    Cobs,
 }
 
 impl KnownLit {
@@ -77,25 +64,6 @@ impl KnownLit {
         } else if c == Notes::NAME {
             Some(Self::Notes)
         } else {
-            #[cfg(feature = "link-literals")]
-            {
-                if c == Rad::NAME {
-                    Some(Self::Rad)
-                } else if c == Id::NAME {
-                    Some(Self::Id)
-                } else if c == Ids::NAME {
-                    Some(Self::Ids)
-                } else if c == Selv::NAME {
-                    Some(Self::Selv)
-                } else if c == SignedRefs::NAME {
-                    Some(Self::SignedRefs)
-                } else if c == Cobs::NAME {
-                    Some(Self::Cobs)
-                } else {
-                    None
-                }
-            }
-            #[cfg(not(feature = "link-literals"))]
             None
         }
     }
@@ -111,18 +79,6 @@ impl From<KnownLit> for name::Component<'_> {
             KnownLit::Remotes => Remotes.into(),
             KnownLit::Tags => Tags.into(),
             KnownLit::Notes => Notes.into(),
-            #[cfg(feature = "link-literals")]
-            KnownLit::Rad => Rad.into(),
-            #[cfg(feature = "link-literals")]
-            KnownLit::Id => Id.into(),
-            #[cfg(feature = "link-literals")]
-            KnownLit::Ids => Ids.into(),
-            #[cfg(feature = "link-literals")]
-            KnownLit::Selv => Selv.into(),
-            #[cfg(feature = "link-literals")]
-            KnownLit::SignedRefs => SignedRefs.into(),
-            #[cfg(feature = "link-literals")]
-            KnownLit::Cobs => Cobs.into(),
         }
     }
 }
@@ -239,75 +195,3 @@ impl Lit for Notes {
     const NAME: &'static RefStr = name::NOTES;
 }
 impl sealed::Sealed for Notes {}
-
-#[cfg(feature = "link-literals")]
-mod link {
-    use super::*;
-
-    pub type RefsRadId = (Refs, Rad, Id);
-    pub type RefsRadSelf = (Refs, Rad, Selv);
-    pub type RefsRadSignedRefs = (Refs, Rad, SignedRefs);
-    pub type RefsRadIds<T> = (Refs, Rad, Ids, T);
-    pub type RefsCobs<T, I> = (Refs, Cobs, T, I);
-
-    pub const REFS_RAD_ID: (Refs, Rad, Id) = (Refs, Rad, Id);
-    pub const REFS_RAD_SELF: (Refs, Rad, Selv) = (Refs, Rad, Selv);
-    pub const REFS_RAD_SIGNED_REFS: (Refs, Rad, SignedRefs) = (Refs, Rad, SignedRefs);
-
-    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
-    pub struct Rad;
-
-    impl Lit for Rad {
-        const SELF: Self = Self;
-        const NAME: &'static RefStr = RefStr::from_str("rad");
-    }
-    impl sealed::Sealed for Rad {}
-
-    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
-    pub struct Id;
-
-    impl Lit for Id {
-        const SELF: Self = Self;
-        const NAME: &'static RefStr = RefStr::from_str("id");
-    }
-    impl sealed::Sealed for Id {}
-
-    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
-    pub struct Ids;
-
-    impl Lit for Ids {
-        const SELF: Self = Self;
-        const NAME: &'static RefStr = RefStr::from_str("ids");
-    }
-    impl sealed::Sealed for Ids {}
-
-    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
-    pub struct Selv;
-
-    impl Lit for Selv {
-        const SELF: Self = Self;
-        const NAME: &'static RefStr = RefStr::from_str("self");
-    }
-    impl sealed::Sealed for Selv {}
-
-    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
-    pub struct SignedRefs;
-
-    impl Lit for SignedRefs {
-        const SELF: Self = Self;
-        const NAME: &'static RefStr = RefStr::from_str("signed_refs");
-    }
-    impl sealed::Sealed for SignedRefs {}
-
-    #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
-    pub struct Cobs;
-
-    impl Lit for Cobs {
-        const SELF: Self = Self;
-        const NAME: &'static RefStr = RefStr::from_str("cobs");
-    }
-    impl sealed::Sealed for Cobs {}
-}
-
-#[cfg(feature = "link-literals")]
-pub use link::*;

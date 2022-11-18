@@ -157,18 +157,4 @@ pub mod component {
     pub const REFS: Component = Component(Cow::Borrowed(name::REFS));
     pub const REMOTES: Component = Component(Cow::Borrowed(name::REMOTES));
     pub const TAGS: Component = Component(Cow::Borrowed(name::TAGS));
-
-    #[cfg(feature = "link-literals")]
-    mod link {
-        use super::*;
-
-        pub const RAD: Component = Component(Cow::Borrowed(name::RAD));
-        pub const ID: Component = Component(Cow::Borrowed(name::ID));
-        pub const IDS: Component = Component(Cow::Borrowed(name::IDS));
-        pub const SELF: Component = Component(Cow::Borrowed(name::SELF));
-        pub const SIGNED_REFS: Component = Component(Cow::Borrowed(name::SIGNED_REFS));
-        pub const COBS: Component = Component(Cow::Borrowed(name::COBS));
-    }
-    #[cfg(feature = "link-literals")]
-    pub use link::*;
 }
