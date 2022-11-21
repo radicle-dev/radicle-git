@@ -1,8 +1,11 @@
 [package]
 name = "git-ref-format"
 version = "0.1.0"
-authors = ["Kim Altintop <kim@eagain.st>"]
-edition = "2018"
+authors = [
+  "Kim Altintop <kim@eagain.st>",
+  "Fintan Halpenny <fintan.halpenny@gmail.com>",
+]
+edition = "2021"
 license = "GPL-3.0-or-later"
 description = "Everything you never knew you wanted for handling git ref names."
 keywords = ["git", "references"]
@@ -13,7 +16,6 @@ test = false
 
 [features]
 bstr = ["git-ref-format-core/bstr"]
-link-literals = ["git-ref-format-core/link-literals"]
 macro = ["git-ref-format-macro"]
 minicbor = ["git-ref-format-core/minicbor"]
 percent-encoding = ["git-ref-format-core/percent-encoding"]

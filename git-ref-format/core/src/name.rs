@@ -50,22 +50,6 @@ pub mod str {
 
     pub const REFS_HEADS_MAIN: &str = "refs/heads/main";
     pub const REFS_HEADS_MASTER: &str = "refs/heads/master";
-
-    #[cfg(feature = "link-literals")]
-    mod link {
-        pub const RAD: &str = "rad";
-        pub const ID: &str = "id";
-        pub const IDS: &str = "ids";
-        pub const SELF: &str = "self";
-        pub const SIGNED_REFS: &str = "signed_refs";
-        pub const COBS: &str = "cobs";
-
-        pub const REFS_RAD_ID: &str = "refs/rad/id";
-        pub const REFS_RAD_SELF: &str = "refs/rad/self";
-        pub const REFS_RAD_SIGNED_REFS: &str = "refs/rad/signed_refs";
-    }
-    #[cfg(feature = "link-literals")]
-    pub use link::*;
 }
 
 pub mod bytes {
@@ -83,43 +67,7 @@ pub mod bytes {
 
     pub const REFS_HEADS_MAIN: &[u8] = str::REFS_HEADS_MAIN.as_bytes();
     pub const REFS_HEADS_MASTER: &[u8] = str::REFS_HEADS_MASTER.as_bytes();
-
-    #[cfg(feature = "link-literals")]
-    mod link {
-        use super::str;
-
-        pub const RAD: &[u8] = str::RAD.as_bytes();
-        pub const ID: &[u8] = str::ID.as_bytes();
-        pub const IDS: &[u8] = str::IDS.as_bytes();
-        pub const SELF: &[u8] = str::SELF.as_bytes();
-        pub const SIGNED_REFS: &[u8] = str::SIGNED_REFS.as_bytes();
-        pub const COBS: &[u8] = str::COBS.as_bytes();
-
-        pub const REFS_RAD_ID: &[u8] = str::REFS_RAD_ID.as_bytes();
-        pub const REFS_RAD_SELF: &[u8] = str::REFS_RAD_SELF.as_bytes();
-        pub const REFS_RAD_SIGNED_REFS: &[u8] = str::REFS_RAD_SIGNED_REFS.as_bytes();
-    }
-    #[cfg(feature = "link-literals")]
-    pub use link::*;
 }
-
-#[cfg(feature = "link-literals")]
-mod link {
-    use super::{str, RefStr};
-
-    pub const RAD: &RefStr = RefStr::from_str(str::RAD);
-    pub const ID: &RefStr = RefStr::from_str(str::ID);
-    pub const IDS: &RefStr = RefStr::from_str(str::IDS);
-    pub const SELF: &RefStr = RefStr::from_str(str::SELF);
-    pub const SIGNED_REFS: &RefStr = RefStr::from_str(str::SIGNED_REFS);
-    pub const COBS: &RefStr = RefStr::from_str(str::COBS);
-
-    pub const REFS_RAD_ID: &RefStr = RefStr::from_str(str::REFS_RAD_ID);
-    pub const REFS_RAD_SELF: &RefStr = RefStr::from_str(str::REFS_RAD_SELF);
-    pub const REFS_RAD_SIGNED_REFS: &RefStr = RefStr::from_str(str::REFS_RAD_SIGNED_REFS);
-}
-#[cfg(feature = "link-literals")]
-pub use link::*;
 
 const CHECK_OPTS: check::Options = check::Options {
     allow_pattern: false,

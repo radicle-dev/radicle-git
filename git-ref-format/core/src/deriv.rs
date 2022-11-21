@@ -267,60 +267,6 @@ impl Display for Qualified<'_> {
     }
 }
 
-#[cfg(feature = "link-literals")]
-mod link {
-    use super::*;
-
-    impl From<lit::RefsRadId> for Qualified<'_> {
-        #[inline]
-        fn from((refs, rad, id): lit::RefsRadId) -> Self {
-            Self(Cow::Owned(
-                IntoIterator::into_iter([Component::from(refs), rad.into(), id.into()]).collect(),
-            ))
-        }
-    }
-
-    impl From<lit::RefsRadSelf> for Qualified<'_> {
-        #[inline]
-        fn from((refs, rad, selv): lit::RefsRadSelf) -> Self {
-            Self(Cow::Owned(
-                IntoIterator::into_iter([Component::from(refs), rad.into(), selv.into()]).collect(),
-            ))
-        }
-    }
-
-    impl From<lit::RefsRadSignedRefs> for Qualified<'_> {
-        #[inline]
-        fn from((refs, rad, sig): lit::RefsRadSignedRefs) -> Self {
-            Self(Cow::Owned(
-                IntoIterator::into_iter([Component::from(refs), rad.into(), sig.into()]).collect(),
-            ))
-        }
-    }
-
-    impl<'a, T: Into<Component<'a>>> From<lit::RefsRadIds<T>> for Qualified<'_> {
-        #[inline]
-        fn from((refs, rad, ids, id): lit::RefsRadIds<T>) -> Self {
-            Self(Cow::Owned(
-                IntoIterator::into_iter([Component::from(refs), rad.into(), ids.into(), id.into()])
-                    .collect(),
-            ))
-        }
-    }
-
-    impl<'a, T: Into<Component<'a>>, I: Into<Component<'a>>> From<lit::RefsCobs<T, I>>
-        for Qualified<'_>
-    {
-        #[inline]
-        fn from((refs, cobs, ty, id): lit::RefsCobs<T, I>) -> Self {
-            Self(Cow::Owned(
-                IntoIterator::into_iter([Component::from(refs), cobs.into(), ty.into(), id.into()])
-                    .collect(),
-            ))
-        }
-    }
-}
-
 /// A [`Qualified`] ref under a git namespace.
 ///
 /// A ref is namespaced if it starts with "refs/namespaces/", another path
