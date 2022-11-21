@@ -22,7 +22,7 @@
 
 use crate::{
     file_system::{error::LabelError, path::*, Error},
-    git::{self, RepositoryRef, Revision},
+    git::{self, Repository, Revision},
 };
 use git2::Blob;
 use radicle_git_ext::Oid;
@@ -130,7 +130,7 @@ impl Directory {
     }
 
     /// Returns a `DirectoryContent` for the current directory.
-    pub fn contents(&self, repo: &RepositoryRef) -> Result<DirectoryContent, git::Error> {
+    pub fn contents(&self, repo: &Repository) -> Result<DirectoryContent, git::Error> {
         let listing = repo.directory_get(self)?;
         Ok(DirectoryContent { listing })
     }
@@ -139,10 +139,10 @@ impl Directory {
     pub fn get_path(
         &self,
         path: &path::Path,
-        repo: &RepositoryRef,
+        repo: &Repository,
     ) -> Result<DirectoryEntry, git::Error> {
         // Search the path in git2 tree.
-        let git2_tree = repo.repo_ref.find_tree(self.oid.into())?;
+        let git2_tree = repo.git2_repo().find_tree(self.oid.into())?;
         let entry = git2_tree.get_path(path)?;
 
         // Construct the DirectoryEntry.
@@ -204,7 +204,7 @@ impl Directory {
     /// // We shouldn't be able to find a file that doesn't exist
     /// assert_eq!(directory.find_file(unsound::path::new("foo/bar/qux.rs")), None);
     /// ```
-    pub fn find_file(&self, path: Path, repo: &RepositoryRef) -> Option<Oid> {
+    pub fn find_file(&self, path: Path, repo: &Repository) -> Option<Oid> {
         let path_buf: std::path::PathBuf = (&path).into();
         let entry = match self.get_path(path_buf.as_path(), repo) {
             Ok(entry) => entry,
@@ -252,7 +252,7 @@ impl Directory {
     /// // 'baz.rs' is a file and not a directory
     /// assert!(directory.find_directory(unsound::path::new("foo/bar/baz.rs")).is_none());
     /// ```
-    pub fn find_directory(&self, path: Path, repo: &RepositoryRef) -> Option<Self> {
+    pub fn find_directory(&self, path: Path, repo: &Repository) -> Option<Self> {
         let path_buf: std::path::PathBuf = (&path).into();
         let entry = match self.get_path(path_buf.as_path(), repo) {
             Ok(entry) => entry,
@@ -274,7 +274,7 @@ impl Directory {
 
     /// Get the total size, in bytes, of a `Directory`. The size is
     /// the sum of all files that can be reached from this `Directory`.
-    pub fn size(&self, repo: &RepositoryRef) -> Result<usize, git::Error> {
+    pub fn size(&self, repo: &Repository) -> Result<usize, git::Error> {
         let mut size = 0;
         let contents = self.contents(repo)?;
         for item in contents.iter() {
@@ -295,7 +295,7 @@ impl Directory {
 impl Revision for Directory {
     type Error = Infallible;
 
-    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+    fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
         Ok(self.oid)
     }
 }

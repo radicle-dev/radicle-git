@@ -17,14 +17,14 @@
 
 use crate::{
     file_system,
-    git::{Commit, Error, RepositoryRef, ToCommit},
+    git::{Commit, Error, Repository, ToCommit},
 };
 use std::convert::TryFrom;
 
 /// An iterator that produces the history of commits for a given `head`,
 /// in the `repo`.
 pub struct History<'a> {
-    repo: RepositoryRef<'a>,
+    repo: &'a Repository,
     head: Commit,
     revwalk: git2::Revwalk<'a>,
     filter_by: Option<FilterBy>,
@@ -37,11 +37,11 @@ enum FilterBy {
 
 impl<'a> History<'a> {
     /// Creates a new history starting from `head`, in `repo`.
-    pub fn new<C: ToCommit>(repo: RepositoryRef<'a>, head: C) -> Result<Self, Error> {
+    pub fn new<C: ToCommit>(repo: &'a Repository, head: C) -> Result<Self, Error> {
         let head = head
-            .to_commit(&repo)
+            .to_commit(repo)
             .map_err(|err| Error::ToCommit(err.into()))?;
-        let mut revwalk = repo.repo_ref.revwalk()?;
+        let mut revwalk = repo.git2_repo().revwalk()?;
         revwalk.push(head.id.into())?;
         let history = Self {
             repo,
@@ -76,7 +76,7 @@ impl<'a> Iterator for History<'a> {
             let found = oid
                 .map_err(Error::Git)
                 .and_then(|oid| {
-                    let git2_commit = self.repo.repo_ref.find_commit(oid)?;
+                    let git2_commit = self.repo.git2_repo().find_commit(oid)?;
 
                     // Handles the optional filter_by.
                     if let Some(FilterBy::File { path }) = &self.filter_by {

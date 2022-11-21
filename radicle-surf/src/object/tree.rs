@@ -30,7 +30,7 @@ use serde::{
 use crate::{
     commit,
     file_system::{self, DirectoryEntry},
-    git::RepositoryRef,
+    git::Repository,
     object::{Error, Info, ObjectType},
     revision::Revision,
 };
@@ -87,7 +87,7 @@ impl Serialize for TreeEntry {
 ///
 /// Will return [`Error`] if any of the surf interactions fail.
 pub fn tree(
-    repo: &RepositoryRef,
+    repo: &Repository,
     maybe_revision: Option<Revision>,
     maybe_prefix: Option<String>,
 ) -> Result<Tree, Error> {

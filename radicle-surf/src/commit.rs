@@ -27,7 +27,7 @@ use serde::{
 use crate::{
     diff,
     file_system,
-    git::{self, glob, Glob, RepositoryRef},
+    git::{self, glob, Glob, Repository},
     person::Person,
     revision::Revision,
 };
@@ -146,7 +146,7 @@ pub struct Commits {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commit<R: git::Revision>(repo: &RepositoryRef, rev: R) -> Result<Commit, Error> {
+pub fn commit<R: git::Revision>(repo: &Repository, rev: R) -> Result<Commit, Error> {
     let commit = repo.commit(rev)?;
     let sha1 = commit.id;
     let header = Header::from(&commit);
@@ -216,7 +216,7 @@ pub fn commit<R: git::Revision>(repo: &RepositoryRef, rev: R) -> Result<Commit, 
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn header(repo: &RepositoryRef, sha1: Oid) -> Result<Header, Error> {
+pub fn header(repo: &Repository, sha1: Oid) -> Result<Header, Error> {
     let commit = repo.commit(sha1)?;
     Ok(Header::from(&commit))
 }
@@ -227,7 +227,7 @@ pub fn header(repo: &RepositoryRef, sha1: Oid) -> Result<Header, Error> {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commits(repo: &RepositoryRef, maybe_revision: Option<Revision>) -> Result<Commits, Error> {
+pub fn commits(repo: &Repository, maybe_revision: Option<Revision>) -> Result<Commits, Error> {
     let rev = match maybe_revision {
         Some(revision) => revision,
         None => Revision::Sha {

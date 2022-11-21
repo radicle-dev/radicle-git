@@ -24,7 +24,7 @@ use serde::{ser, Serialize, Serializer};
 
 use crate::{
     file_system::{Directory, Path},
-    git::{Error, RepositoryRef},
+    git::{Error, Repository},
 };
 
 pub mod git;
@@ -296,7 +296,7 @@ impl Diff {
     // TODO: Direction of comparison is not obvious with this signature.
     // For now using conventional approach with the right being "newer".
     #[allow(clippy::self_named_constructors)]
-    pub fn diff(left: Directory, right: Directory, repo: RepositoryRef) -> Result<Self, Error> {
+    pub fn diff(left: Directory, right: Directory, repo: Repository) -> Result<Self, Error> {
         // TODO: Some of the deleted files may actually be moved (renamed) to one of the
         // created files. Finding out which of the deleted files were deleted
         // and which were moved will probably require performing some variant of

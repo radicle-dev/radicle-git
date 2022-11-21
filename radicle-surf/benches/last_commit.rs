@@ -36,7 +36,7 @@ fn last_commit_comparison(c: &mut Criterion) {
     .iter()
     {
         group.bench_with_input(BenchmarkId::new("", path), path, |b, path| {
-            b.iter(|| repo.as_ref().last_commit(path.clone(), &rev))
+            b.iter(|| repo.last_commit(path.clone(), &rev))
         });
     }
 }
