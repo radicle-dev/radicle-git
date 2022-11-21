@@ -71,7 +71,7 @@ use git_ref_format::{name::Components, Component, Qualified, RefString};
 pub use radicle_git_ext::Oid;
 
 mod repo;
-pub use repo::{Error, Repository, RepositoryRef};
+pub use repo::{Error, Repository};
 
 pub mod glob;
 pub use glob::Glob;
@@ -116,45 +116,45 @@ pub trait Revision {
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// Returns the object id of this revision in `repo`.
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error>;
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error>;
 }
 
 impl Revision for RefString {
     type Error = git2::Error;
 
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
-        repo.repo_ref.refname_to_id(self.as_str()).map(Oid::from)
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        repo.git2_repo().refname_to_id(self.as_str()).map(Oid::from)
     }
 }
 
 impl Revision for &RefString {
     type Error = git2::Error;
 
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
-        repo.repo_ref.refname_to_id(self.as_str()).map(Oid::from)
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        repo.git2_repo().refname_to_id(self.as_str()).map(Oid::from)
     }
 }
 
 impl Revision for Qualified<'_> {
     type Error = git2::Error;
 
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
-        repo.repo_ref.refname_to_id(self.as_str()).map(Oid::from)
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        repo.git2_repo().refname_to_id(self.as_str()).map(Oid::from)
     }
 }
 
 impl Revision for &Qualified<'_> {
     type Error = git2::Error;
 
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
-        repo.repo_ref.refname_to_id(self.as_str()).map(Oid::from)
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        repo.git2_repo().refname_to_id(self.as_str()).map(Oid::from)
     }
 }
 
 impl Revision for Oid {
     type Error = Infallible;
 
-    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+    fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
         Ok(*self)
     }
 }
@@ -162,7 +162,7 @@ impl Revision for Oid {
 impl Revision for &str {
     type Error = git2::Error;
 
-    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+    fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
         Oid::from_str(self).map(Oid::from)
     }
 }
@@ -170,16 +170,16 @@ impl Revision for &str {
 impl Revision for &Branch {
     type Error = Error;
 
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
         let refname = repo.namespaced_refname(&self.refname())?;
-        Ok(repo.repo_ref.refname_to_id(&refname).map(Oid::from)?)
+        Ok(repo.git2_repo().refname_to_id(&refname).map(Oid::from)?)
     }
 }
 
 impl Revision for &Tag {
     type Error = Infallible;
 
-    fn object_id(&self, _repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+    fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
         Ok(self.id())
     }
 }
@@ -189,13 +189,13 @@ pub trait ToCommit {
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// Converts to a commit in `repo`.
-    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Self::Error>;
+    fn to_commit(self, repo: &Repository) -> Result<Commit, Self::Error>;
 }
 
 impl ToCommit for Commit {
     type Error = Infallible;
 
-    fn to_commit(self, _repo: &RepositoryRef) -> Result<Commit, Self::Error> {
+    fn to_commit(self, _repo: &Repository) -> Result<Commit, Self::Error> {
         Ok(self)
     }
 }
@@ -203,9 +203,9 @@ impl ToCommit for Commit {
 impl<R: Revision> ToCommit for R {
     type Error = Error;
 
-    fn to_commit(self, repo: &RepositoryRef) -> Result<Commit, Self::Error> {
+    fn to_commit(self, repo: &Repository) -> Result<Commit, Self::Error> {
         let oid = repo.object_id(&self)?;
-        let commit = repo.repo_ref.find_commit(oid.into())?;
+        let commit = repo.git2_repo().find_commit(oid.into())?;
         Ok(Commit::try_from(commit)?)
     }
 }

@@ -26,13 +26,13 @@ fn main() {
     let options = get_options_or_exit();
     let repo = init_repository_or_exit(&options.path_to_repo);
     let head_oid = match options.head_revision {
-        HeadRevision::Head => repo.as_ref().head_oid().unwrap(),
+        HeadRevision::Head => repo.head_oid().unwrap(),
         HeadRevision::Commit(id) => Oid::from_str(&id).unwrap(),
     };
     let base_oid = Oid::from_str(&options.base_revision).unwrap();
     let now = Instant::now();
     let elapsed_nanos = now.elapsed().as_nanos();
-    let diff = repo.as_ref().diff(base_oid, head_oid).unwrap();
+    let diff = repo.diff(base_oid, head_oid).unwrap();
     print_diff_summary(&diff, elapsed_nanos);
 }
 

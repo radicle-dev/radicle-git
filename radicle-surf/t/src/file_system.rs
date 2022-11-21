@@ -42,7 +42,6 @@ mod directory {
     #[test]
     fn directory_get_path() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
-        let repo = repo.as_ref();
         let root = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
 
         // get_path for a file.
@@ -79,7 +78,6 @@ mod directory {
     #[test]
     fn directory_size() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
-        let repo = repo.as_ref();
         let root = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
 
         /*

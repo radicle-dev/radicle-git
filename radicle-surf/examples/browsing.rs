@@ -26,7 +26,7 @@
 
 use radicle_surf::{
     file_system::{Directory, DirectoryEntry},
-    git::{Repository, RepositoryRef},
+    git::Repository,
 };
 use std::{env, time::Instant};
 
@@ -39,7 +39,6 @@ fn main() {
         },
     };
     let repo = Repository::discover(&repo_path).unwrap();
-    let repo = repo.as_ref();
     let now = Instant::now();
     let head = repo.head_oid().unwrap();
     let root = repo.root_dir(head).unwrap();
@@ -49,7 +48,7 @@ fn main() {
     println!("browse with print: {} ms", elapsed_millis);
 }
 
-fn print_directory(d: &Directory, repo: &RepositoryRef, indent_level: usize) {
+fn print_directory(d: &Directory, repo: &Repository, indent_level: usize) {
     let indent = " ".repeat(indent_level * 4);
     println!("{}{}/", &indent, d.name());
     for entry in d.contents(repo).unwrap().iter() {

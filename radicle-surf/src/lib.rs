@@ -1,5 +1,5 @@
-// This file is part of radicle-surf
-// <https://github.com/radicle-dev/radicle-surf>
+// This file is part of radicle-git
+// <https://github.com/radicle-dev/radicle-git>
 //
 // Copyright (C) 2019-2020 The Radicle Team <dev@radicle.xyz>
 //
@@ -17,17 +17,18 @@
 
 //! Welcome to `radicle-surf`!
 //!
-//! `radicle-surf` is a system to describe a file-system in a VCS world.
-//! We have the concept of files and directories, but these objects can change
-//! over time while people iterate on them. Thus, it is a file-system within
-//! history and we, the user, are viewing the file-system at a particular
-//! snapshot. Alongside this, we will wish to take two snapshots and view their
-//! differences.
+//! `radicle-surf` is a library to describe a Git repository as a file system.
+//! It aims to provide an easy-to-use API to browse a repository via the concept
+//! of files and directories for any given revision. It also allows the user to
+//! diff any two different revisions.
+//!
+//! One of the use cases would be to create a web GUI for interacting with a Git
+//! repository (thinking GitHub, GitLab or similar systems).
 //!
 //! Let's start surfing (and apologies for the `expect`s):
 //!
 //! ```
-//! use radicle_surf::vcs::git;
+//! use radicle_surf::git;
 //! use radicle_surf::file_system::{Label, Path, SystemType};
 //! use radicle_surf::file_system::unsound;
 //! use pretty_assertions::assert_eq;
@@ -36,17 +37,10 @@
 //!
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! // We're going to point to this repo.
-//! let repo = git::Repository::new("./data/git-platinum")?;
-//!
-//! // Here we initialise a new Broswer for a the git repo.
-//! let mut browser = git::Browser::new(&repo, git::Branch::local("master"))?;
-//!
-//! // Set the history to a particular commit
-//! let commit = git::Oid::from_str("80ded66281a4de2889cc07293a8f10947c6d57fe")?;
-//! browser.commit(commit)?;
+//! let repo = git::Repository::open("./data/git-platinum")?;
 //!
 //! // Get the snapshot of the directory for our current HEAD of history.
-//! let directory = browser.get_directory()?;
+//! let directory = repo.root_dir("80ded66281a4de2889cc07293a8f10947c6d57fe")?;
 //!
 //! // Let's get a Path to the memory.rs file
 //! let memory = unsound::path::new("src/memory.rs");

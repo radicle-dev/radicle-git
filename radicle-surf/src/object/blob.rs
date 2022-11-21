@@ -29,7 +29,7 @@ use serde::{
 use crate::{
     commit,
     file_system,
-    git::RepositoryRef,
+    git::Repository,
     object::{Error, Info, ObjectType},
     revision::Revision,
 };
@@ -115,7 +115,7 @@ impl Serialize for BlobContent {
 /// Will return [`Error`] if the project doesn't exist or a surf interaction
 /// fails.
 pub fn blob(
-    repo: &RepositoryRef,
+    repo: &Repository,
     maybe_revision: Option<Revision>,
     path: &str,
 ) -> Result<Blob, Error> {
@@ -123,7 +123,7 @@ pub fn blob(
 }
 
 fn make_blob<C>(
-    repo: &RepositoryRef,
+    repo: &Repository,
     maybe_revision: Option<Revision>,
     path: &str,
     content: C,

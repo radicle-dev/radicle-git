@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 
 use radicle_git_ext::Oid;
 
-use crate::git::{self, Error, Glob, RepositoryRef};
+use crate::git::{self, Error, Glob, Repository};
 
 /// Types of a peer.
 pub enum Category<P, U> {
@@ -79,7 +79,7 @@ pub enum Revision {
 impl git::Revision for &Revision {
     type Error = git2::Error;
 
-    fn object_id(&self, repo: &RepositoryRef) -> Result<Oid, Self::Error> {
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
         match self {
             Revision::Tag { name } => match name.qualified() {
                 None => Qualified::from(lit::refs_tags(name)).object_id(repo),
@@ -118,7 +118,7 @@ pub struct Revisions<P, U> {
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn remote<P, U>(repo: &RepositoryRef, peer_id: P, user: U) -> Result<Revisions<P, U>, Error>
+pub fn remote<P, U>(repo: &Repository, peer_id: P, user: U) -> Result<Revisions<P, U>, Error>
 where
     P: Clone + ToString,
 {
@@ -144,7 +144,7 @@ where
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn local<P, U>(repo: &RepositoryRef, peer_id: P, user: U) -> Result<Revisions<P, U>, Error>
+pub fn local<P, U>(repo: &Repository, peer_id: P, user: U) -> Result<Revisions<P, U>, Error>
 where
     P: Clone + ToString,
 {
@@ -175,7 +175,7 @@ where
 /// # Errors
 ///
 ///   * If we cannot get the branches from the `Browser`
-pub fn revisions<P, U>(repo: &RepositoryRef, peer: Category<P, U>) -> Result<Revisions<P, U>, Error>
+pub fn revisions<P, U>(repo: &Repository, peer: Category<P, U>) -> Result<Revisions<P, U>, Error>
 where
     P: Clone + ToString,
 {

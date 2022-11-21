@@ -99,36 +99,14 @@ pub enum Error {
 /// Wrapper around the `git2`'s `git2::Repository` type.
 /// This is to to limit the functionality that we can do
 /// on the underlying object.
-pub struct Repository(pub(super) git2::Repository);
-
-/// A reference-only `Repository`. This means that we cannot mutate the
-/// underlying `Repository`. Not being able to mutate the `Repository` means
-/// that the functions defined for `RepositoryRef` should be thread-safe.
-///
-/// # Construction
-///
-/// Use the `From<&'a git2::Repository>` implementation to construct a
-/// `RepositoryRef`.
-#[derive(Clone, Copy)]
-pub struct RepositoryRef<'a> {
-    pub(crate) repo_ref: &'a git2::Repository,
+pub struct Repository {
+    inner: git2::Repository,
 }
 
-// RepositoryRef should be safe to transfer across thread boundaries since it
-// only holds a reference to git2::Repository. git2::Repository is also Send
-// (see: https://docs.rs/git2/0.13.5/src/git2/repo.rs.html#46)
-unsafe impl<'a> Send for RepositoryRef<'a> {}
-
-impl<'a> From<&'a git2::Repository> for RepositoryRef<'a> {
-    fn from(repo_ref: &'a git2::Repository) -> Self {
-        RepositoryRef { repo_ref }
-    }
-}
-
-impl<'a> RepositoryRef<'a> {
+impl Repository {
     /// What is the current namespace we're browsing in.
     pub fn which_namespace(&self) -> Result<Option<Namespace>, Error> {
-        self.repo_ref
+        self.inner
             .namespace_bytes()
             .map(|ns| Namespace::try_from(ns).map_err(Error::from))
             .transpose()
@@ -139,7 +117,7 @@ impl<'a> RepositoryRef<'a> {
         let mut branches = Branches::default();
         for glob in pattern.globs() {
             let namespaced = self.namespaced_pattern(glob)?;
-            let references = self.repo_ref.references_glob(&namespaced)?;
+            let references = self.inner.references_glob(&namespaced)?;
             branches.push(references);
         }
         Ok(branches)
@@ -150,7 +128,7 @@ impl<'a> RepositoryRef<'a> {
         let mut tags = Tags::default();
         for glob in pattern.globs() {
             let namespaced = self.namespaced_pattern(glob)?;
-            let references = self.repo_ref.references_glob(&namespaced)?;
+            let references = self.inner.references_glob(&namespaced)?;
             tags.push(references);
         }
         Ok(tags)
@@ -161,7 +139,7 @@ impl<'a> RepositoryRef<'a> {
         let mut set = BTreeSet::new();
         for glob in pattern.globs() {
             let new_set = self
-                .repo_ref
+                .inner
                 .references_glob(glob)?
                 .map(|reference| {
                     reference
@@ -202,7 +180,7 @@ impl<'a> RepositoryRef<'a> {
 
     /// Parse an [`Oid`] from the given string.
     pub fn oid(&self, oid: &str) -> Result<Oid, Error> {
-        Ok(self.repo_ref.revparse_single(oid)?.id().into())
+        Ok(self.inner.revparse_single(oid)?.id().into())
     }
 
     /// Returns a top level `Directory` without nested sub-directories.
@@ -213,7 +191,7 @@ impl<'a> RepositoryRef<'a> {
         let commit = commit
             .to_commit(self)
             .map_err(|err| Error::ToCommit(err.into()))?;
-        let git2_commit = self.repo_ref.find_commit((commit.id).into())?;
+        let git2_commit = self.inner.find_commit((commit.id).into())?;
         let tree = git2_commit.as_object().peel_to_tree()?;
         Ok(Directory {
             name: Label::root(),
@@ -226,7 +204,7 @@ impl<'a> RepositoryRef<'a> {
         &self,
         d: &Directory,
     ) -> Result<BTreeMap<Label, DirectoryEntry>, Error> {
-        let git2_tree = self.repo_ref.find_tree(d.oid.into())?;
+        let git2_tree = self.inner.find_tree(d.oid.into())?;
         let map = self.tree_first_level(git2_tree)?;
         Ok(map)
     }
@@ -312,13 +290,13 @@ impl<'a> RepositoryRef<'a> {
 
     /// Obtain the file content
     pub(crate) fn file_content(&self, object_id: Oid) -> Result<FileContent, Error> {
-        let blob = self.repo_ref.find_blob(object_id.into())?;
+        let blob = self.inner.find_blob(object_id.into())?;
         Ok(FileContent::new(blob))
     }
 
     /// Return the size of a file
     pub(crate) fn file_size(&self, oid: Oid) -> Result<usize, Error> {
-        let blob = self.repo_ref.find_blob(oid.into())?;
+        let blob = self.inner.find_blob(oid.into())?;
         Ok(blob.size())
     }
 
@@ -332,7 +310,7 @@ impl<'a> RepositoryRef<'a> {
         let commit = self.get_git2_commit(id)?;
         let tree = commit.tree()?;
         let entry = tree.get_path(PathBuf::from(&path).as_ref())?;
-        let object = entry.to_object(self.repo_ref)?;
+        let object = entry.to_object(self.git2_repo())?;
         let blob = object.into_blob().map_err(|_| Error::PathNotFound(path))?;
         Ok(FileContent::new(blob))
     }
@@ -349,18 +327,18 @@ impl<'a> RepositoryRef<'a> {
 
     /// Returns the Oid of the current HEAD
     pub fn head_oid(&self) -> Result<Oid, Error> {
-        let head = self.repo_ref.head()?;
+        let head = self.inner.head()?;
         let head_commit = head.peel_to_commit()?;
         Ok(head_commit.id().into())
     }
 
     /// Switch to a `namespace`
     pub fn switch_namespace(&self, namespace: &str) -> Result<(), Error> {
-        Ok(self.repo_ref.set_namespace(namespace)?)
+        Ok(self.inner.set_namespace(namespace)?)
     }
 
     /// Returns a full reference name with namespace(s) included.
-    pub(crate) fn namespaced_refname(
+    pub(crate) fn namespaced_refname<'a>(
         &'a self,
         refname: &Qualified<'a>,
     ) -> Result<Qualified<'a>, Error> {
@@ -372,7 +350,7 @@ impl<'a> RepositoryRef<'a> {
     }
 
     /// Returns a full reference name with namespace(s) included.
-    pub(crate) fn namespaced_pattern(
+    pub(crate) fn namespaced_pattern<'a>(
         &'a self,
         refname: &QualifiedPattern<'a>,
     ) -> Result<QualifiedPattern<'a>, Error> {
@@ -385,7 +363,7 @@ impl<'a> RepositoryRef<'a> {
 
     /// Get a particular `git2::Commit` of `oid`.
     pub(crate) fn get_git2_commit(&self, oid: Oid) -> Result<git2::Commit, Error> {
-        self.repo_ref.find_commit(oid.into()).map_err(Error::Git)
+        self.inner.find_commit(oid.into()).map_err(Error::Git)
     }
 
     /// Extract the signature from a commit
@@ -404,7 +382,7 @@ impl<'a> RepositoryRef<'a> {
         // git_commit_extract_signature at
         // https://libgit2.org/libgit2/#HEAD/group/commit/git_commit_extract_signature
         // the return value for a commit without a signature will be GIT_ENOTFOUND
-        match self.repo_ref.extract_signature(commit_oid, field) {
+        match self.inner.extract_signature(commit_oid, field) {
             Err(error) => {
                 if error.code() == git2::ErrorCode::NotFound {
                     Ok(None)
@@ -422,7 +400,7 @@ impl<'a> RepositoryRef<'a> {
         for branch in self.branches(&glob)? {
             let branch = branch?;
             let namespaced = self.namespaced_refname(&branch.refname())?;
-            let reference = self.repo_ref.find_reference(namespaced.as_str())?;
+            let reference = self.inner.find_reference(namespaced.as_str())?;
             if self.reachable_from(&reference, oid)? {
                 contained_branches.push(branch);
             }
@@ -434,7 +412,7 @@ impl<'a> RepositoryRef<'a> {
     fn reachable_from(&self, reference: &git2::Reference, oid: &Oid) -> Result<bool, Error> {
         let git2_oid = (*oid).into();
         let other = reference.peel_to_commit()?.id();
-        let is_descendant = self.repo_ref.graph_descendant_of(other, git2_oid)?;
+        let is_descendant = self.inner.graph_descendant_of(other, git2_oid)?;
 
         Ok(other == git2_oid || is_descendant)
     }
@@ -471,7 +449,7 @@ impl<'a> RepositoryRef<'a> {
         }
 
         let mut diff =
-            self.repo_ref
+            self.inner
                 .diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), Some(&mut opts))?;
 
         // Detect renames by default.
@@ -484,57 +462,39 @@ impl<'a> RepositoryRef<'a> {
 
     /// Returns the history with the `head` commit.
     pub fn history<C: ToCommit>(&self, head: C) -> Result<History, Error> {
-        History::new(*self, head)
+        History::new(self, head)
     }
 
     pub(super) fn object_id<R: Revision>(&self, r: &R) -> Result<Oid, Error> {
         r.object_id(self).map_err(|err| Error::Revision(err.into()))
     }
-}
 
-impl<'a> std::fmt::Debug for RepositoryRef<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, ".git")
-    }
-}
-
-impl Repository {
     /// Open a git repository given its exact URI.
     ///
     /// # Errors
     ///
     /// * [`Error::Git`]
     pub fn open(repo_uri: impl AsRef<std::path::Path>) -> Result<Self, Error> {
-        git2::Repository::open(repo_uri)
-            .map(Repository)
-            .map_err(Error::from)
+        let repo = git2::Repository::open(repo_uri)?;
+        Ok(Self { inner: repo })
     }
 
     /// Attempt to open a git repository at or above `repo_uri` in the file
     /// system.
     pub fn discover(repo_uri: impl AsRef<std::path::Path>) -> Result<Self, Error> {
-        git2::Repository::discover(repo_uri)
-            .map(Repository)
-            .map_err(Error::from)
+        let repo = git2::Repository::discover(repo_uri)?;
+        Ok(Self { inner: repo })
     }
 
-    /// Since our operations are read-only when it comes to surfing a repository
-    /// we have a separate struct called [`RepositoryRef`]. This turns an owned
-    /// [`Repository`] into a [`RepositoryRef`].
-    pub fn as_ref(&'_ self) -> RepositoryRef<'_> {
-        RepositoryRef { repo_ref: &self.0 }
-    }
-}
-
-impl<'a> From<&'a Repository> for RepositoryRef<'a> {
-    fn from(repo: &'a Repository) -> Self {
-        repo.as_ref()
+    /// Get a reference to the underlying git2 repo.
+    pub(crate) fn git2_repo(&self) -> &git2::Repository {
+        &self.inner
     }
 }
 
 impl From<git2::Repository> for Repository {
     fn from(repo: git2::Repository) -> Self {
-        Repository(repo)
+        Repository { inner: repo }
     }
 }
 
