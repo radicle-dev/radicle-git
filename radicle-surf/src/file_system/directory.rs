@@ -21,6 +21,7 @@
 //! See [`Directory`] for more information.
 
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     convert::{Infallible, Into as _},
     path::{Path, PathBuf},
@@ -186,6 +187,23 @@ pub enum Entry {
     Directory(Directory),
 }
 
+impl PartialOrd for Entry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Entry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Entry::File(x), Entry::File(y)) => x.name().cmp(y.name()),
+            (Entry::File(_), Entry::Directory(_)) => Ordering::Less,
+            (Entry::Directory(_), Entry::File(_)) => Ordering::Greater,
+            (Entry::Directory(x), Entry::Directory(y)) => x.name().cmp(y.name()),
+        }
+    }
+}
+
 impl Entry {
     /// Get a label for the `Entriess`, either the name of the [`File`]
     /// or the name of the [`Directory`].
@@ -193,6 +211,20 @@ impl Entry {
         match self {
             Entry::File(file) => &file.name,
             Entry::Directory(directory) => directory.name(),
+        }
+    }
+
+    pub fn path(&self) -> PathBuf {
+        match self {
+            Entry::File(file) => file.path(),
+            Entry::Directory(directory) => directory.path(),
+        }
+    }
+
+    pub fn location(&self) -> &Path {
+        match self {
+            Entry::File(file) => file.location(),
+            Entry::Directory(directory) => directory.location(),
         }
     }
 
@@ -329,7 +361,7 @@ impl Directory {
         &self,
         path: &P,
         repo: &Repository,
-    ) -> Result<Option<Entry>, crate::git::Error>
+    ) -> Result<Option<Entry>, error::Directory>
     where
         P: AsRef<Path>,
     {
@@ -351,12 +383,12 @@ impl Directory {
         &self,
         path: &P,
         repo: &Repository,
-    ) -> Result<Option<Oid>, crate::git::Error>
+    ) -> Result<Option<File>, error::Directory>
     where
         P: AsRef<Path>,
     {
         Ok(match self.find_entry(path, repo)? {
-            Some(Entry::File(f)) => Some(f.id),
+            Some(Entry::File(file)) => Some(file),
             _ => None,
         })
     }
@@ -366,7 +398,7 @@ impl Directory {
         &self,
         path: P,
         repo: &Repository,
-    ) -> Result<Option<Self>, crate::git::Error>
+    ) -> Result<Option<Self>, error::Directory>
     where
         P: AsRef<Path>,
     {

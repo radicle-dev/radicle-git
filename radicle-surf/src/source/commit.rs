@@ -29,7 +29,7 @@ use serde::{
 use crate::{
     diff,
     git::{self, glob, Glob, Repository},
-    source::{person::Person, revision::Revision},
+    source::person::Person,
 };
 
 use radicle_git_ext::Oid;
@@ -227,18 +227,13 @@ pub fn header(repo: &Repository, sha1: Oid) -> Result<Header, Error> {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commits(repo: &Repository, maybe_revision: Option<Revision>) -> Result<Commits, Error> {
-    let rev = match maybe_revision {
-        Some(revision) => revision,
-        None => Revision::Sha {
-            sha: repo.head_oid()?,
-        },
-    };
-
-    let stats = repo.get_commit_stats(&rev)?;
-    let commits: Result<Vec<git::Commit>, git::Error> = repo.history(&rev)?.collect();
-    let headers = commits?.iter().map(Header::from).collect();
-
+pub fn commits<R>(repo: &Repository, revision: &R) -> Result<Commits, Error>
+where
+    R: git::Revision,
+{
+    let stats = repo.get_commit_stats(revision)?;
+    let commits = repo.history(revision)?.collect::<Result<Vec<_>, _>>()?;
+    let headers = commits.into_iter().map(Header::from).collect();
     Ok(Commits { headers, stats })
 }
 

@@ -167,12 +167,28 @@ impl Revision for &str {
     }
 }
 
+impl Revision for Branch {
+    type Error = Error;
+
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        (&self).object_id(repo)
+    }
+}
+
 impl Revision for &Branch {
     type Error = Error;
 
     fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
         let refname = repo.namespaced_refname(&self.refname())?;
         Ok(repo.git2_repo().refname_to_id(&refname).map(Oid::from)?)
+    }
+}
+
+impl Revision for Tag {
+    type Error = Infallible;
+
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        (&self).object_id(repo)
     }
 }
 
@@ -184,27 +200,35 @@ impl Revision for &Tag {
     }
 }
 
+impl<R: Revision> Revision for Box<R> {
+    type Error = R::Error;
+
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        self.as_ref().object_id(repo)
+    }
+}
+
 /// A common trait for anything that can convert to a `Commit`.
 pub trait ToCommit {
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// Converts to a commit in `repo`.
-    fn to_commit(self, repo: &Repository) -> Result<Commit, Self::Error>;
+    fn to_commit(&self, repo: &Repository) -> Result<Commit, Self::Error>;
 }
 
 impl ToCommit for Commit {
     type Error = Infallible;
 
-    fn to_commit(self, _repo: &Repository) -> Result<Commit, Self::Error> {
-        Ok(self)
+    fn to_commit(&self, _repo: &Repository) -> Result<Commit, Self::Error> {
+        Ok(self.clone())
     }
 }
 
 impl<R: Revision> ToCommit for R {
     type Error = Error;
 
-    fn to_commit(self, repo: &Repository) -> Result<Commit, Self::Error> {
-        let oid = repo.object_id(&self)?;
+    fn to_commit(&self, repo: &Repository) -> Result<Commit, Self::Error> {
+        let oid = repo.object_id(self)?;
         let commit = repo.git2_repo().find_commit(oid.into())?;
         Ok(Commit::try_from(commit)?)
     }

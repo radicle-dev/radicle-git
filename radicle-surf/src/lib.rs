@@ -83,8 +83,3 @@ pub mod diff;
 pub mod file_system;
 pub mod git;
 pub mod source;
-
-#[cfg(feature = "syntax")]
-pub mod syntax;
-#[cfg(feature = "syntax")]
-pub use syntax::SYNTAX_SET;

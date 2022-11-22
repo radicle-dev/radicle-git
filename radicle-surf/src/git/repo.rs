@@ -22,10 +22,7 @@ use std::{
     str,
 };
 
-use git_ref_format::{
-    refspec::{self, QualifiedPattern},
-    Qualified,
-};
+use git_ref_format::{refspec::QualifiedPattern, Qualified, RefString};
 use radicle_git_ext::Oid;
 use thiserror::Error;
 
@@ -50,7 +47,7 @@ use crate::{
 };
 
 pub mod iter;
-pub use iter::{Branches, Namespaces, Tags};
+pub use iter::{Branches, Categories, Namespaces, Tags};
 
 use self::iter::{BranchNames, TagNames};
 
@@ -60,6 +57,8 @@ use self::iter::{BranchNames, TagNames};
 pub enum Error {
     #[error(transparent)]
     Branches(#[from] iter::error::Branch),
+    #[error(transparent)]
+    Categories(#[from] iter::error::Category),
     #[error(transparent)]
     Commit(#[from] commit::Error),
     /// An error that comes from performing a *diff* operations.
@@ -136,6 +135,16 @@ impl Repository {
         Ok(tags)
     }
 
+    pub fn categories(&self, pattern: &Glob<Qualified<'_>>) -> Result<Categories, Error> {
+        let mut cats = Categories::default();
+        for glob in pattern.globs() {
+            let namespaced = self.namespaced_pattern(glob)?;
+            let references = self.inner.references_glob(&namespaced)?;
+            cats.push(references);
+        }
+        Ok(cats)
+    }
+
     /// Returns an iterator of namespaces that match `pattern`.
     pub fn namespaces(&self, pattern: &Glob<Namespace>) -> Result<Namespaces, Error> {
         let mut set = BTreeSet::new();
@@ -189,7 +198,7 @@ impl Repository {
     ///
     /// To visit inside any nested sub-directories, call `directory.get(&repo)`
     /// on the sub-directory.
-    pub fn root_dir<C: ToCommit>(&self, commit: C) -> Result<Directory, Error> {
+    pub fn root_dir<C: ToCommit>(&self, commit: &C) -> Result<Directory, Error> {
         let commit = commit
             .to_commit(self)
             .map_err(|err| Error::ToCommit(err.into()))?;
@@ -200,7 +209,7 @@ impl Repository {
 
     /// Returns the last commit, if exists, for a `path` in the history of
     /// `rev`.
-    pub fn last_commit<P, C>(&self, path: P, rev: C) -> Result<Option<Commit>, Error>
+    pub fn last_commit<P, C>(&self, path: P, rev: &C) -> Result<Option<Commit>, Error>
     where
         P: AsRef<Path>,
         C: ToCommit,
@@ -215,7 +224,7 @@ impl Repository {
     }
 
     /// Gets stats of `commit`.
-    pub fn get_commit_stats<C: ToCommit>(&self, commit: C) -> Result<Stats, Error> {
+    pub fn get_commit_stats<C: ToCommit>(&self, commit: &C) -> Result<Stats, Error> {
         let branches = self.branches(Glob::all_heads())?.count();
         let history = self.history(commit)?;
         let mut commits = 0;
@@ -235,12 +244,6 @@ impl Repository {
             commits,
             contributors: contributors.len(),
         })
-    }
-
-    /// Obtain the file content
-    pub(crate) fn file_content(&self, object_id: Oid) -> Result<FileContent, Error> {
-        let blob = self.inner.find_blob(object_id.into())?;
-        Ok(FileContent::new(blob))
     }
 
     /// Retrieves the file with `path` in this commit.
@@ -270,8 +273,8 @@ impl Repository {
     }
 
     /// Lists tag names in the local RefScope.
-    pub fn tag_names(&self) -> Result<TagNames, Error> {
-        Ok(self.tags(&Glob::tags(refspec::pattern!("*")))?.names())
+    pub fn tag_names(&self, filter: &Glob<Tag>) -> Result<TagNames, Error> {
+        Ok(self.tags(filter)?.names())
     }
 
     /// Returns the Oid of the current HEAD
@@ -282,8 +285,18 @@ impl Repository {
     }
 
     /// Switch to a `namespace`
-    pub fn switch_namespace(&self, namespace: &str) -> Result<(), Error> {
-        Ok(self.inner.set_namespace(namespace)?)
+    pub fn switch_namespace(&self, namespace: &RefString) -> Result<(), Error> {
+        Ok(self.inner.set_namespace(namespace.as_str())?)
+    }
+
+    pub fn with_namespace<T, F>(&self, namespace: &RefString, f: F) -> Result<T, Error>
+    where
+        F: FnOnce() -> Result<T, Error>,
+    {
+        self.switch_namespace(namespace)?;
+        let res = f();
+        self.inner.remove_namespace()?;
+        res
     }
 
     /// Returns a full reference name with namespace(s) included.
@@ -413,7 +426,7 @@ impl Repository {
     }
 
     /// Returns the history with the `head` commit.
-    pub fn history<C: ToCommit>(&self, head: C) -> Result<History, Error> {
+    pub fn history<C: ToCommit>(&self, head: &C) -> Result<History, Error> {
         History::new(self, head)
     }
 

@@ -18,10 +18,7 @@
 //! Represents git object type 'blob', i.e. actual file contents.
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
-use std::{
-    path::{Path, PathBuf},
-    str,
-};
+use std::{path::Path, str};
 
 #[cfg(feature = "serialize")]
 use serde::{
@@ -30,28 +27,63 @@ use serde::{
 };
 
 use crate::{
-    git::Repository,
-    source::{
-        commit,
-        object::{Error, Info, ObjectType},
-        revision::Revision,
-    },
+    file_system::{File, FileContent},
+    git::{self, Repository},
+    source::{commit, object::Error},
 };
-
-#[cfg(feature = "syntax")]
-use crate::syntax;
 
 /// File data abstraction.
 pub struct Blob {
-    /// Actual content of the file, if the content is ASCII.
+    pub file: File,
     pub content: BlobContent,
-    /// Extra info for the file.
-    pub info: Info,
-    /// Absolute path to the object from the root of the repo.
-    pub path: PathBuf,
+    pub commit: Option<commit::Header>,
 }
 
 impl Blob {
+    /// Returns the [`Blob`] for a file at `revision` under `path`.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`Error`] if the project doesn't exist or a surf interaction
+    /// fails.
+    pub fn new<P, R>(repo: &Repository, revision: &R, path: &P) -> Result<Blob, Error>
+    where
+        P: AsRef<Path>,
+        R: git::Revision,
+    {
+        Self::make_blob(repo, revision, path, |c| BlobContent::from(c))
+    }
+
+    fn make_blob<P, R>(
+        repo: &Repository,
+        revision: &R,
+        path: &P,
+        content: impl FnOnce(FileContent) -> BlobContent,
+    ) -> Result<Blob, Error>
+    where
+        P: AsRef<Path>,
+        R: git::Revision,
+    {
+        let path = path.as_ref();
+        let root = repo.root_dir(revision)?;
+
+        let file = root
+            .find_file(&path, repo)?
+            .ok_or_else(|| Error::PathNotFound(path.to_path_buf()))?;
+
+        let last_commit = repo
+            .last_commit(path, revision)?
+            .map(|c| commit::Header::from(&c));
+
+        let content = content(file.content(repo)?);
+
+        Ok(Blob {
+            file,
+            content,
+            commit: last_commit,
+        })
+    }
+
     /// Indicates if the content of the [`Blob`] is binary.
     #[must_use]
     pub fn is_binary(&self) -> bool {
@@ -71,12 +103,14 @@ impl Serialize for Blob {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("Blob", 5)?;
+        const FIELDS: usize = 6;
+        let mut state = serializer.serialize_struct("Blob", FIELDS)?;
         state.serialize_field("binary", &self.is_binary())?;
         state.serialize_field("html", &self.is_html())?;
         state.serialize_field("content", &self.content)?;
-        state.serialize_field("info", &self.info)?;
-        state.serialize_field("path", &self.path)?;
+        state.serialize_field("lastCommit", &self.commit)?;
+        state.serialize_field("name", &self.file.name())?;
+        state.serialize_field("path", &self.file.location())?;
         state.end()
     }
 }
@@ -88,9 +122,9 @@ pub enum BlobContent {
     Plain(String),
     /// Content is syntax-highlighted HTML.
     ///
-    /// Note that is necessary to enable the `syntax` feature flag for this
-    /// variant to be constructed. Use `highlighting::blob`, instead of
-    /// [`blob`] to get highlighted content.
+    /// Note that it is necessary to enable the `syntax` feature flag
+    /// for this variant to be constructed. Use `Blob::highlighted`,
+    /// instead of `Blob::new` to get highlighted content.
     Html(String),
     /// Content is binary and needs special treatment.
     Binary(Vec<u8>),
@@ -112,98 +146,54 @@ impl Serialize for BlobContent {
     }
 }
 
-/// Returns the [`Blob`] for a file at `revision` under `path`.
-///
-/// # Errors
-///
-/// Will return [`Error`] if the project doesn't exist or a surf interaction
-/// fails.
-pub fn blob<P>(repo: &Repository, maybe_revision: Option<Revision>, path: &P) -> Result<Blob, Error>
-where
-    P: AsRef<Path>,
-{
-    make_blob(repo, maybe_revision, path, content)
-}
-
-fn make_blob<P, C>(
-    repo: &Repository,
-    maybe_revision: Option<Revision>,
-    path: &P,
-    content: C,
-) -> Result<Blob, Error>
-where
-    P: AsRef<Path>,
-    C: FnOnce(&[u8]) -> BlobContent,
-{
-    let path = path.as_ref();
-    let revision = maybe_revision.unwrap();
-    let root = repo.root_dir(&revision)?;
-
-    let file = root
-        .find_file(&path, repo)?
-        .ok_or_else(|| Error::PathNotFound(path.to_path_buf()))?;
-
-    let last_commit = repo
-        .last_commit(path, &revision)?
-        .map(|c| commit::Header::from(&c));
-    // TODO: fuck this
-    let name = path
-        .file_name()
-        .unwrap()
-        .to_os_string()
-        .into_string()
-        .ok()
-        .unwrap();
-
-    let file_content = repo.file_content(file)?;
-    let content = content(file_content.as_bytes());
-
-    Ok(Blob {
-        content,
-        info: Info {
-            name,
-            object_type: ObjectType::Blob,
-            last_commit,
-        },
-        path: path.to_path_buf(),
-    })
-}
-
-/// Return a [`BlobContent`] given a byte slice.
-fn content(content: &[u8]) -> BlobContent {
-    match str::from_utf8(content) {
-        Ok(utf8) => BlobContent::Plain(utf8.to_owned()),
-        Err(_) => BlobContent::Binary(content.to_owned()),
+impl From<FileContent<'_>> for BlobContent {
+    fn from(content: FileContent) -> Self {
+        let content = content.as_bytes();
+        match str::from_utf8(content) {
+            Ok(utf8) => BlobContent::Plain(utf8.to_owned()),
+            Err(_) => BlobContent::Binary(content.to_owned()),
+        }
     }
 }
 
 #[cfg(feature = "syntax")]
 pub mod highlighting {
+    use crate::source::syntax;
+
     use super::*;
 
-    /// Returns the [`Blob`] for a file at `revision` under `path`.
-    ///
-    /// # Errors
-    ///
-    /// Will return [`Error`] if the project doesn't exist or a surf interaction
-    /// fails.
-    pub fn blob<P>(
-        browser: &mut Browser,
-        maybe_revision: Option<Revision<P>>,
-        path: &str,
-        theme: Option<&str>,
-    ) -> Result<Blob, Error>
-    where
-        P: ToString,
-    {
-        make_blob(browser, maybe_revision, path, |contents| {
-            content(path, contents, theme)
-        })
+    impl Blob {
+        /// Returns the [`Blob`] for a file at `revision` under `path`.
+        ///
+        /// The content of the [`Blob`] will be highlighted, if possible.
+        ///
+        /// # Errors
+        ///
+        /// Will return [`Error`] if the project doesn't exist or a surf
+        /// interaction fails.
+        pub fn highlighted<P, R>(
+            browser: &Repository,
+            revision: &R,
+            path: &P,
+            theme: Option<&str>,
+        ) -> Result<Blob, Error>
+        where
+            P: AsRef<Path>,
+            R: git::Revision,
+        {
+            Self::make_blob(browser, revision, path, |contents| {
+                content(path, &contents, theme)
+            })
+        }
     }
 
     /// Return a [`BlobContent`] given a file path, content and theme. Attempts
     /// to perform syntax highlighting when the theme is `Some`.
-    fn content(path: &str, content: &[u8], theme_name: Option<&str>) -> BlobContent {
+    fn content<P>(path: P, content: &FileContent, theme_name: Option<&str>) -> BlobContent
+    where
+        P: AsRef<Path>,
+    {
+        let content = content.as_bytes();
         let content = match str::from_utf8(content) {
             Ok(content) => content,
             Err(_) => return BlobContent::Binary(content.to_owned()),

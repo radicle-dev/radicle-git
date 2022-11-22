@@ -20,74 +20,22 @@
 
 use std::path::PathBuf;
 
-#[cfg(feature = "serialize")]
-use serde::{
-    ser::{SerializeStruct as _, Serializer},
-    Serialize,
-};
-
 pub mod blob;
 pub use blob::{Blob, BlobContent};
 
 pub mod tree;
-pub use tree::{tree, Tree, TreeEntry};
+pub use tree::{Tree, TreeEntry};
 
-use crate::{file_system::directory, git, source::commit};
-
-/// Git object types.
-///
-/// `shafiul.github.io/gitbook/1_the_git_object_model.html`
-#[derive(Debug, Eq, Ord, PartialOrd, PartialEq)]
-pub enum ObjectType {
-    /// References a list of other trees and blobs.
-    Tree,
-    /// Used to store file data.
-    Blob,
-}
-
-#[cfg(feature = "serialize")]
-impl Serialize for ObjectType {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Self::Blob => serializer.serialize_unit_variant("ObjectType", 0, "BLOB"),
-            Self::Tree => serializer.serialize_unit_variant("ObjectType", 1, "TREE"),
-        }
-    }
-}
-
-/// Set of extra information we carry for blob and tree objects returned from
-/// the API.
-pub struct Info {
-    /// Name part of an object.
-    pub name: String,
-    /// The type of the object.
-    pub object_type: ObjectType,
-    /// The last commmit that touched this object.
-    pub last_commit: Option<commit::Header>,
-}
-
-#[cfg(feature = "serialize")]
-impl Serialize for Info {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("Info", 3)?;
-        state.serialize_field("name", &self.name)?;
-        state.serialize_field("objectType", &self.object_type)?;
-        state.serialize_field("lastCommit", &self.last_commit)?;
-        state.end()
-    }
-}
+use crate::{file_system::directory, git};
 
 /// An error reported by object types.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
     Directory(#[from] directory::error::Directory),
+
+    #[error(transparent)]
+    File(#[from] directory::error::File),
 
     /// An error occurred during a git operation.
     #[error(transparent)]

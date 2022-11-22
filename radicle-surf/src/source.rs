@@ -11,13 +11,18 @@
 //! [git-objects]: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
 
 pub mod object;
-pub use object::{blob, tree, Blob, BlobContent, Info, ObjectType, Tree};
+pub use object::{blob, tree, Blob, BlobContent, Tree, TreeEntry};
 
 pub mod commit;
 pub use commit::{commit, commits, Commit};
 
-pub mod person;
+mod person;
 pub use person::Person;
 
-pub mod revision;
-pub use revision::Revision;
+mod view;
+pub use view::{view, View};
+
+#[cfg(feature = "syntax")]
+pub mod syntax;
+#[cfg(feature = "syntax")]
+pub use syntax::SYNTAX_SET;

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::path;
+use std::path::Path;
 
 use syntect::{
     easy::HighlightLines,
@@ -56,10 +56,14 @@ lazy_static::lazy_static! {
     };
 }
 
-/// Return a [`BlobContent`] given a file path, content and theme. Attempts to
-/// perform syntax highlighting when the theme is `Some`.
-pub fn highlight(path: &str, content: &str, theme_name: &str) -> Option<String> {
-    let syntax = path::Path::new(path)
+/// Return highlighted text given a file path, the original text, and
+/// a theme.
+pub fn highlight<P>(path: P, content: &str, theme_name: &str) -> Option<String>
+where
+    P: AsRef<Path>,
+{
+    let syntax = path
+        .as_ref()
         .extension()
         .and_then(std::ffi::OsStr::to_str)
         .and_then(|ext| SYNTAX_SET.find_syntax_by_extension(ext));
@@ -73,12 +77,13 @@ pub fn highlight(path: &str, content: &str, theme_name: &str) -> Option<String> 
             let mut html = String::with_capacity(content.len());
 
             for line in LinesWithEndings::from(content) {
-                let regions = highlighter.highlight(line, &SYNTAX_SET);
+                let regions = highlighter.highlight_line(line, &SYNTAX_SET).ok()?;
                 syntect::html::append_highlighted_html_for_styled_line(
                     &regions[..],
                     syntect::html::IncludeBackground::No,
                     &mut html,
-                );
+                )
+                .ok();
             }
             Some(html)
         },

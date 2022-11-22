@@ -6,9 +6,9 @@ use std::{
     convert::TryFrom as _,
 };
 
-use git_ref_format::{lit, Qualified};
+use git_ref_format::{lit, Qualified, RefString};
 
-use crate::git::{tag, Branch, Namespace, Tag};
+use crate::git::{refstr_join, tag, Branch, Namespace, Tag};
 
 /// Iterator over [`Tag`]s.
 #[derive(Default)]
@@ -165,7 +165,49 @@ impl Iterator for Namespaces {
     }
 }
 
+#[derive(Default)]
+pub struct Categories<'a> {
+    references: Vec<git2::References<'a>>,
+    current: usize,
+}
+
+impl<'a> Categories<'a> {
+    pub(super) fn push(&mut self, references: git2::References<'a>) {
+        self.references.push(references)
+    }
+}
+
+impl<'a> Iterator for Categories<'a> {
+    type Item = Result<(RefString, RefString), error::Category>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.current < self.references.len() {
+            match self.references.get_mut(self.current) {
+                Some(refs) => match refs.next() {
+                    Some(res) => {
+                        return Some(res.map_err(error::Category::from).and_then(|r| {
+                            let name = std::str::from_utf8(r.name_bytes())?;
+                            let name = git_ref_format::RefStr::try_from_str(name)?;
+                            let name = name.qualified().ok_or_else(|| {
+                                error::Category::NotQualified(name.to_ref_string())
+                            })?;
+                            let (_refs, category, c, cs) = name.non_empty_components();
+                            Ok((category.to_ref_string(), refstr_join(c, cs)))
+                        }));
+                    },
+                    None => self.current += 1,
+                },
+                None => break,
+            }
+        }
+        None
+    }
+}
+
 pub mod error {
+    use std::str;
+
+    use git_ref_format::RefString;
     use thiserror::Error;
 
     use crate::git::{branch, tag};
@@ -176,6 +218,18 @@ pub mod error {
         Git(#[from] git2::Error),
         #[error(transparent)]
         Branch(#[from] branch::error::Branch),
+    }
+
+    #[derive(Debug, Error)]
+    pub enum Category {
+        #[error(transparent)]
+        Git(#[from] git2::Error),
+        #[error("the reference '{0}' was expected to be qualified, i.e. 'refs/<category>/<path>'")]
+        NotQualified(RefString),
+        #[error(transparent)]
+        RefFormat(#[from] git_ref_format::Error),
+        #[error(transparent)]
+        Utf8(#[from] str::Utf8Error),
     }
 
     #[derive(Debug, Error)]

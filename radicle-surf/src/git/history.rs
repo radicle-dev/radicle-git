@@ -38,7 +38,7 @@ enum FilterBy {
 
 impl<'a> History<'a> {
     /// Creates a new history starting from `head`, in `repo`.
-    pub fn new<C: ToCommit>(repo: &'a Repository, head: C) -> Result<Self, Error> {
+    pub fn new<C: ToCommit>(repo: &'a Repository, head: &C) -> Result<Self, Error> {
         let head = head
             .to_commit(repo)
             .map_err(|err| Error::ToCommit(err.into()))?;

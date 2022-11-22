@@ -8,7 +8,7 @@ use super::GIT_PLATINUM;
 fn switch_to_banana() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
     let history_master = repo.history(&Branch::local(refname!("master")))?;
-    repo.switch_namespace("golden")?;
+    repo.switch_namespace(&refname!("golden"))?;
     let history_banana = repo.history(&Branch::local(refname!("banana")))?;
 
     assert_ne!(history_master.head(), history_banana.head());
@@ -23,7 +23,7 @@ fn me_namespace() -> Result<(), Error> {
 
     assert_eq!(repo.which_namespace().unwrap(), None);
 
-    repo.switch_namespace("me")?;
+    repo.switch_namespace(&refname!("me"))?;
     assert_eq!(repo.which_namespace().unwrap(), Some("me".parse()?));
 
     let history_feature = repo.history(&Branch::local(refname!("feature/#1194")))?;
@@ -58,7 +58,7 @@ fn golden_namespace() -> Result<(), Error> {
 
     assert_eq!(repo.which_namespace().unwrap(), None);
 
-    repo.switch_namespace("golden")?;
+    repo.switch_namespace(&refname!("golden"))?;
 
     assert_eq!(repo.which_namespace().unwrap(), Some("golden".parse()?));
 
@@ -101,7 +101,7 @@ fn silver_namespace() -> Result<(), Error> {
 
     assert_eq!(repo.which_namespace().unwrap(), None);
 
-    repo.switch_namespace("golden/silver")?;
+    repo.switch_namespace(&refname!("golden/silver"))?;
     assert_eq!(
         repo.which_namespace().unwrap(),
         Some("golden/silver".parse()?)
