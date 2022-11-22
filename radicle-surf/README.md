@@ -1,6 +1,6 @@
 # radicle-surf
 
-A code surfing library for Git repository 🏄‍♀️🏄‍♂️
+A code surfing library for Git repositories 🏄‍♀️🏄‍♂️
 
 Welcome to `radicle-surf`!
 
