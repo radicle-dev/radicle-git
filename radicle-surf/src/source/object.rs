@@ -32,7 +32,7 @@ pub use blob::{Blob, BlobContent};
 pub mod tree;
 pub use tree::{tree, Tree, TreeEntry};
 
-use crate::{commit, file_system::directory, git};
+use crate::{file_system::directory, git, source::commit};
 
 /// Git object types.
 ///

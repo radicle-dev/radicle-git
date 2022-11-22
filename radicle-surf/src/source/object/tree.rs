@@ -28,11 +28,13 @@ use serde::{
 };
 
 use crate::{
-    commit,
     file_system::directory,
     git::Repository,
-    object::{Error, Info, ObjectType},
-    revision::Revision,
+    source::{
+        commit,
+        object::{Error, Info, ObjectType},
+        revision::Revision,
+    },
 };
 
 /// Result of a directory listing, carries other trees and blobs.

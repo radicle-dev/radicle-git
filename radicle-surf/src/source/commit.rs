@@ -29,8 +29,7 @@ use serde::{
 use crate::{
     diff,
     git::{self, glob, Glob, Repository},
-    person::Person,
-    revision::Revision,
+    source::{person::Person, revision::Revision},
 };
 
 use radicle_git_ext::Oid;

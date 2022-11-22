@@ -30,10 +30,12 @@ use serde::{
 };
 
 use crate::{
-    commit,
     git::Repository,
-    object::{Error, Info, ObjectType},
-    revision::Revision,
+    source::{
+        commit,
+        object::{Error, Info, ObjectType},
+        revision::Revision,
+    },
 };
 
 #[cfg(feature = "syntax")]
