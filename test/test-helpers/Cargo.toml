@@ -21,13 +21,10 @@ tempfile = "3.3"
 tracing = "0.1"
 proptest = "1"
 
-# [dependencies.link-canonical]
-# path = "../../link-canonical"
-
 [dependencies.minicbor]
 version = "0.13"
 features = ["std"]
 
 [dependencies.tracing-subscriber]
-version = "0.3.7"
+version = "0.3.16"
 features = ["std", "env-filter", "fmt", "json"]
