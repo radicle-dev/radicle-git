@@ -4,31 +4,6 @@
 //! Unit tests for radicle_surf::file_system
 
 #[cfg(test)]
-mod path {
-    use radicle_surf::file_system::unsound;
-
-    #[test]
-    fn split_last_root_and_foo() {
-        let path = unsound::path::new("foo");
-        assert_eq!(path.split_last(), (vec![], unsound::label::new("foo")));
-    }
-
-    #[test]
-    fn split_last_same_labels() {
-        // An interesting case for when first == last, but doesn't imply a singleton
-        // Path.
-        let path = unsound::path::new("foo/bar/foo");
-        assert_eq!(
-            path.split_last(),
-            (
-                vec![unsound::label::new("foo"), unsound::label::new("bar")],
-                unsound::label::new("foo")
-            )
-        );
-    }
-}
-
-#[cfg(test)]
 mod directory {
     use git_ref_format::refname;
     use radicle_surf::{

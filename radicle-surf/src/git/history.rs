@@ -15,11 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::{
-    file_system,
-    git::{Commit, Error, Repository, ToCommit},
+use std::{
+    convert::TryFrom,
+    path::{Path, PathBuf},
 };
-use std::convert::TryFrom;
+
+use crate::git::{Commit, Error, Repository, ToCommit};
 
 /// An iterator that produces the history of commits for a given `head`,
 /// in the `repo`.
@@ -32,7 +33,7 @@ pub struct History<'a> {
 
 /// Internal implementation, subject to refactoring.
 enum FilterBy {
-    File { path: file_system::Path },
+    File { path: PathBuf },
 }
 
 impl<'a> History<'a> {
@@ -61,8 +62,13 @@ impl<'a> History<'a> {
     ///
     /// Note that it is possible that a filtered History becomes empty,
     /// even though calling `.head()` still returns the original head.
-    pub fn by_path(mut self, path: file_system::Path) -> Self {
-        self.filter_by = Some(FilterBy::File { path });
+    pub fn by_path<P>(mut self, path: P) -> Self
+    where
+        P: AsRef<Path>,
+    {
+        self.filter_by = Some(FilterBy::File {
+            path: path.as_ref().to_path_buf(),
+        });
         self
     }
 }

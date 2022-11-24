@@ -15,7 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{collections::BTreeSet, convert::TryFrom, path::PathBuf, str};
+use std::{
+    collections::BTreeSet,
+    convert::TryFrom,
+    path::{Path, PathBuf},
+    str,
+};
 
 use git_ref_format::{refspec::QualifiedPattern, Qualified};
 use radicle_git_ext::Oid;
@@ -23,8 +28,7 @@ use thiserror::Error;
 
 use crate::{
     diff::{self, *},
-    file_system,
-    file_system::{directory::FileContent, Directory, Label},
+    file_system::{directory::FileContent, Directory},
     git::{
         commit,
         glob,
@@ -58,9 +62,6 @@ pub enum Error {
     /// An error that comes from performing a *diff* operations.
     #[error(transparent)]
     Diff(#[from] diff::git::error::Diff),
-    /// An error that comes from performing a [`crate::file_system`] operation.
-    #[error(transparent)]
-    FileSystem(#[from] file_system::Error),
     /// A wrapper around the generic [`git2::Error`].
     #[error(transparent)]
     Git(#[from] git2::Error),
@@ -72,7 +73,7 @@ pub enum Error {
     NotQualified(String),
     /// The requested file was not found.
     #[error("path not found for: {0}")]
-    PathNotFound(file_system::Path),
+    PathNotFound(PathBuf),
     #[error(transparent)]
     RefFormat(#[from] git_ref_format::Error),
     #[error(transparent)]
@@ -187,19 +188,16 @@ impl Repository {
             .map_err(|err| Error::ToCommit(err.into()))?;
         let git2_commit = self.inner.find_commit((commit.id).into())?;
         let tree = git2_commit.as_object().peel_to_tree()?;
-        Ok(Directory {
-            name: Label::root(),
-            id: tree.id().into(),
-        })
+        Ok(Directory::root(tree.id().into()))
     }
 
     /// Returns the last commit, if exists, for a `path` in the history of
     /// `rev`.
-    pub fn last_commit<C: ToCommit>(
-        &self,
-        path: file_system::Path,
-        rev: C,
-    ) -> Result<Option<Commit>, Error> {
+    pub fn last_commit<P, C>(&self, path: P, rev: C) -> Result<Option<Commit>, Error>
+    where
+        P: AsRef<Path>,
+        C: ToCommit,
+    {
         let history = self.history(rev)?;
         history.by_path(path).next().transpose()
     }
@@ -239,17 +237,20 @@ impl Repository {
     }
 
     /// Retrieves the file with `path` in this commit.
-    pub fn get_commit_file<R: Revision>(
-        &self,
-        rev: &R,
-        path: file_system::Path,
-    ) -> Result<FileContent, crate::git::Error> {
+    pub fn get_commit_file<P, R>(&self, rev: &R, path: &P) -> Result<FileContent, crate::git::Error>
+    where
+        P: AsRef<Path>,
+        R: Revision,
+    {
+        let path = path.as_ref();
         let id = self.object_id(rev)?;
         let commit = self.get_git2_commit(id)?;
         let tree = commit.tree()?;
-        let entry = tree.get_path(PathBuf::from(&path).as_ref())?;
+        let entry = tree.get_path(path)?;
         let object = entry.to_object(self.git2_repo())?;
-        let blob = object.into_blob().map_err(|_| Error::PathNotFound(path))?;
+        let blob = object
+            .into_blob()
+            .map_err(|_| Error::PathNotFound(path.to_path_buf()))?;
         Ok(FileContent::new(blob))
     }
 
@@ -355,16 +356,19 @@ impl Repository {
         Ok(other == git2_oid || is_descendant)
     }
 
-    pub(crate) fn diff_commit_and_parents(
+    pub(crate) fn diff_commit_and_parents<P>(
         &self,
-        path: &file_system::Path,
+        path: &P,
         commit: &git2::Commit,
-    ) -> Result<Option<file_system::Path>, Error> {
+    ) -> Result<Option<PathBuf>, Error>
+    where
+        P: AsRef<Path>,
+    {
         let mut parents = commit.parents();
 
-        let diff = self.diff_commits(Some(path), parents.next().as_ref(), commit)?;
+        let diff = self.diff_commits(Some(path.as_ref()), parents.next().as_ref(), commit)?;
         if let Some(_delta) = diff.deltas().next() {
-            Ok(Some(path.clone()))
+            Ok(Some(path.as_ref().to_path_buf()))
         } else {
             Ok(None)
         }
@@ -372,7 +376,7 @@ impl Repository {
 
     fn diff_commits(
         &self,
-        path: Option<&file_system::Path>,
+        path: Option<&Path>,
         from: Option<&git2::Commit>,
         to: &git2::Commit,
     ) -> Result<git2::Diff, Error> {

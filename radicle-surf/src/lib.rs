@@ -99,6 +99,3 @@ pub use revision::Revision;
 pub mod syntax;
 #[cfg(feature = "syntax")]
 pub use syntax::SYNTAX_SET;
-
-// Private modules
-mod nonempty;

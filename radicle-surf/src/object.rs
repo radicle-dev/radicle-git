@@ -18,6 +18,8 @@
 //! Common definitions for git objects (blob and tree).
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
+use std::path::PathBuf;
+
 #[cfg(feature = "serialize")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
@@ -30,11 +32,7 @@ pub use blob::{Blob, BlobContent};
 pub mod tree;
 pub use tree::{tree, Tree, TreeEntry};
 
-use crate::{
-    commit,
-    file_system::{self, directory},
-    git,
-};
+use crate::{commit, file_system::directory, git};
 
 /// Git object types.
 ///
@@ -91,15 +89,11 @@ pub enum Error {
     #[error(transparent)]
     Directory(#[from] directory::error::Directory),
 
-    /// An error occurred during a file system operation.
-    #[error(transparent)]
-    FileSystem(#[from] file_system::Error),
-
     /// An error occurred during a git operation.
     #[error(transparent)]
     Git(#[from] git::Error),
 
     /// Trying to find a file path which could not be found.
     #[error("the path '{0}' was not found")]
-    PathNotFound(file_system::Path),
+    PathNotFound(PathBuf),
 }

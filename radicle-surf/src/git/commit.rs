@@ -17,7 +17,7 @@
 
 use std::{convert::TryFrom, str};
 
-use radicle_git_ext::Oid;
+use git_ext::Oid;
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
