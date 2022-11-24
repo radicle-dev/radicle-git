@@ -10,7 +10,6 @@ publish = false
 test = true
 
 [features]
-serialize = []
 test = []
 
 [dev-dependencies]
@@ -37,7 +36,7 @@ path = "../../radicle-git-ext"
 
 [dev-dependencies.radicle-surf]
 path = ".."
-features = ["serialize"]
+features = ["serde", "syntax"]
 
 [dev-dependencies.test-helpers]
 path = "../../test/test-helpers"

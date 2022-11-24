@@ -20,7 +20,7 @@ use std::{convert::TryFrom, str};
 use git_ext::Oid;
 use thiserror::Error;
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, Error)]
@@ -34,7 +34,7 @@ pub enum Error {
 }
 
 /// `Author` is the static information of a [`git2::Signature`].
-#[cfg_attr(feature = "serialize", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Author {
     /// Name of the author.
@@ -43,7 +43,7 @@ pub struct Author {
     pub email: String,
     /// Time the action was taken, e.g. time of commit.
     #[cfg_attr(
-        feature = "serialize",
+        feature = "serde",
         serde(
             serialize_with = "serialize_time",
             deserialize_with = "deserialize_time"
@@ -52,7 +52,7 @@ pub struct Author {
     pub time: git2::Time,
 }
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 fn deserialize_time<'de, D>(deserializer: D) -> Result<git2::Time, D::Error>
 where
     D: Deserializer<'de>,
@@ -61,7 +61,7 @@ where
     Ok(git2::Time::new(seconds, 0))
 }
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 fn serialize_time<S>(t: &git2::Time, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
@@ -100,7 +100,7 @@ impl<'repo> TryFrom<git2::Signature<'repo>> for Author {
 /// `Commit` is the static information of a [`git2::Commit`]. To get back the
 /// original `Commit` in the repository we can use the [`Oid`] to retrieve
 /// it.
-#[cfg_attr(feature = "serialize", derive(Deserialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Commit {
     /// Object Id
@@ -129,7 +129,7 @@ impl Commit {
     }
 }
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 impl Serialize for Commit {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

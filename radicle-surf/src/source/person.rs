@@ -17,12 +17,9 @@
 
 //! Represents a person in a repo.
 
-#[cfg(feature = "serialize")]
-use serde::Serialize;
-
 /// Representation of a person (e.g. committer, author, signer) from a
 /// repository. Usually extracted from a signature.
-#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[derive(Clone, Debug)]
 pub struct Person {
     /// Name part of the commit signature.

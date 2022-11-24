@@ -5,7 +5,6 @@ use radicle_git_ext::Oid;
 use radicle_surf::git::{Author, Commit};
 use test_helpers::roundtrip;
 
-#[cfg(feature = "serialize")]
 proptest! {
     #[test]
     fn prop_test_commits(commit in commits_strategy()) {

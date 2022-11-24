@@ -20,7 +20,7 @@
 
 use std::path::Path;
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
@@ -118,7 +118,7 @@ impl From<TreeEntry> for directory::Entry {
     }
 }
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 impl Serialize for TreeEntry {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

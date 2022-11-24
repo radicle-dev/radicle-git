@@ -20,7 +20,7 @@
 
 use std::{path::Path, str};
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
@@ -97,7 +97,7 @@ impl Blob {
     }
 }
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 impl Serialize for Blob {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -130,7 +130,7 @@ pub enum BlobContent {
     Binary(Vec<u8>),
 }
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 impl Serialize for BlobContent {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

@@ -17,15 +17,11 @@
 
 pub use radicle_git_ext::Oid;
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// Stats for a repository
-#[cfg_attr(
-    feature = "serialize",
-    derive(Serialize),
-    serde(rename_all = "camelCase")
-)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 pub struct Stats {
     /// Number of commits
     pub commits: usize,
