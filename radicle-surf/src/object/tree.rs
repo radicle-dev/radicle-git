@@ -29,7 +29,7 @@ use serde::{
 
 use crate::{
     commit,
-    file_system::{self, DirectoryEntry},
+    file_system::{self, directory},
     git::Repository,
     object::{Error, Info, ObjectType},
     revision::Revision,
@@ -111,41 +111,40 @@ pub fn tree(
         root_dir
     } else {
         root_dir
-            .find_directory(path.clone(), repo)
+            .find_directory(path.clone(), repo)?
             .ok_or_else(|| Error::PathNotFound(path.clone()))?
     };
 
-    let entries_results: Result<Vec<TreeEntry>, Error> = prefix_dir
-        .contents(repo)?
-        .iter()
-        .map(|entry| {
-            let entry_path = if path.is_root() {
-                file_system::Path::new(entry.label().clone())
-            } else {
-                let mut p = path.clone();
-                p.push(entry.label().clone());
-                p
-            };
-            let mut commit_path = file_system::Path::root();
-            commit_path.append(entry_path.clone());
+    let mut entries =
+        prefix_dir
+            .entries(repo)?
+            .iter()
+            .fold(Vec::new(), |mut entries, (label, entry)| {
+                let entry_path = if path.is_root() {
+                    file_system::Path::new(label.clone())
+                } else {
+                    let mut p = path.clone();
+                    p.push(label.clone());
+                    p
+                };
+                let mut commit_path = file_system::Path::root();
+                commit_path.append(entry_path.clone());
 
-            let info = Info {
-                name: entry.label().to_string(),
-                object_type: match entry {
-                    DirectoryEntry::Directory(_) => ObjectType::Tree,
-                    DirectoryEntry::File { .. } => ObjectType::Blob,
-                },
-                last_commit: None,
-            };
+                let info = Info {
+                    name: label.to_string(),
+                    object_type: match entry {
+                        directory::Entry::Directory(_) => ObjectType::Tree,
+                        directory::Entry::File { .. } => ObjectType::Blob,
+                    },
+                    last_commit: None,
+                };
 
-            Ok(TreeEntry {
-                info,
-                path: entry_path.to_string(),
-            })
-        })
-        .collect();
-
-    let mut entries = entries_results?;
+                entries.push(TreeEntry {
+                    info,
+                    path: entry_path.to_string(),
+                });
+                entries
+            });
 
     // We want to ensure that in the response Tree entries come first. `Ord` being
     // derived on the enum ensures Variant declaration order.

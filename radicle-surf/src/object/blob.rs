@@ -136,7 +136,7 @@ where
     let p = file_system::Path::from_str(path)?;
 
     let file = root
-        .find_file(p.clone(), repo)
+        .find_file(p.clone(), repo)?
         .ok_or_else(|| Error::PathNotFound(p.clone()))?;
 
     let mut commit_path = file_system::Path::root();

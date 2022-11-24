@@ -30,7 +30,11 @@ pub use blob::{Blob, BlobContent};
 pub mod tree;
 pub use tree::{tree, Tree, TreeEntry};
 
-use crate::{commit, file_system, git};
+use crate::{
+    commit,
+    file_system::{self, directory},
+    git,
+};
 
 /// Git object types.
 ///
@@ -84,6 +88,9 @@ impl Serialize for Info {
 /// An error reported by object types.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)]
+    Directory(#[from] directory::error::Directory),
+
     /// An error occurred during a file system operation.
     #[error(transparent)]
     FileSystem(#[from] file_system::Error),
