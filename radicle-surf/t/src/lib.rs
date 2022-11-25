@@ -3,6 +3,3 @@
 
 #[cfg(test)]
 mod git;
-
-#[cfg(test)]
-mod diff;

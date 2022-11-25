@@ -17,54 +17,111 @@
 
 #![allow(dead_code, unused_variables, missing_docs)]
 
-use std::{convert::TryFrom, path::PathBuf, slice};
+use std::path::PathBuf;
 
 #[cfg(feature = "serde")]
 use serde::{ser, Serialize, Serializer};
 
 pub mod git;
 
+/// The serializable representation of a `git diff`.
+///
+/// A [`Diff`] can be retrieved by the following functions:
+///    * [`crate::git::Repository::diff`]
+///    * [`crate::git::Repository::diff_commit`]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Diff {
-    pub created: Vec<CreateFile>,
-    pub deleted: Vec<DeleteFile>,
-    pub moved: Vec<MoveFile>,
-    pub copied: Vec<CopyFile>,
-    pub modified: Vec<ModifiedFile>,
+    pub added: Vec<Added>,
+    pub deleted: Vec<Deleted>,
+    pub moved: Vec<Moved>,
+    pub copied: Vec<Copied>,
+    pub modified: Vec<Modified>,
+    pub stats: Stats,
 }
 
-impl Default for Diff {
-    fn default() -> Self {
-        Self::new()
+impl Diff {
+    pub fn new() -> Self {
+        Diff::default()
+    }
+
+    fn modified(
+        &mut self,
+        path: PathBuf,
+        hunks: impl Into<Hunks<Modification>>,
+        eof: Option<EofNewLine>,
+    ) {
+        self.modified.push(Modified {
+            path,
+            diff: FileDiff::Plain {
+                hunks: hunks.into(),
+            },
+            eof,
+        })
+    }
+
+    fn moved(&mut self, old_path: PathBuf, new_path: PathBuf) {
+        self.moved.push(Moved { old_path, new_path });
+    }
+
+    fn copied(&mut self, old_path: PathBuf, new_path: PathBuf) {
+        self.copied.push(Copied { old_path, new_path });
+    }
+
+    fn modified_binary(&mut self, path: PathBuf) {
+        self.modified.push(Modified {
+            path,
+            diff: FileDiff::Binary,
+            eof: None,
+        })
+    }
+
+    fn added(&mut self, path: PathBuf, diff: FileDiff<Addition>) {
+        self.added.push(Added { path, diff })
+    }
+
+    fn deleted(&mut self, path: PathBuf, diff: FileDiff<Deletion>) {
+        self.deleted.push(Deleted { path, diff })
     }
 }
 
+/// A file that was added within a [`Diff`].
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CreateFile {
+pub struct Added {
+    /// The path to this file, relative to the repository root.
     pub path: PathBuf,
-    pub diff: FileDiff,
+    /// The set of [`Addition`]s to this file.
+    pub diff: FileDiff<Addition>,
 }
 
+/// A file that was deleted within a [`Diff`].
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DeleteFile {
+pub struct Deleted {
+    /// The path to this file, relative to the repository root.
     pub path: PathBuf,
-    pub diff: FileDiff,
+    /// The set of [`Deletion`]s to this file.
+    pub diff: FileDiff<Deletion>,
 }
 
+/// A file that was moved within a [`Diff`].
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MoveFile {
+pub struct Moved {
+    /// The old path to this file, relative to the repository root.
     pub old_path: PathBuf,
+    /// The new path to this file, relative to the repository root.
     pub new_path: PathBuf,
 }
 
+/// A file that was copied within a [`Diff`].
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CopyFile {
+pub struct Copied {
+    /// The old path to this file, relative to the repository root.
     pub old_path: PathBuf,
+    /// The new path to this file, relative to the repository root.
     pub new_path: PathBuf,
 }
 
@@ -76,98 +133,76 @@ pub enum EofNewLine {
     BothMissing,
 }
 
+/// A file that was modified within a [`Diff`].
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ModifiedFile {
+pub struct Modified {
+    /// The path to this file, relative to the repository root.
     pub path: PathBuf,
-    pub diff: FileDiff,
+    /// The set of [`Modification`]s to this file.
+    pub diff: FileDiff<Modification>,
+    /// Was there an EOF newline present.
     pub eof: Option<EofNewLine>,
 }
 
-/// A set of changes belonging to one file.
+/// The set of changes for a given file.
 #[cfg_attr(
     feature = "serde",
     derive(Serialize),
     serde(tag = "type", rename_all = "camelCase")
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum FileDiff {
+pub enum FileDiff<T> {
+    /// The file is a binary file and so no set of changes can be provided.
     Binary,
+    /// The set of changes, as [`Hunks`] for a plaintext file.
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    Plain {
-        hunks: Hunks,
-    },
+    Plain { hunks: Hunks<T> },
 }
 
 /// Statistics describing a particular [`Diff`].
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Stats {
-    /// Get the total number of files changed in a diff.
+    /// Get the total number of files changed in a [`Diff`]
     pub files_changed: usize,
-    /// Get the total number of insertions in a diff.
+    /// Get the total number of insertions in a [`Diff`].
     pub insertions: usize,
-    /// Get the total number of deletions in a diff.
+    /// Get the total number of deletions in a [`Diff`].
     pub deletions: usize,
 }
 
-/// A set of line changes.
+/// A set of changes across multiple lines.
+///
+/// The parameter `T` can be an [`Addition`], [`Deletion`], or
+/// [`Modification`].
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Hunk {
+pub struct Hunk<T> {
     pub header: Line,
-    pub lines: Vec<LineDiff>,
+    pub lines: Vec<T>,
 }
 
-/// A set of [`Hunk`]s.
+/// A set of [`Hunk`] changes.
 #[cfg_attr(feature = "serde", derive(Serialize))]
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Hunks(pub Vec<Hunk>);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Hunks<T>(pub Vec<Hunk<T>>);
 
-pub struct IterHunks<'a> {
-    inner: slice::Iter<'a, Hunk>,
-}
-
-impl Hunks {
-    pub fn iter(&self) -> IterHunks<'_> {
-        IterHunks {
-            inner: self.0.iter(),
-        }
+impl<T> Default for Hunks<T> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
-impl From<Vec<Hunk>> for Hunks {
-    fn from(hunks: Vec<Hunk>) -> Self {
+impl<T> Hunks<T> {
+    pub fn iter(&self) -> impl Iterator<Item = &Hunk<T>> {
+        self.0.iter()
+    }
+}
+
+impl<T> From<Vec<Hunk<T>>> for Hunks<T> {
+    fn from(hunks: Vec<Hunk<T>>) -> Self {
         Self(hunks)
-    }
-}
-
-impl<'a> Iterator for IterHunks<'a> {
-    type Item = &'a Hunk;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
-    }
-}
-
-impl TryFrom<git2::Patch<'_>> for Hunks {
-    type Error = git::error::Hunk;
-
-    fn try_from(patch: git2::Patch) -> Result<Self, Self::Error> {
-        let mut hunks = Vec::new();
-        for h in 0..patch.num_hunks() {
-            let (hunk, hunk_lines) = patch.hunk(h)?;
-            let header = Line(hunk.header().to_owned());
-            let mut lines: Vec<LineDiff> = Vec::new();
-
-            for l in 0..hunk_lines {
-                let line = patch.line_in_hunk(h, l)?;
-                let line = LineDiff::try_from(line)?;
-                lines.push(line);
-            }
-            hunks.push(Hunk { header, lines });
-        }
-        Ok(Hunks(hunks))
     }
 }
 
@@ -199,155 +234,68 @@ impl Serialize for Line {
     }
 }
 
-/// Single line delta. Two of these are need to represented a modified line: one
-/// addition and one deletion. Context is also represented with this type.
+/// Either the modification of a single [`Line`], or just contextual
+/// information.
 #[cfg_attr(
     feature = "serde",
     derive(Serialize),
     serde(tag = "type", rename_all = "camelCase")
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LineDiff {
-    /// Line added.
+pub enum Modification {
+    /// A lines is an addition in a file.
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    Addition { line: Line, line_num: u32 },
+    Addition(Addition),
 
-    /// Line deleted.
+    /// A lines is a deletion in a file.
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    Deletion { line: Line, line_num: u32 },
+    Deletion(Deletion),
 
-    /// Line context.
+    /// A contextual line in a file, i.e. there were no changes to the line.
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Context {
         line: Line,
-        line_num_old: u32,
-        line_num_new: u32,
+        line_no_old: u32,
+        line_no_new: u32,
     },
 }
 
-impl LineDiff {
-    pub fn addition(line: impl Into<Line>, line_num: u32) -> Self {
-        Self::Addition {
-            line: line.into(),
-            line_num,
-        }
-    }
-
-    pub fn deletion(line: impl Into<Line>, line_num: u32) -> Self {
-        Self::Deletion {
-            line: line.into(),
-            line_num,
-        }
-    }
-
-    pub fn context(line: impl Into<Line>, line_num_old: u32, line_num_new: u32) -> Self {
-        Self::Context {
-            line: line.into(),
-            line_num_old,
-            line_num_new,
-        }
-    }
+/// A addition of a [`Line`] at the `line_no`.
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Addition {
+    pub line: Line,
+    pub line_no: u32,
 }
 
-impl Diff {
-    pub fn new() -> Self {
-        Diff {
-            created: Vec::new(),
-            deleted: Vec::new(),
-            moved: Vec::new(),
-            copied: Vec::new(),
-            modified: Vec::new(),
-        }
+/// A deletion of a [`Line`] at the `line_no`.
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Deletion {
+    pub line: Line,
+    pub line_no: u32,
+}
+
+impl Modification {
+    pub fn addition(line: impl Into<Line>, line_no: u32) -> Self {
+        Self::Addition(Addition {
+            line: line.into(),
+            line_no,
+        })
     }
 
-    pub(crate) fn add_modified_file(
-        &mut self,
-        path: PathBuf,
-        hunks: impl Into<Hunks>,
-        eof: Option<EofNewLine>,
-    ) {
-        // TODO: file diff can be calculated at this point
-        // Use pijul's transaction diff as an inspiration?
-        // https://nest.pijul.com/pijul_org/pijul:master/1468b7281a6f3785e9#anesp4Qdq3V
-        self.modified.push(ModifiedFile {
-            path,
-            diff: FileDiff::Plain {
-                hunks: hunks.into(),
-            },
-            eof,
-        });
+    pub fn deletion(line: impl Into<Line>, line_no: u32) -> Self {
+        Self::Deletion(Deletion {
+            line: line.into(),
+            line_no,
+        })
     }
 
-    pub(crate) fn add_moved_file(&mut self, old_path: PathBuf, new_path: PathBuf) {
-        self.moved.push(MoveFile { old_path, new_path });
-    }
-
-    pub(crate) fn add_copied_file(&mut self, old_path: PathBuf, new_path: PathBuf) {
-        self.copied.push(CopyFile { old_path, new_path });
-    }
-
-    pub(crate) fn add_modified_binary_file(&mut self, path: PathBuf) {
-        self.modified.push(ModifiedFile {
-            path,
-            diff: FileDiff::Binary,
-            eof: None,
-        });
-    }
-
-    pub(crate) fn add_created_file(&mut self, path: PathBuf, diff: FileDiff) {
-        self.created.push(CreateFile { path, diff });
-    }
-
-    pub(crate) fn add_deleted_file(&mut self, path: PathBuf, diff: FileDiff) {
-        self.deleted.push(DeleteFile { path, diff });
-    }
-
-    pub fn stats(&self) -> Stats {
-        let mut deletions = 0;
-        let mut insertions = 0;
-
-        for file in &self.modified {
-            if let self::FileDiff::Plain { ref hunks } = file.diff {
-                for hunk in hunks.iter() {
-                    for line in &hunk.lines {
-                        match line {
-                            self::LineDiff::Addition { .. } => insertions += 1,
-                            self::LineDiff::Deletion { .. } => deletions += 1,
-                            _ => {},
-                        }
-                    }
-                }
-            }
-        }
-
-        for file in &self.created {
-            if let self::FileDiff::Plain { ref hunks } = file.diff {
-                for hunk in hunks.iter() {
-                    for line in &hunk.lines {
-                        if let self::LineDiff::Addition { .. } = line {
-                            insertions += 1
-                        }
-                    }
-                }
-            }
-        }
-
-        for file in &self.deleted {
-            if let self::FileDiff::Plain { ref hunks } = file.diff {
-                for hunk in hunks.iter() {
-                    for line in &hunk.lines {
-                        if let self::LineDiff::Deletion { .. } = line {
-                            deletions += 1
-                        }
-                    }
-                }
-            }
-        }
-
-        Stats {
-            files_changed: self.modified.len() + self.created.len() + self.deleted.len(),
-            insertions,
-            deletions,
+    pub fn context(line: impl Into<Line>, line_no_old: u32, line_no_new: u32) -> Self {
+        Self::Context {
+            line: line.into(),
+            line_no_old,
+            line_no_new,
         }
     }
 }

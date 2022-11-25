@@ -2,7 +2,20 @@ use git_ref_format::refname;
 use pretty_assertions::assert_eq;
 use radicle_git_ext::Oid;
 use radicle_surf::{
-    diff::{CreateFile, Diff, FileDiff, Hunk, Line, LineDiff, ModifiedFile},
+    diff::{
+        Added,
+        Addition,
+        Diff,
+        EofNewLine,
+        FileDiff,
+        Hunk,
+        Hunks,
+        Line,
+        Modification,
+        Modified,
+        Moved,
+        Stats,
+    },
     git::{Branch, Error, Repository},
 };
 use std::{path::Path, str::FromStr};
@@ -16,19 +29,21 @@ fn test_initial_diff() -> Result<(), Error> {
     let commit = repo.commit(oid).unwrap();
     assert!(commit.parents.is_empty());
 
-    let diff = repo.initial_diff(oid)?;
+    let diff = repo.diff_commit(oid)?;
 
     let expected_diff = Diff {
-        created: vec![CreateFile {
+        added: vec![Added {
             path: Path::new("README.md").to_path_buf(),
             diff: FileDiff::Plain {
                 hunks: vec![Hunk {
                     header: Line::from(b"@@ -0,0 +1 @@\n".to_vec()),
-                    lines: vec![LineDiff::addition(
-                        b"This repository is a data source for the Upstream front-end tests.\n"
-                            .to_vec(),
-                        1,
-                    )],
+                    lines: vec![Addition {
+                        line:
+                            b"This repository is a data source for the Upstream front-end tests.\n"
+                                .to_vec()
+                                .into(),
+                        line_no: 1,
+                    }],
                 }]
                 .into(),
             },
@@ -37,6 +52,11 @@ fn test_initial_diff() -> Result<(), Error> {
         moved: vec![],
         copied: vec![],
         modified: vec![],
+        stats: Stats {
+            files_changed: 1,
+            insertions: 1,
+            deletions: 0,
+        },
     };
     assert_eq!(expected_diff, diff);
 
@@ -46,8 +66,8 @@ fn test_initial_diff() -> Result<(), Error> {
 #[test]
 fn test_diff_of_rev() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
-    let diff = repo.diff_from_parent("80bacafba303bf0cdf6142921f430ff265f25095")?;
-    assert_eq!(diff.created.len(), 0);
+    let diff = repo.diff_commit("80bacafba303bf0cdf6142921f430ff265f25095")?;
+    assert_eq!(diff.added.len(), 0);
     assert_eq!(diff.deleted.len(), 0);
     assert_eq!(diff.moved.len(), 0);
     assert_eq!(diff.modified.len(), 1);
@@ -63,25 +83,30 @@ fn test_diff() -> Result<(), Error> {
     let diff = repo.diff(*parent_oid, oid)?;
 
     let expected_diff = Diff {
-                created: vec![],
-                deleted: vec![],
-                moved: vec![],
-                copied: vec![],
-                modified: vec![ModifiedFile {
-                    path: Path::new("README.md").to_path_buf(),
-                    diff: FileDiff::Plain {
-                        hunks: vec![Hunk {
-                            header: Line::from(b"@@ -1 +1,2 @@\n".to_vec()),
-                            lines: vec![
-                                LineDiff::deletion(b"This repository is a data source for the Upstream front-end tests.\n".to_vec(), 1),
-                                LineDiff::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
-                                LineDiff::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
-                            ]
-                        }].into()
-                    },
-                    eof: None,
-                }]
-            };
+        added: vec![],
+        deleted: vec![],
+        moved: vec![],
+        copied: vec![],
+        modified: vec![Modified {
+            path: Path::new("README.md").to_path_buf(),
+            diff: FileDiff::Plain {
+                hunks: vec![Hunk {
+                    header: Line::from(b"@@ -1 +1,2 @@\n".to_vec()),
+                    lines: vec![
+                        Modification::deletion(b"This repository is a data source for the Upstream front-end tests.\n".to_vec(), 1),
+                        Modification::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
+                        Modification::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
+                    ]
+                }].into()
+            },
+            eof: None,
+        }],
+        stats: Stats {
+            files_changed: 1,
+            insertions: 2,
+            deletions: 1,
+        },
+    };
     assert_eq!(expected_diff, diff);
 
     Ok(())
@@ -97,18 +122,18 @@ fn test_branch_diff() -> Result<(), Error> {
 
     println!("Diff two branches: master -> dev");
     println!(
-        "result: created {} deleted {} moved {} modified {}",
-        diff.created.len(),
+        "result: added {} deleted {} moved {} modified {}",
+        diff.added.len(),
         diff.deleted.len(),
         diff.moved.len(),
         diff.modified.len()
     );
-    assert_eq!(diff.created.len(), 1);
+    assert_eq!(diff.added.len(), 1);
     assert_eq!(diff.deleted.len(), 11);
     assert_eq!(diff.moved.len(), 1);
     assert_eq!(diff.modified.len(), 2);
-    for c in diff.created.iter() {
-        println!("created: {:?}", &c.path);
+    for c in diff.added.iter() {
+        println!("added: {:?}", &c.path);
     }
     for d in diff.deleted.iter() {
         println!("deleted: {:?}", &d.path);
@@ -124,39 +149,42 @@ fn test_branch_diff() -> Result<(), Error> {
 
 #[test]
 fn test_diff_serde() {
-    use radicle_surf::diff::{Hunks, MoveFile};
-
     let diff = Diff {
-        created: vec![ CreateFile {
+        added: vec![ Added {
             path: Path::new("LICENSE").to_path_buf(),
             diff: FileDiff::Plain { hunks: Hunks::default() }
         }],
         deleted: vec![],
-        moved: vec![ MoveFile {
+        moved: vec![ Moved {
             old_path: Path::new("CONTRIBUTING").to_path_buf(),
             new_path: Path::new("CONTRIBUTING.md").to_path_buf(),
         }],
         copied: vec![],
-        modified: vec![ ModifiedFile {
+        modified: vec![ Modified {
             path: Path::new("README.md").to_path_buf(),
             diff: FileDiff::Plain {
                 hunks: vec![Hunk {
                 header: Line::from(b"@@ -1 +1,2 @@\n".to_vec()),
                 lines: vec![
-                    LineDiff::deletion(b"This repository is a data source for the Upstream front-end tests.\n".to_vec(), 1),
-                    LineDiff::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
-                    LineDiff::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
-                    LineDiff::context(b"\n".to_vec(), 3, 4),
+                    Modification::deletion(b"This repository is a data source for the Upstream front-end tests.\n".to_vec(), 1),
+                    Modification::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
+                    Modification::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
+                    Modification::context(b"\n".to_vec(), 3, 4),
                 ]
                 }].into()
             },
             eof: None,
-        }]
+        }],
+        stats: Stats {
+            files_changed: 3,
+            insertions: 2,
+            deletions: 1,
+        },
     };
 
     let eof: Option<u8> = None;
     let json = serde_json::json!({
-        "created": [{"path": "LICENSE", "diff": {
+        "added": [{"path": "LICENSE", "diff": {
                 "type": "plain",
                 "hunks": []
             },
@@ -171,19 +199,19 @@ fn test_diff_serde() {
                 "hunks": [{
                     "header": "@@ -1 +1,2 @@\n",
                     "lines": [
-                        { "lineNum": 1,
+                        { "lineNo": 1,
                           "line": "This repository is a data source for the Upstream front-end tests.\n",
                           "type": "deletion"
                         },
-                        { "lineNum": 1,
+                        { "lineNo": 1,
                           "line": "This repository is a data source for the Upstream front-end tests and the\n",
                           "type": "addition"
                         },
-                        { "lineNum": 2,
+                        { "lineNo": 2,
                           "line": "[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n",
                           "type": "addition"
                         },
-                        { "lineNumOld": 3, "lineNumNew": 4,
+                        { "lineNoOld": 3, "lineNoNew": 4,
                           "line": "\n",
                           "type": "context"
                         }
@@ -191,7 +219,82 @@ fn test_diff_serde() {
                 }]
             },
             "eof" : eof,
-        }]
+        }],
+        "stats": {
+            "deletions": 1,
+            "filesChanged": 3,
+            "insertions": 2,
+        }
     });
     assert_eq!(serde_json::to_value(&diff).unwrap(), json);
 }
+
+#[test]
+fn test_both_missing_eof_newline() {
+    let buf = r#"
+diff --git a/.env b/.env
+index f89e4c0..7c56eb7 100644
+--- a/.env
++++ b/.env
+@@ -1 +1 @@
+-hello=123
+\ No newline at end of file
++hello=1234
+\ No newline at end of file
+"#;
+    let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
+    let diff = Diff::try_from(diff).unwrap();
+    assert_eq!(diff.modified[0].eof, Some(EofNewLine::BothMissing));
+}
+
+#[test]
+fn test_none_missing_eof_newline() {
+    let buf = r#"
+diff --git a/.env b/.env
+index f89e4c0..7c56eb7 100644
+--- a/.env
++++ b/.env
+@@ -1 +1 @@
+-hello=123
++hello=1234
+"#;
+    let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
+    let diff = Diff::try_from(diff).unwrap();
+    assert_eq!(diff.modified[0].eof, None);
+}
+
+// TODO(xphoniex): uncomment once libgit2 has fixed the bug
+//#[test]
+//     fn test_old_missing_eof_newline() {
+//         let buf = r#"
+// diff --git a/.env b/.env
+// index f89e4c0..7c56eb7 100644
+// --- a/.env
+// +++ b/.env
+// @@ -1 +1 @@
+// -hello=123
+// \ No newline at end of file
+// +hello=1234
+// "#;
+//         let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
+//         let diff = Diff::try_from(diff).unwrap();
+//         assert_eq!(diff.modified[0].eof, Some(EofNewLine::OldMissing));
+//     }
+
+// TODO(xphoniex): uncomment once libgit2 has fixed the bug
+//#[test]
+//     fn test_new_missing_eof_newline() {
+//         let buf = r#"
+// diff --git a/.env b/.env
+// index f89e4c0..7c56eb7 100644
+// --- a/.env
+// +++ b/.env
+// @@ -1 +1 @@
+// -hello=123
+// +hello=1234
+// \ No newline at end of file
+// "#;
+//         let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
+//         let diff = Diff::try_from(diff).unwrap();
+//         assert_eq!(diff.modified[0].eof, Some(EofNewLine::NewMissing));
+//     }
