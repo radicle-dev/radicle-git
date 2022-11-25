@@ -127,7 +127,7 @@ impl File {
     /// This function will fail if it could not find the `git` blob
     /// for the `Oid` of this `File`.
     pub fn content<'a>(&self, repo: &'a Repository) -> Result<FileContent<'a>, error::File> {
-        let blob = repo.git2_repo().find_blob(self.id.into())?;
+        let blob = repo.find_blob(self.id)?;
         Ok(FileContent { blob })
     }
 }
@@ -323,7 +323,7 @@ impl Directory {
     /// This function will fail if it could not find the `git` tree
     /// for the `Oid`.
     pub fn entries(&self, repo: &Repository) -> Result<Entries, error::Directory> {
-        let tree = repo.git2_repo().find_tree(self.id.into())?;
+        let tree = repo.find_tree(self.id)?;
 
         let mut entries = BTreeMap::new();
         let mut error = None;
@@ -366,7 +366,7 @@ impl Directory {
         P: AsRef<Path>,
     {
         // Search the path in git2 tree.
-        let git2_tree = repo.git2_repo().find_tree(self.id.into())?;
+        let git2_tree = repo.find_tree(self.id)?;
         let entry = git2_tree
             .get_path(path.as_ref())
             .map(Some)

@@ -123,7 +123,7 @@ impl Revision for RefString {
     type Error = git2::Error;
 
     fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
-        repo.git2_repo().refname_to_id(self.as_str()).map(Oid::from)
+        repo.refname_to_id(self)
     }
 }
 
@@ -131,7 +131,7 @@ impl Revision for &RefString {
     type Error = git2::Error;
 
     fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
-        repo.git2_repo().refname_to_id(self.as_str()).map(Oid::from)
+        repo.refname_to_id(self)
     }
 }
 
@@ -139,7 +139,7 @@ impl Revision for Qualified<'_> {
     type Error = git2::Error;
 
     fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
-        repo.git2_repo().refname_to_id(self.as_str()).map(Oid::from)
+        repo.refname_to_id(self)
     }
 }
 
@@ -147,7 +147,7 @@ impl Revision for &Qualified<'_> {
     type Error = git2::Error;
 
     fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
-        repo.git2_repo().refname_to_id(self.as_str()).map(Oid::from)
+        repo.refname_to_id(self)
     }
 }
 
@@ -180,7 +180,7 @@ impl Revision for &Branch {
 
     fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
         let refname = repo.namespaced_refname(&self.refname())?;
-        Ok(repo.git2_repo().refname_to_id(&refname).map(Oid::from)?)
+        Ok(repo.refname_to_id(&refname)?)
     }
 }
 
@@ -229,7 +229,7 @@ impl<R: Revision> ToCommit for R {
 
     fn to_commit(&self, repo: &Repository) -> Result<Commit, Self::Error> {
         let oid = repo.object_id(self)?;
-        let commit = repo.git2_repo().find_commit(oid.into())?;
+        let commit = repo.find_commit(oid)?;
         Ok(Commit::try_from(commit)?)
     }
 }

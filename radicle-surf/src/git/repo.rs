@@ -22,7 +22,7 @@ use std::{
     str,
 };
 
-use git_ref_format::{refspec::QualifiedPattern, Qualified, RefString};
+use git_ref_format::{refspec::QualifiedPattern, Qualified, RefStr, RefString};
 use radicle_git_ext::Oid;
 use thiserror::Error;
 
@@ -100,13 +100,48 @@ pub struct Repository {
     inner: git2::Repository,
 }
 
+////////////////////////////////////////////
+// Public API, ONLY add `pub fn` in here. //
+////////////////////////////////////////////
 impl Repository {
+    /// Open a git repository given its exact URI.
+    ///
+    /// # Errors
+    ///
+    /// * [`Error::Git`]
+    pub fn open(repo_uri: impl AsRef<std::path::Path>) -> Result<Self, Error> {
+        let repo = git2::Repository::open(repo_uri)?;
+        Ok(Self { inner: repo })
+    }
+
+    /// Attempt to open a git repository at or above `repo_uri` in the file
+    /// system.
+    pub fn discover(repo_uri: impl AsRef<std::path::Path>) -> Result<Self, Error> {
+        let repo = git2::Repository::discover(repo_uri)?;
+        Ok(Self { inner: repo })
+    }
+
     /// What is the current namespace we're browsing in.
     pub fn which_namespace(&self) -> Result<Option<Namespace>, Error> {
         self.inner
             .namespace_bytes()
             .map(|ns| Namespace::try_from(ns).map_err(Error::from))
             .transpose()
+    }
+
+    /// Switch to a `namespace`
+    pub fn switch_namespace(&self, namespace: &RefString) -> Result<(), Error> {
+        Ok(self.inner.set_namespace(namespace.as_str())?)
+    }
+
+    pub fn with_namespace<T, F>(&self, namespace: &RefString, f: F) -> Result<T, Error>
+    where
+        F: FnOnce() -> Result<T, Error>,
+    {
+        self.switch_namespace(namespace)?;
+        let res = f();
+        self.inner.remove_namespace()?;
+        res
     }
 
     /// Returns an iterator of branches that match `pattern`.
@@ -124,6 +159,14 @@ impl Repository {
         Ok(branches)
     }
 
+    /// Lists branch names with `filter`.
+    pub fn branch_names<G>(&self, filter: G) -> Result<BranchNames, Error>
+    where
+        G: Into<Glob<Branch>>,
+    {
+        Ok(self.branches(filter)?.names())
+    }
+
     /// Returns an iterator of tags that match `pattern`.
     pub fn tags(&self, pattern: &Glob<Tag>) -> Result<Tags, Error> {
         let mut tags = Tags::default();
@@ -133,6 +176,11 @@ impl Repository {
             tags.push(references);
         }
         Ok(tags)
+    }
+
+    /// Lists tag names in the local RefScope.
+    pub fn tag_names(&self, filter: &Glob<Tag>) -> Result<TagNames, Error> {
+        Ok(self.tags(filter)?.names())
     }
 
     pub fn categories(&self, pattern: &Glob<Qualified<'_>>) -> Result<Categories, Error> {
@@ -165,8 +213,8 @@ impl Repository {
 
     /// Get the [`Diff`] between two commits.
     pub fn diff(&self, from: impl Revision, to: impl Revision) -> Result<Diff, Error> {
-        let from_commit = self.get_git2_commit(self.object_id(&from)?)?;
-        let to_commit = self.get_git2_commit(self.object_id(&to)?)?;
+        let from_commit = self.find_commit(self.object_id(&from)?)?;
+        let to_commit = self.find_commit(self.object_id(&to)?)?;
         self.diff_commits(None, Some(&from_commit), &to_commit)
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
@@ -215,27 +263,23 @@ impl Repository {
         history.by_path(path).next().transpose()
     }
 
-    /// Returns a commit for `rev` if exists.
+    /// Returns a commit for `rev`, if it exists.
     pub fn commit<R: Revision>(&self, rev: R) -> Result<Commit, Error> {
         rev.to_commit(self)
     }
 
-    /// Gets stats of `commit`.
-    pub fn get_commit_stats<C: ToCommit>(&self, commit: &C) -> Result<Stats, Error> {
+    /// Gets the [`Stats`] of this repository.
+    pub fn stats(&self) -> Result<Stats, Error> {
         let branches = self.branches(Glob::all_heads())?.count();
-        let history = self.history(commit)?;
-        let mut commits = 0;
-
-        let contributors = history
-            .filter_map(|commit| match commit {
-                Ok(commit) => {
-                    commits += 1;
-                    Some((commit.author.name, commit.author.email))
-                },
-                Err(_) => None,
-            })
-            .collect::<BTreeSet<_>>();
-
+        let mut history = self.history(&self.head()?)?;
+        let (commits, contributors) = history.try_fold(
+            (0, BTreeSet::new()),
+            |(commits, mut contributors), commit| {
+                let commit = commit?;
+                contributors.insert((commit.author.name, commit.author.email));
+                Ok::<_, Error>((commits + 1, contributors))
+            },
+        )?;
         Ok(Stats {
             branches,
             commits,
@@ -243,6 +287,8 @@ impl Repository {
         })
     }
 
+    // TODO(finto): I think this can be removed in favour of using
+    // `source::Blob::new`
     /// Retrieves the file with `path` in this commit.
     pub fn get_commit_file<P, R>(&self, rev: &R, path: &P) -> Result<FileContent, crate::git::Error>
     where
@@ -251,78 +297,21 @@ impl Repository {
     {
         let path = path.as_ref();
         let id = self.object_id(rev)?;
-        let commit = self.get_git2_commit(id)?;
+        let commit = self.find_commit(id)?;
         let tree = commit.tree()?;
         let entry = tree.get_path(path)?;
-        let object = entry.to_object(self.git2_repo())?;
+        let object = entry.to_object(&self.inner)?;
         let blob = object
             .into_blob()
             .map_err(|_| Error::PathNotFound(path.to_path_buf()))?;
         Ok(FileContent::new(blob))
     }
 
-    /// Lists branch names with `filter`.
-    pub fn branch_names<G>(&self, filter: G) -> Result<BranchNames, Error>
-    where
-        G: Into<Glob<Branch>>,
-    {
-        Ok(self.branches(filter)?.names())
-    }
-
-    /// Lists tag names in the local RefScope.
-    pub fn tag_names(&self, filter: &Glob<Tag>) -> Result<TagNames, Error> {
-        Ok(self.tags(filter)?.names())
-    }
-
-    /// Returns the Oid of the current HEAD
-    pub fn head_oid(&self) -> Result<Oid, Error> {
+    /// Returns the [`Oid`] of the current `HEAD`.
+    pub fn head(&self) -> Result<Oid, Error> {
         let head = self.inner.head()?;
         let head_commit = head.peel_to_commit()?;
         Ok(head_commit.id().into())
-    }
-
-    /// Switch to a `namespace`
-    pub fn switch_namespace(&self, namespace: &RefString) -> Result<(), Error> {
-        Ok(self.inner.set_namespace(namespace.as_str())?)
-    }
-
-    pub fn with_namespace<T, F>(&self, namespace: &RefString, f: F) -> Result<T, Error>
-    where
-        F: FnOnce() -> Result<T, Error>,
-    {
-        self.switch_namespace(namespace)?;
-        let res = f();
-        self.inner.remove_namespace()?;
-        res
-    }
-
-    /// Returns a full reference name with namespace(s) included.
-    pub(crate) fn namespaced_refname<'a>(
-        &'a self,
-        refname: &Qualified<'a>,
-    ) -> Result<Qualified<'a>, Error> {
-        let fullname = match self.which_namespace()? {
-            Some(namespace) => namespace.to_namespaced(refname).into_qualified(),
-            None => refname.clone(),
-        };
-        Ok(fullname)
-    }
-
-    /// Returns a full reference name with namespace(s) included.
-    pub(crate) fn namespaced_pattern<'a>(
-        &'a self,
-        refname: &QualifiedPattern<'a>,
-    ) -> Result<QualifiedPattern<'a>, Error> {
-        let fullname = match self.which_namespace()? {
-            Some(namespace) => namespace.to_namespaced_pattern(refname).into_qualified(),
-            None => refname.clone(),
-        };
-        Ok(fullname)
-    }
-
-    /// Get a particular `git2::Commit` of `oid`.
-    pub(crate) fn get_git2_commit(&self, oid: Oid) -> Result<git2::Commit, Error> {
-        self.inner.find_commit(oid.into()).map_err(Error::Git)
     }
 
     /// Extract the signature from a commit
@@ -353,8 +342,22 @@ impl Repository {
         }
     }
 
+    /// Returns the history with the `head` commit.
+    pub fn history<C: ToCommit>(&self, head: &C) -> Result<History, Error> {
+        History::new(self, head)
+    }
+}
+
+////////////////////////////////////////////////////////////
+// Private API, ONLY add `pub(crate) fn` or `fn` in here. //
+////////////////////////////////////////////////////////////
+impl Repository {
     /// Lists branches that are reachable from `oid`.
-    pub fn revision_branches(&self, oid: &Oid, glob: Glob<Branch>) -> Result<Vec<Branch>, Error> {
+    pub(crate) fn revision_branches(
+        &self,
+        oid: &Oid,
+        glob: Glob<Branch>,
+    ) -> Result<Vec<Branch>, Error> {
         let mut contained_branches = vec![];
         for branch in self.branches(glob)? {
             let branch = branch?;
@@ -368,9 +371,38 @@ impl Repository {
         Ok(contained_branches)
     }
 
+    pub(crate) fn find_blob(&self, oid: Oid) -> Result<git2::Blob<'_>, git2::Error> {
+        self.inner.find_blob(oid.into())
+    }
+
+    pub(crate) fn find_commit(&self, oid: Oid) -> Result<git2::Commit<'_>, git2::Error> {
+        self.inner.find_commit(oid.into())
+    }
+
+    pub(crate) fn find_tree(&self, oid: Oid) -> Result<git2::Tree<'_>, git2::Error> {
+        self.inner.find_tree(oid.into())
+    }
+
+    pub(crate) fn refname_to_id<R>(&self, name: &R) -> Result<Oid, git2::Error>
+    where
+        R: AsRef<RefStr>,
+    {
+        self.inner
+            .refname_to_id(name.as_ref().as_str())
+            .map(Oid::from)
+    }
+
+    pub(crate) fn revwalk(&self) -> Result<git2::Revwalk<'_>, git2::Error> {
+        self.inner.revwalk()
+    }
+
+    pub(super) fn object_id<R: Revision>(&self, r: &R) -> Result<Oid, Error> {
+        r.object_id(self).map_err(|err| Error::Revision(err.into()))
+    }
+
     /// Get the [`Diff`] of a commit with no parents.
     fn initial_diff<R: Revision>(&self, rev: R) -> Result<Diff, Error> {
-        let commit = self.get_git2_commit(self.object_id(&rev)?)?;
+        let commit = self.find_commit(self.object_id(&rev)?)?;
         self.diff_commits(None, None, &commit)
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
@@ -429,35 +461,28 @@ impl Repository {
         Ok(diff)
     }
 
-    /// Returns the history with the `head` commit.
-    pub fn history<C: ToCommit>(&self, head: &C) -> Result<History, Error> {
-        History::new(self, head)
+    /// Returns a full reference name with namespace(s) included.
+    pub(crate) fn namespaced_refname<'a>(
+        &'a self,
+        refname: &Qualified<'a>,
+    ) -> Result<Qualified<'a>, Error> {
+        let fullname = match self.which_namespace()? {
+            Some(namespace) => namespace.to_namespaced(refname).into_qualified(),
+            None => refname.clone(),
+        };
+        Ok(fullname)
     }
 
-    pub(super) fn object_id<R: Revision>(&self, r: &R) -> Result<Oid, Error> {
-        r.object_id(self).map_err(|err| Error::Revision(err.into()))
-    }
-
-    /// Open a git repository given its exact URI.
-    ///
-    /// # Errors
-    ///
-    /// * [`Error::Git`]
-    pub fn open(repo_uri: impl AsRef<std::path::Path>) -> Result<Self, Error> {
-        let repo = git2::Repository::open(repo_uri)?;
-        Ok(Self { inner: repo })
-    }
-
-    /// Attempt to open a git repository at or above `repo_uri` in the file
-    /// system.
-    pub fn discover(repo_uri: impl AsRef<std::path::Path>) -> Result<Self, Error> {
-        let repo = git2::Repository::discover(repo_uri)?;
-        Ok(Self { inner: repo })
-    }
-
-    /// Get a reference to the underlying git2 repo.
-    pub(crate) fn git2_repo(&self) -> &git2::Repository {
-        &self.inner
+    /// Returns a full reference name with namespace(s) included.
+    fn namespaced_pattern<'a>(
+        &'a self,
+        refname: &QualifiedPattern<'a>,
+    ) -> Result<QualifiedPattern<'a>, Error> {
+        let fullname = match self.which_namespace()? {
+            Some(namespace) => namespace.to_namespaced_pattern(refname).into_qualified(),
+            None => refname.clone(),
+        };
+        Ok(fullname)
     }
 }
 
