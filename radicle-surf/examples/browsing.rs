@@ -51,10 +51,10 @@ fn main() {
 fn print_directory(d: &Directory, repo: &Repository, indent_level: usize) {
     let indent = " ".repeat(indent_level * 4);
     println!("{}{}/", &indent, d.name());
-    for entry in d.entries(repo).unwrap().entries() {
+    for entry in d.entries(repo).unwrap() {
         match entry {
             directory::Entry::File(f) => println!("    {}{}", &indent, f.name()),
-            directory::Entry::Directory(d) => print_directory(d, repo, indent_level + 1),
+            directory::Entry::Directory(d) => print_directory(&d, repo, indent_level + 1),
         }
     }
 }

@@ -57,7 +57,7 @@ impl Tree {
             None => repo.root_dir(revision)?,
             Some(path) => repo
                 .root_dir(revision)?
-                .find_directory(path, repo)?
+                .find_directory(&path, repo)?
                 .ok_or_else(|| Error::PathNotFound(path.to_path_buf()))?,
         };
 

@@ -20,9 +20,3 @@ our [LICENSE](../LICENSE) file.
 ## The Community
 
 Join our community disccussions at [radicle.community](https://radicle.community)!
-
-
-# Example
-
-To a taste for the capabilities of `radicle-surf` we provide an example below, but we also
-keep our documentation and doc-tests up to date.
