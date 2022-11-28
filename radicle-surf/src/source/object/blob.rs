@@ -89,12 +89,6 @@ impl Blob {
     pub fn is_binary(&self) -> bool {
         matches!(self.content, BlobContent::Binary(_))
     }
-
-    /// Indicates if the content of the [`Blob`] is HTML.
-    #[must_use]
-    pub const fn is_html(&self) -> bool {
-        matches!(self.content, BlobContent::Html(_))
-    }
 }
 
 #[cfg(feature = "serde")]
@@ -103,10 +97,9 @@ impl Serialize for Blob {
     where
         S: Serializer,
     {
-        const FIELDS: usize = 6;
+        const FIELDS: usize = 5;
         let mut state = serializer.serialize_struct("Blob", FIELDS)?;
         state.serialize_field("binary", &self.is_binary())?;
-        state.serialize_field("html", &self.is_html())?;
         state.serialize_field("content", &self.content)?;
         state.serialize_field("lastCommit", &self.commit)?;
         state.serialize_field("name", &self.file.name())?;
@@ -120,12 +113,6 @@ impl Serialize for Blob {
 pub enum BlobContent {
     /// Content is plain text and can be passed as a string.
     Plain(String),
-    /// Content is syntax-highlighted HTML.
-    ///
-    /// Note that it is necessary to enable the `syntax` feature flag
-    /// for this variant to be constructed. Use `Blob::highlighted`,
-    /// instead of `Blob::new` to get highlighted content.
-    Html(String),
     /// Content is binary and needs special treatment.
     Binary(Vec<u8>),
 }
@@ -137,7 +124,7 @@ impl Serialize for BlobContent {
         S: Serializer,
     {
         match self {
-            Self::Plain(content) | Self::Html(content) => serializer.serialize_str(content),
+            Self::Plain(content) => serializer.serialize_str(content),
             Self::Binary(bytes) => {
                 let encoded = base64::encode(bytes);
                 serializer.serialize_str(&encoded)
@@ -152,57 +139,6 @@ impl From<FileContent<'_>> for BlobContent {
         match str::from_utf8(content) {
             Ok(utf8) => BlobContent::Plain(utf8.to_owned()),
             Err(_) => BlobContent::Binary(content.to_owned()),
-        }
-    }
-}
-
-#[cfg(feature = "syntax")]
-pub mod highlighting {
-    use crate::source::syntax;
-
-    use super::*;
-
-    impl Blob {
-        /// Returns the [`Blob`] for a file at `revision` under `path`.
-        ///
-        /// The content of the [`Blob`] will be highlighted, if possible.
-        ///
-        /// # Errors
-        ///
-        /// Will return [`Error`] if the project doesn't exist or a surf
-        /// interaction fails.
-        pub fn highlighted<P, R>(
-            browser: &Repository,
-            revision: &R,
-            path: &P,
-            theme: Option<&str>,
-        ) -> Result<Blob, Error>
-        where
-            P: AsRef<Path>,
-            R: git::Revision,
-        {
-            Self::make_blob(browser, revision, path, |contents| {
-                content(path, &contents, theme)
-            })
-        }
-    }
-
-    /// Return a [`BlobContent`] given a file path, content and theme. Attempts
-    /// to perform syntax highlighting when the theme is `Some`.
-    fn content<P>(path: P, content: &FileContent, theme_name: Option<&str>) -> BlobContent
-    where
-        P: AsRef<Path>,
-    {
-        let content = content.as_bytes();
-        let content = match str::from_utf8(content) {
-            Ok(content) => content,
-            Err(_) => return BlobContent::Binary(content.to_owned()),
-        };
-
-        match theme_name {
-            None => BlobContent::Plain(content.to_owned()),
-            Some(theme) => syntax::highlight(path, content, theme)
-                .map_or_else(|| BlobContent::Plain(content.to_owned()), BlobContent::Html),
         }
     }
 }

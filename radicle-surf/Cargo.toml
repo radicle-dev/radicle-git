@@ -20,7 +20,6 @@ test = false
 doctest = false
 
 [features]
-syntax = ["syntect", "lazy_static"]
 # NOTE: testing `test_submodule_failure` on GH actions
 # is painful since it uses this specific repo and expects
 # certain branches to be setup. So we use this feature flag
@@ -43,10 +42,6 @@ version = "0.1.0"
 path = "../git-ref-format"
 features = ["macro", "serde"]
 
-[dependencies.lazy_static]
-version = "1"
-optional = true
-
 [dependencies.radicle-git-ext]
 version = "0.2.0"
 path = "../radicle-git-ext"
@@ -59,10 +54,6 @@ path = "../radicle-std-ext"
 [dependencies.serde]
 version = "1"
 features = ["serde_derive"]
-optional = true
-
-[dependencies.syntect]
-version = "5"
 optional = true
 
 [build-dependencies]

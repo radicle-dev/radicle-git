@@ -21,8 +21,3 @@ pub use person::Person;
 
 mod view;
 pub use view::{view, View};
-
-#[cfg(feature = "syntax")]
-pub mod syntax;
-#[cfg(feature = "syntax")]
-pub use syntax::SYNTAX_SET;
