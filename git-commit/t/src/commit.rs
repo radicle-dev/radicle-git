@@ -2,6 +2,34 @@ use std::str::FromStr as _;
 
 use git_commit::Commit;
 
+const NO_TRAILER: &str = "\
+tree 50d6ef440728217febf9e35716d8b0296608d7f8
+parent 0ad95dbdfe9fdf81938ca419cf740469173e2022
+parent a4ec9e07e1b2e6f37f7119651ae3bb63b79988b6
+author Fintan Halpenny <fintan.halpenny@gmail.com> 1669292989 +0000
+committer Fintan Halpenny <fintan.halpenny@gmail.com> 1669292989 +0000
+
+Merge remote-tracking branch 'origin/surf/organise-tests'
+
+* origin/surf/organise-tests:
+  radicle-surf: organise tests
+";
+
+const SINGLE_TRAILER: &str = "\
+tree 50d6ef440728217febf9e35716d8b0296608d7f8
+parent 0ad95dbdfe9fdf81938ca419cf740469173e2022
+parent a4ec9e07e1b2e6f37f7119651ae3bb63b79988b6
+author Fintan Halpenny <fintan.halpenny@gmail.com> 1669292989 +0000
+committer Fintan Halpenny <fintan.halpenny@gmail.com> 1669292989 +0000
+
+Merge remote-tracking branch 'origin/surf/organise-tests'
+
+* origin/surf/organise-tests:
+  radicle-surf: organise tests
+
+Signed-off-by: Fintan Halpenny <fintan.halpenny@gmail.com>
+";
+
 const UNSIGNED: &str = "\
 tree c66cc435f83ed0fba90ed4500e9b4b96e9bd001b
 parent af06ad645133f580a87895353508053c5de60716
@@ -13,6 +41,7 @@ Add SSH functionality with new `radicle-ssh`
 We borrow code from `thrussh`, refactored to be runtime-less.
 
 X-Signed-Off-By: Alex Sellier
+X-Co-Authored-By: Fintan Halpenny
 ";
 
 const SSH_SIGNATURE: &str = "\
@@ -73,6 +102,7 @@ Add SSH functionality with new `radicle-ssh`
 We borrow code from `thrussh`, refactored to be runtime-less.
 
 X-Signed-Off-By: Alex Sellier
+X-Co-Authored-By: Fintan Halpenny
 ";
 
 #[test]
@@ -106,6 +136,14 @@ fn test_get_header() {
 
 #[test]
 fn test_conversion() {
+    assert_eq!(
+        Commit::from_str(NO_TRAILER).unwrap().to_string(),
+        NO_TRAILER
+    );
+    assert_eq!(
+        Commit::from_str(SINGLE_TRAILER).unwrap().to_string(),
+        SINGLE_TRAILER
+    );
     assert_eq!(Commit::from_str(SIGNED).unwrap().to_string(), SIGNED);
     assert_eq!(Commit::from_str(UNSIGNED).unwrap().to_string(), UNSIGNED);
 }

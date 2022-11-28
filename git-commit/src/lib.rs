@@ -286,7 +286,8 @@ impl ToString for Commit {
             writeln!(buf, "{} {}", name, value.replace('\n', "\n ")).ok();
         }
         writeln!(buf).ok();
-        write!(buf, "{}", self.message).ok();
+        write!(buf, "{}", self.message.trim()).ok();
+        writeln!(buf).ok();
 
         if !self.trailers.is_empty() {
             writeln!(buf).ok();
