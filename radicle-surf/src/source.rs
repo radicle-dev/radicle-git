@@ -18,6 +18,3 @@ pub use commit::{commit, commits, Commit};
 
 mod person;
 pub use person::Person;
-
-mod view;
-pub use view::{view, View};
