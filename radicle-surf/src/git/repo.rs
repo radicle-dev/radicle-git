@@ -22,7 +22,10 @@ use std::{
     str,
 };
 
-use git_ref_format::{refspec::QualifiedPattern, Qualified};
+use git_ref_format::{
+    refspec::{self, QualifiedPattern},
+    Qualified,
+};
 use radicle_git_ext::Oid;
 use thiserror::Error;
 
@@ -108,7 +111,11 @@ impl Repository {
     }
 
     /// Returns an iterator of branches that match `pattern`.
-    pub fn branches(&self, pattern: &Glob<Branch>) -> Result<Branches, Error> {
+    pub fn branches<G>(&self, pattern: G) -> Result<Branches, Error>
+    where
+        G: Into<Glob<Branch>>,
+    {
+        let pattern = pattern.into();
         let mut branches = Branches::default();
         for glob in pattern.globs() {
             let namespaced = self.namespaced_pattern(glob)?;
@@ -209,7 +216,7 @@ impl Repository {
 
     /// Gets stats of `commit`.
     pub fn get_commit_stats<C: ToCommit>(&self, commit: C) -> Result<Stats, Error> {
-        let branches = self.branches(&Glob::heads("*")?)?.count();
+        let branches = self.branches(Glob::all_heads())?.count();
         let history = self.history(commit)?;
         let mut commits = 0;
 
@@ -255,13 +262,16 @@ impl Repository {
     }
 
     /// Lists branch names with `filter`.
-    pub fn branch_names(&self, filter: &Glob<Branch>) -> Result<BranchNames, Error> {
+    pub fn branch_names<G>(&self, filter: G) -> Result<BranchNames, Error>
+    where
+        G: Into<Glob<Branch>>,
+    {
         Ok(self.branches(filter)?.names())
     }
 
     /// Lists tag names in the local RefScope.
     pub fn tag_names(&self) -> Result<TagNames, Error> {
-        Ok(self.tags(&Glob::tags("*")?)?.names())
+        Ok(self.tags(&Glob::tags(refspec::pattern!("*")))?.names())
     }
 
     /// Returns the Oid of the current HEAD
@@ -336,7 +346,7 @@ impl Repository {
     /// Lists branches that are reachable from `oid`.
     pub fn revision_branches(&self, oid: &Oid, glob: Glob<Branch>) -> Result<Vec<Branch>, Error> {
         let mut contained_branches = vec![];
-        for branch in self.branches(&glob)? {
+        for branch in self.branches(glob)? {
             let branch = branch?;
             let namespaced = self.namespaced_refname(&branch.refname())?;
             let reference = self.inner.find_reference(namespaced.as_str())?;

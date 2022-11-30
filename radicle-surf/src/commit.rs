@@ -195,7 +195,7 @@ pub fn commit<R: git::Revision>(repo: &Repository, rev: R) -> Result<Commit, Err
     }
 
     let branches = repo
-        .revision_branches(&sha1, Glob::heads("*")?.and_remotes("*")?)?
+        .revision_branches(&sha1, Glob::all_heads().branches().and(Glob::all_remotes()))?
         .into_iter()
         .map(|b| b.refname().into())
         .collect();

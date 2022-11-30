@@ -15,16 +15,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{convert::TryFrom, marker::PhantomData, str};
+use std::marker::PhantomData;
 
 use git_ref_format::{
     refname,
-    refspec::{PatternString, QualifiedPattern},
+    refspec::{self, PatternString, QualifiedPattern},
     RefString,
 };
 use thiserror::Error;
 
-use crate::git::{Branch, Namespace, Tag};
+use crate::git::{Branch, Local, Namespace, Remote, Tag};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -33,38 +33,52 @@ pub enum Error {
 }
 
 /// A collection of globs for T (a git reference type).
+#[derive(Clone, Debug)]
 pub struct Glob<T> {
     globs: Vec<QualifiedPattern<'static>>,
     glob_type: PhantomData<T>, // To support different methods for different T.
 }
 
 impl<T> Glob<T> {
+    /// Return the [`QualifiedPattern`] globs of this `Glob`.
     pub fn globs(&self) -> impl Iterator<Item = &QualifiedPattern<'static>> {
         self.globs.iter()
+    }
+
+    /// Combine two `Glob`s together by combining their glob lists together.
+    ///
+    /// Note that the `Glob`s must result in the same type,
+    /// e.g. `Glob<Tag>` can only combine with `Glob<Tag>`,
+    /// `Glob<Local>` can combine with `Glob<Remote>`, etc.
+    pub fn and(mut self, other: impl Into<Self>) -> Self {
+        self.globs.extend(other.into().globs);
+        self
     }
 }
 
 impl Glob<Namespace> {
-    /// Creates a `Glob` for namespaces.
-    pub fn namespaces(glob: &str) -> Result<Self, Error> {
-        let globs = vec![Self::qualify(glob)?];
-        Ok(Self {
+    /// Creates the `Glob` that mathces all `refs/namespaces`.
+    pub fn all_namespaces() -> Self {
+        Self::namespaces(refspec::pattern!("*"))
+    }
+
+    /// Creates a `Glob` for `refs/namespaces`, starting with `glob`.
+    pub fn namespaces(glob: PatternString) -> Self {
+        let globs = vec![Self::qualify(glob)];
+        Self {
             globs,
             glob_type: PhantomData,
-        })
+        }
     }
 
-    /// Adds namespaces patterns to existing `Glob`.
-    pub fn and(mut self, glob: &str) -> Result<Self, Error> {
-        self.globs.push(Self::qualify(glob)?);
-        Ok(self)
+    /// Adds a `refs/namespaces` pattern to this `Glob`.
+    pub fn insert(mut self, glob: PatternString) -> Self {
+        self.globs.push(Self::qualify(glob));
+        self
     }
 
-    fn qualify(glob: &str) -> Result<QualifiedPattern<'static>, Error> {
-        Ok(
-            qualify(refname!("refs/namespaces"), PatternString::try_from(glob)?)
-                .expect("BUG: pattern is qualified"),
-        )
+    fn qualify(glob: PatternString) -> QualifiedPattern<'static> {
+        qualify(&refname!("refs/namespaces"), glob).expect("BUG: pattern is qualified")
     }
 }
 
@@ -73,7 +87,7 @@ impl FromIterator<PatternString> for Glob<Namespace> {
         let globs = iter
             .into_iter()
             .map(|pat| {
-                qualify(refname!("refs/namespaces"), pat).expect("BUG: pattern is qualified")
+                qualify(&refname!("refs/namespaces"), pat).expect("BUG: pattern is qualified")
             })
             .collect();
 
@@ -84,28 +98,37 @@ impl FromIterator<PatternString> for Glob<Namespace> {
     }
 }
 
+impl Extend<PatternString> for Glob<Namespace> {
+    fn extend<T: IntoIterator<Item = PatternString>>(&mut self, iter: T) {
+        self.globs.extend(iter.into_iter().map(|pat| {
+            qualify(&refname!("refs/namespaces"), pat).expect("BUG: pattern is qualified")
+        }))
+    }
+}
+
 impl Glob<Tag> {
-    /// Creates a `Glob` for local tags.
-    pub fn tags(glob: &str) -> Result<Self, Error> {
-        let pattern = Self::qualify(glob)?;
-        let globs = vec![pattern];
-        Ok(Self {
+    /// Creates a `Glob` that matches all `refs/tags`.
+    pub fn all_tags() -> Self {
+        Self::tags(refspec::pattern!("*"))
+    }
+
+    /// Creates a `Glob` for `refs/tags`, starting with `glob`.
+    pub fn tags(glob: PatternString) -> Self {
+        let globs = vec![Self::qualify(glob)];
+        Self {
             globs,
             glob_type: PhantomData,
-        })
+        }
     }
 
-    /// Updates a `Glob` to include other tags.
-    pub fn and_tags(mut self, glob: &str) -> Result<Self, Error> {
-        self.globs.push(Self::qualify(glob)?);
-        Ok(self)
+    /// Adds a `refs/tags` pattern to this `Glob`.
+    pub fn insert(mut self, glob: PatternString) -> Self {
+        self.globs.push(Self::qualify(glob));
+        self
     }
 
-    fn qualify(glob: &str) -> Result<QualifiedPattern<'static>, Error> {
-        Ok(
-            qualify(refname!("refs/tags"), PatternString::try_from(glob)?)
-                .expect("BUG: pattern is qualified"),
-        )
+    fn qualify(glob: PatternString) -> QualifiedPattern<'static> {
+        qualify(&refname!("refs/tags"), glob).expect("BUG: pattern is qualified")
     }
 }
 
@@ -113,7 +136,7 @@ impl FromIterator<PatternString> for Glob<Tag> {
     fn from_iter<T: IntoIterator<Item = PatternString>>(iter: T) -> Self {
         let globs = iter
             .into_iter()
-            .map(|pat| qualify(refname!("refs/tags"), pat).expect("BUG: pattern is qualified"))
+            .map(|pat| qualify(&refname!("refs/tags"), pat).expect("BUG: pattern is qualified"))
             .collect();
 
         Self {
@@ -123,52 +146,163 @@ impl FromIterator<PatternString> for Glob<Tag> {
     }
 }
 
-impl Glob<Branch> {
-    /// Creates a `Glob` for local branches.
-    pub fn heads(glob: &str) -> Result<Self, Error> {
-        let globs = vec![Self::qualify_heads(glob)?];
-        Ok(Self {
-            globs,
-            glob_type: PhantomData,
-        })
-    }
-
-    /// Creates a `Glob` for remote branches.
-    pub fn remotes(glob: &str) -> Result<Self, Error> {
-        let globs = vec![Self::qualify_remotes(glob)?];
-        Ok(Self {
-            globs,
-            glob_type: PhantomData,
-        })
-    }
-
-    /// Updates a `Glob` to include local branches.
-    pub fn and_heads(mut self, glob: &str) -> Result<Self, Error> {
-        self.globs.push(Self::qualify_heads(glob)?);
-        Ok(self)
-    }
-
-    /// Updates a `Glob` to include remote branches.
-    pub fn and_remotes(mut self, glob: &str) -> Result<Self, Error> {
-        self.globs.push(Self::qualify_remotes(glob)?);
-        Ok(self)
-    }
-
-    fn qualify_heads(glob: &str) -> Result<QualifiedPattern<'static>, Error> {
-        Ok(
-            qualify(refname!("refs/heads"), PatternString::try_from(glob)?)
-                .expect("BUG: pattern is qualified"),
-        )
-    }
-
-    fn qualify_remotes(glob: &str) -> Result<QualifiedPattern<'static>, Error> {
-        Ok(
-            qualify(refname!("refs/remotes"), PatternString::try_from(glob)?)
-                .expect("BUG: pattern is qualified"),
+impl Extend<PatternString> for Glob<Tag> {
+    fn extend<T: IntoIterator<Item = PatternString>>(&mut self, iter: T) {
+        self.globs.extend(
+            iter.into_iter()
+                .map(|pat| qualify(&refname!("refs/tag"), pat).expect("BUG: pattern is qualified")),
         )
     }
 }
 
-fn qualify(prefix: RefString, glob: PatternString) -> Option<QualifiedPattern<'static>> {
+impl Glob<Local> {
+    /// Creates the `Glob` that mathces all `refs/heads`.
+    pub fn all_heads() -> Self {
+        Self::heads(refspec::pattern!("*"))
+    }
+
+    /// Creates a `Glob` for `refs/heads`, starting with `glob`.
+    pub fn heads(glob: PatternString) -> Self {
+        let globs = vec![Self::qualify_heads(glob)];
+        Self {
+            globs,
+            glob_type: PhantomData,
+        }
+    }
+
+    /// Adds a `refs/heads` pattern to this `Glob`.
+    pub fn insert(mut self, glob: PatternString) -> Self {
+        self.globs.push(Self::qualify_heads(glob));
+        self
+    }
+
+    /// When chaining `Glob<Local>` with `Glob<Remote>`, use
+    /// `branches` to convert this `Glob<Local>` into a
+    /// `Glob<Branch>`.
+    ///
+    /// # Example
+    /// ```no_run
+    /// Glob::heads(pattern!("features/*"))
+    ///     .insert(pattern!("qa/*"))
+    ///     .branches()
+    ///     .and(Glob::remotes(pattern!("origin/features/*")))
+    /// ```
+    pub fn branches(self) -> Glob<Branch> {
+        self.into()
+    }
+
+    fn qualify_heads(glob: PatternString) -> QualifiedPattern<'static> {
+        qualify(&refname!("refs/heads"), glob).expect("BUG: pattern is qualified")
+    }
+}
+
+impl FromIterator<PatternString> for Glob<Local> {
+    fn from_iter<T: IntoIterator<Item = PatternString>>(iter: T) -> Self {
+        let globs = iter
+            .into_iter()
+            .map(|pat| qualify(&refname!("refs/heads"), pat).expect("BUG: pattern is qualified"))
+            .collect();
+
+        Self {
+            globs,
+            glob_type: PhantomData,
+        }
+    }
+}
+
+impl Extend<PatternString> for Glob<Local> {
+    fn extend<T: IntoIterator<Item = PatternString>>(&mut self, iter: T) {
+        self.globs.extend(
+            iter.into_iter().map(|pat| {
+                qualify(&refname!("refs/heads"), pat).expect("BUG: pattern is qualified")
+            }),
+        )
+    }
+}
+
+impl From<Glob<Local>> for Glob<Branch> {
+    fn from(Glob { globs, .. }: Glob<Local>) -> Self {
+        Self {
+            globs,
+            glob_type: PhantomData,
+        }
+    }
+}
+
+impl Glob<Remote> {
+    /// Creates the `Glob` that mathces all `refs/remotes`.
+    pub fn all_remotes() -> Self {
+        Self::remotes(refspec::pattern!("*"))
+    }
+
+    /// Creates a `Glob` for `refs/remotes`, starting with `glob`.
+    pub fn remotes(glob: PatternString) -> Self {
+        let globs = vec![Self::qualify_remotes(glob)];
+        Self {
+            globs,
+            glob_type: PhantomData,
+        }
+    }
+
+    /// Adds a `refs/remotes` pattern to this `Glob`.
+    pub fn insert(mut self, glob: PatternString) -> Self {
+        self.globs.push(Self::qualify_remotes(glob));
+        self
+    }
+
+    /// When chaining `Glob<Remote>` with `Glob<Local>`, use
+    /// `branches` to convert this `Glob<Remote>` into a
+    /// `Glob<Branch>`.
+    ///
+    /// # Example
+    /// ```no_run
+    /// Glob::remotes(pattern!("origin/features/*"))
+    ///     .insert(pattern!("origin/qa/*"))
+    ///     .branches()
+    ///     .and(Glob::heads(pattern!("features/*")))
+    /// ```
+    pub fn branches(self) -> Glob<Branch> {
+        self.into()
+    }
+
+    fn qualify_remotes(glob: PatternString) -> QualifiedPattern<'static> {
+        qualify(&refname!("refs/remotes"), glob).expect("BUG: pattern is qualified")
+    }
+}
+
+impl FromIterator<PatternString> for Glob<Remote> {
+    fn from_iter<T: IntoIterator<Item = PatternString>>(iter: T) -> Self {
+        let globs = iter
+            .into_iter()
+            .map(|pat| qualify(&refname!("refs/remotes"), pat).expect("BUG: pattern is qualified"))
+            .collect();
+
+        Self {
+            globs,
+            glob_type: PhantomData,
+        }
+    }
+}
+
+impl Extend<PatternString> for Glob<Remote> {
+    fn extend<T: IntoIterator<Item = PatternString>>(&mut self, iter: T) {
+        self.globs.extend(
+            iter.into_iter().map(|pat| {
+                qualify(&refname!("refs/remotes"), pat).expect("BUG: pattern is qualified")
+            }),
+        )
+    }
+}
+
+impl From<Glob<Remote>> for Glob<Branch> {
+    fn from(Glob { globs, .. }: Glob<Remote>) -> Self {
+        Self {
+            globs,
+            glob_type: PhantomData,
+        }
+    }
+}
+
+fn qualify(prefix: &RefString, glob: PatternString) -> Option<QualifiedPattern<'static>> {
     prefix.to_pattern(glob).qualified().map(|q| q.into_owned())
 }
