@@ -20,7 +20,7 @@
 use std::path::PathBuf;
 
 use git_ref_format::RefString;
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
@@ -29,14 +29,13 @@ use serde::{
 use crate::{
     diff,
     git::{self, glob, Glob, Repository},
-    person::Person,
-    revision::Revision,
+    source::person::Person,
 };
 
 use radicle_git_ext::Oid;
 
 /// Commit statistics.
-#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Clone)]
 pub struct Stats {
     /// Additions.
@@ -46,7 +45,7 @@ pub struct Stats {
 }
 
 /// Representation of a changeset between two revs.
-#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Clone)]
 pub struct Commit {
     /// The commit header.
@@ -115,7 +114,7 @@ impl From<git::Commit> for Header {
     }
 }
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 impl Serialize for Header {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -133,7 +132,7 @@ impl Serialize for Header {
 }
 
 /// A selection of commit headers and their statistics.
-#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Commits {
     /// The commit headers
     pub headers: Vec<Header>,
@@ -228,18 +227,13 @@ pub fn header(repo: &Repository, sha1: Oid) -> Result<Header, Error> {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commits(repo: &Repository, maybe_revision: Option<Revision>) -> Result<Commits, Error> {
-    let rev = match maybe_revision {
-        Some(revision) => revision,
-        None => Revision::Sha {
-            sha: repo.head_oid()?,
-        },
-    };
-
-    let stats = repo.get_commit_stats(&rev)?;
-    let commits: Result<Vec<git::Commit>, git::Error> = repo.history(&rev)?.collect();
-    let headers = commits?.iter().map(Header::from).collect();
-
+pub fn commits<R>(repo: &Repository, revision: &R) -> Result<Commits, Error>
+where
+    R: git::Revision,
+{
+    let stats = repo.get_commit_stats(revision)?;
+    let commits = repo.history(revision)?.collect::<Result<Vec<_>, _>>()?;
+    let headers = commits.into_iter().map(Header::from).collect();
     Ok(Commits { headers, stats })
 }
 

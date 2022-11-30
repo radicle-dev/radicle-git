@@ -5,12 +5,10 @@
 
 const GIT_PLATINUM: &str = "../data/git-platinum";
 
-#[cfg(feature = "serialize")]
 #[cfg(test)]
 mod branch;
 #[cfg(test)]
 mod code_browsing;
-#[cfg(feature = "serialize")]
 #[cfg(test)]
 mod commit;
 #[cfg(test)]

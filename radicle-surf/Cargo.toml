@@ -20,7 +20,6 @@ test = false
 doctest = false
 
 [features]
-serialize = ["serde"]
 # NOTE: testing `test_submodule_failure` on GH actions
 # is painful since it uses this specific repo and expects
 # certain branches to be setup. So we use this feature flag
@@ -29,8 +28,8 @@ gh-actions = []
 
 [dependencies]
 base64 = "0.13"
+log = "0.4"
 nonempty = "0.5"
-serde = { features = ["serde_derive"], optional = true, version = "1" }
 thiserror = "1.0"
 
 [dependencies.git2]
@@ -51,6 +50,11 @@ features = ["serde"]
 [dependencies.radicle-std-ext]
 version = "0.1.0"
 path = "../radicle-std-ext"
+
+[dependencies.serde]
+version = "1"
+features = ["serde_derive"]
+optional = true
 
 [build-dependencies]
 anyhow = "1.0"

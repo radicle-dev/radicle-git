@@ -44,7 +44,7 @@ fn _master() -> Result<(), Error> {
 fn commit() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
     let rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
-    let mut history = repo.history(rev)?;
+    let mut history = repo.history(&rev)?;
 
     let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
     assert!(history.any(|commit| commit.unwrap().id == commit1));
@@ -56,7 +56,7 @@ fn commit() -> Result<(), Error> {
 fn commit_parents() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
     let rev = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
-    let history = repo.history(rev)?;
+    let history = repo.history(&rev)?;
     let commit = history.head();
 
     assert_eq!(
@@ -71,7 +71,7 @@ fn commit_parents() -> Result<(), Error> {
 fn commit_short() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
     let rev = repo.oid("3873745c8")?;
-    let mut history = repo.history(rev)?;
+    let mut history = repo.history(&rev)?;
 
     let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
     assert!(history.any(|commit| commit.unwrap().id == commit1));

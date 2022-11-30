@@ -18,7 +18,7 @@ fn readme_missing_and_memory() {
 
     // memory.rs is commited later so it should not exist here.
     let memory_last_commit_oid = repo
-        .last_commit(Path::new("src/memory.rs"), oid)
+        .last_commit(Path::new("src/memory.rs"), &oid)
         .expect("Failed to get last commit")
         .map(|commit| commit.id);
 
@@ -26,7 +26,7 @@ fn readme_missing_and_memory() {
 
     // README.md exists in this commit.
     let readme_last_commit = repo
-        .last_commit(Path::new("README.md"), oid)
+        .last_commit(Path::new("README.md"), &oid)
         .expect("Failed to get last commit")
         .map(|commit| commit.id);
 
@@ -44,7 +44,7 @@ fn folder_svelte() {
     let expected_commit_id = Oid::from_str("f3a089488f4cfd1a240a9c01b3fcc4c34a4e97b2").unwrap();
 
     let folder_svelte = repo
-        .last_commit(Path::new("examples/Folder.svelte"), oid)
+        .last_commit(Path::new("examples/Folder.svelte"), &oid)
         .expect("Failed to get last commit")
         .map(|commit| commit.id);
 
@@ -64,7 +64,7 @@ fn nest_directory() {
     let nested_directory_tree_commit_id = repo
         .last_commit(
             Path::new("this/is/a/really/deeply/nested/directory/tree"),
-            oid,
+            &oid,
         )
         .expect("Failed to get last commit")
         .map(|commit| commit.id);
@@ -85,13 +85,13 @@ fn can_get_last_commit_for_special_filenames() {
     let expected_commit_id = Oid::from_str("a0dd9122d33dff2a35f564d564db127152c88e02").unwrap();
 
     let backslash_commit_id = repo
-        .last_commit(Path::new(r"special/faux\\path"), oid)
+        .last_commit(Path::new(r"special/faux\\path"), &oid)
         .expect("Failed to get last commit")
         .map(|commit| commit.id);
     assert_eq!(backslash_commit_id, Some(expected_commit_id));
 
     let ogre_commit_id = repo
-        .last_commit(Path::new("special/👹👹👹"), oid)
+        .last_commit(Path::new("special/👹👹👹"), &oid)
         .expect("Failed to get last commit")
         .map(|commit| commit.id);
     assert_eq!(ogre_commit_id, Some(expected_commit_id));

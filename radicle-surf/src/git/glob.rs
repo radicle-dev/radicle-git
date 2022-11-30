@@ -20,6 +20,8 @@ use std::marker::PhantomData;
 use git_ref_format::{
     refname,
     refspec::{self, PatternString, QualifiedPattern},
+    Qualified,
+    RefStr,
     RefString,
 };
 use thiserror::Error;
@@ -37,6 +39,15 @@ pub enum Error {
 pub struct Glob<T> {
     globs: Vec<QualifiedPattern<'static>>,
     glob_type: PhantomData<T>, // To support different methods for different T.
+}
+
+impl<T> Default for Glob<T> {
+    fn default() -> Self {
+        Self {
+            globs: Default::default(),
+            glob_type: PhantomData,
+        }
+    }
 }
 
 impl<T> Glob<T> {
@@ -300,6 +311,44 @@ impl From<Glob<Remote>> for Glob<Branch> {
             globs,
             glob_type: PhantomData,
         }
+    }
+}
+
+impl Glob<Qualified<'_>> {
+    pub fn all_category<R: AsRef<RefStr>>(category: R) -> Self {
+        Self {
+            globs: vec![Self::qualify_category(category, refspec::pattern!("*"))],
+            glob_type: PhantomData,
+        }
+    }
+
+    /// Creates a `Glob` for `refs/<category>`, starting with `glob`.
+    pub fn categories<R>(category: R, glob: PatternString) -> Self
+    where
+        R: AsRef<RefStr>,
+    {
+        let globs = vec![Self::qualify_category(category, glob)];
+        Self {
+            globs,
+            glob_type: PhantomData,
+        }
+    }
+
+    /// Adds a `refs/<category>` pattern to this `Glob`.
+    pub fn insert<R>(mut self, category: R, glob: PatternString) -> Self
+    where
+        R: AsRef<RefStr>,
+    {
+        self.globs.push(Self::qualify_category(category, glob));
+        self
+    }
+
+    fn qualify_category<R>(category: R, glob: PatternString) -> QualifiedPattern<'static>
+    where
+        R: AsRef<RefStr>,
+    {
+        let prefix = refname!("refs").and(category);
+        qualify(&prefix, glob).expect("BUG: pattern is qualified")
     }
 }
 

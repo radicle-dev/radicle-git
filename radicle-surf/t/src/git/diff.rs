@@ -122,7 +122,6 @@ fn test_branch_diff() -> Result<(), Error> {
     Ok(())
 }
 
-#[cfg(feature = "serialize")]
 #[test]
 fn test_diff_serde() {
     use radicle_surf::diff::{Hunks, MoveFile};

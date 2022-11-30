@@ -19,16 +19,12 @@
 
 use std::{convert::TryFrom, path::PathBuf, slice};
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 use serde::{ser, Serialize, Serializer};
 
 pub mod git;
 
-#[cfg_attr(
-    feature = "serialize",
-    derive(Serialize),
-    serde(rename_all = "camelCase")
-)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Diff {
     pub created: Vec<CreateFile>,
@@ -44,47 +40,35 @@ impl Default for Diff {
     }
 }
 
-#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CreateFile {
     pub path: PathBuf,
     pub diff: FileDiff,
 }
 
-#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeleteFile {
     pub path: PathBuf,
     pub diff: FileDiff,
 }
 
-#[cfg_attr(
-    feature = "serialize",
-    derive(Serialize),
-    serde(rename_all = "camelCase")
-)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MoveFile {
     pub old_path: PathBuf,
     pub new_path: PathBuf,
 }
 
-#[cfg_attr(
-    feature = "serialize",
-    derive(Serialize),
-    serde(rename_all = "camelCase")
-)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CopyFile {
     pub old_path: PathBuf,
     pub new_path: PathBuf,
 }
 
-#[cfg_attr(
-    feature = "serialize",
-    derive(Serialize),
-    serde(rename_all = "camelCase")
-)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EofNewLine {
     OldMissing,
@@ -92,11 +76,7 @@ pub enum EofNewLine {
     BothMissing,
 }
 
-#[cfg_attr(
-    feature = "serialize",
-    derive(Serialize),
-    serde(rename_all = "camelCase")
-)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModifiedFile {
     pub path: PathBuf,
@@ -106,25 +86,21 @@ pub struct ModifiedFile {
 
 /// A set of changes belonging to one file.
 #[cfg_attr(
-    feature = "serialize",
+    feature = "serde",
     derive(Serialize),
     serde(tag = "type", rename_all = "camelCase")
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FileDiff {
     Binary,
-    #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Plain {
         hunks: Hunks,
     },
 }
 
 /// Statistics describing a particular [`Diff`].
-#[cfg_attr(
-    feature = "serialize",
-    derive(Serialize),
-    serde(rename_all = "camelCase")
-)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Stats {
     /// Get the total number of files changed in a diff.
@@ -136,11 +112,7 @@ pub struct Stats {
 }
 
 /// A set of line changes.
-#[cfg_attr(
-    feature = "serialize",
-    derive(Serialize),
-    serde(rename_all = "camelCase")
-)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Hunk {
     pub header: Line,
@@ -148,7 +120,7 @@ pub struct Hunk {
 }
 
 /// A set of [`Hunk`]s.
-#[cfg_attr(feature = "serialize", derive(Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Hunks(pub Vec<Hunk>);
 
@@ -215,7 +187,7 @@ impl From<String> for Line {
     }
 }
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "serde")]
 impl Serialize for Line {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -230,22 +202,22 @@ impl Serialize for Line {
 /// Single line delta. Two of these are need to represented a modified line: one
 /// addition and one deletion. Context is also represented with this type.
 #[cfg_attr(
-    feature = "serialize",
+    feature = "serde",
     derive(Serialize),
     serde(tag = "type", rename_all = "camelCase")
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LineDiff {
     /// Line added.
-    #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Addition { line: Line, line_num: u32 },
 
     /// Line deleted.
-    #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Deletion { line: Line, line_num: u32 },
 
     /// Line context.
-    #[cfg_attr(feature = "serialize", serde(rename_all = "camelCase"))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Context {
         line: Line,
         line_num_old: u32,
