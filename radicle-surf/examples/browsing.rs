@@ -40,7 +40,7 @@ fn main() {
     };
     let repo = Repository::discover(&repo_path).unwrap();
     let now = Instant::now();
-    let head = repo.head_oid().unwrap();
+    let head = repo.head().unwrap();
     let root = repo.root_dir(&head).unwrap();
     print_directory(&root, &repo, 0);
 

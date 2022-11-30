@@ -42,7 +42,7 @@ impl<'a> History<'a> {
         let head = head
             .to_commit(repo)
             .map_err(|err| Error::ToCommit(err.into()))?;
-        let mut revwalk = repo.git2_repo().revwalk()?;
+        let mut revwalk = repo.revwalk()?;
         revwalk.push(head.id.into())?;
         let history = Self {
             repo,
@@ -82,17 +82,17 @@ impl<'a> Iterator for History<'a> {
             let found = oid
                 .map_err(Error::Git)
                 .and_then(|oid| {
-                    let git2_commit = self.repo.git2_repo().find_commit(oid)?;
+                    let commit = self.repo.find_commit(oid.into())?;
 
                     // Handles the optional filter_by.
                     if let Some(FilterBy::File { path }) = &self.filter_by {
-                        let path_opt = self.repo.diff_commit_and_parents(path, &git2_commit)?;
+                        let path_opt = self.repo.diff_commit_and_parents(path, &commit)?;
                         if path_opt.is_none() {
                             return Ok(None); // Filter out this commit.
                         }
                     }
 
-                    let commit = Commit::try_from(git2_commit)?;
+                    let commit = Commit::try_from(commit)?;
                     Ok(Some(commit))
                 })
                 .transpose();
