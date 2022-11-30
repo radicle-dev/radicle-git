@@ -34,24 +34,12 @@ use crate::{
 
 use radicle_git_ext::Oid;
 
-/// Commit statistics.
-#[cfg_attr(feature = "serde", derive(Serialize))]
-#[derive(Clone)]
-pub struct Stats {
-    /// Additions.
-    pub additions: u64,
-    /// Deletions.
-    pub deletions: u64,
-}
-
 /// Representation of a changeset between two revs.
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Clone)]
 pub struct Commit {
     /// The commit header.
     pub header: Header,
-    /// The change statistics for this commit.
-    pub stats: Stats,
     /// The changeset introduced by this commit.
     pub diff: diff::Diff,
     /// The list of branches this commit belongs to.
@@ -150,48 +138,7 @@ pub fn commit<R: git::Revision>(repo: &Repository, rev: R) -> Result<Commit, Err
     let commit = repo.commit(rev)?;
     let sha1 = commit.id;
     let header = Header::from(&commit);
-    let diff = repo.diff_from_parent(commit)?;
-
-    let mut deletions = 0;
-    let mut additions = 0;
-
-    for file in &diff.modified {
-        if let diff::FileDiff::Plain { ref hunks } = file.diff {
-            for hunk in hunks.iter() {
-                for line in &hunk.lines {
-                    match line {
-                        diff::LineDiff::Addition { .. } => additions += 1,
-                        diff::LineDiff::Deletion { .. } => deletions += 1,
-                        _ => {},
-                    }
-                }
-            }
-        }
-    }
-
-    for file in &diff.created {
-        if let diff::FileDiff::Plain { ref hunks } = file.diff {
-            for hunk in hunks.iter() {
-                for line in &hunk.lines {
-                    if let diff::LineDiff::Addition { .. } = line {
-                        additions += 1
-                    }
-                }
-            }
-        }
-    }
-
-    for file in &diff.deleted {
-        if let diff::FileDiff::Plain { ref hunks } = file.diff {
-            for hunk in hunks.iter() {
-                for line in &hunk.lines {
-                    if let diff::LineDiff::Deletion { .. } = line {
-                        deletions += 1
-                    }
-                }
-            }
-        }
-    }
+    let diff = repo.diff_commit(commit)?;
 
     let branches = repo
         .revision_branches(&sha1, Glob::all_heads().branches().and(Glob::all_remotes()))?
@@ -201,10 +148,6 @@ pub fn commit<R: git::Revision>(repo: &Repository, rev: R) -> Result<Commit, Err
 
     Ok(Commit {
         header,
-        stats: Stats {
-            additions,
-            deletions,
-        },
         diff,
         branches,
     })

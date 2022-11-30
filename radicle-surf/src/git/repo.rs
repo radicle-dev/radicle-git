@@ -171,15 +171,12 @@ impl Repository {
             .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
 
-    /// Get the [`Diff`] of a commit with no parents.
-    pub fn initial_diff<R: Revision>(&self, rev: R) -> Result<Diff, Error> {
-        let commit = self.get_git2_commit(self.object_id(&rev)?)?;
-        self.diff_commits(None, None, &commit)
-            .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
-    }
-
-    /// Get the diff introduced by a particlar rev.
-    pub fn diff_from_parent<C: ToCommit>(&self, commit: C) -> Result<Diff, Error> {
+    /// Get the [`Diff`] of a `commit`.
+    ///
+    /// If the `commit` has a parent, then it the diff will be a
+    /// comparison between itself and that parent. Otherwise, the left
+    /// hand side of the diff will pass nothing.
+    pub fn diff_commit(&self, commit: impl ToCommit) -> Result<Diff, Error> {
         let commit = commit
             .to_commit(self)
             .map_err(|err| Error::ToCommit(err.into()))?;
@@ -369,6 +366,13 @@ impl Repository {
         }
 
         Ok(contained_branches)
+    }
+
+    /// Get the [`Diff`] of a commit with no parents.
+    fn initial_diff<R: Revision>(&self, rev: R) -> Result<Diff, Error> {
+        let commit = self.get_git2_commit(self.object_id(&rev)?)?;
+        self.diff_commits(None, None, &commit)
+            .and_then(|diff| Diff::try_from(diff).map_err(Error::from))
     }
 
     fn reachable_from(&self, reference: &git2::Reference, oid: &Oid) -> Result<bool, Error> {
