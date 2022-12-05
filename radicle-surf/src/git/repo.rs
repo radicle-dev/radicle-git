@@ -243,7 +243,7 @@ impl Repository {
     ///
     /// To visit inside any nested sub-directories, call `directory.get(&repo)`
     /// on the sub-directory.
-    pub fn root_dir<C: ToCommit>(&self, commit: &C) -> Result<Directory, Error> {
+    pub fn root_dir<C: ToCommit>(&self, commit: C) -> Result<Directory, Error> {
         let commit = commit
             .to_commit(self)
             .map_err(|err| Error::ToCommit(err.into()))?;
@@ -254,7 +254,7 @@ impl Repository {
 
     /// Returns the last commit, if exists, for a `path` in the history of
     /// `rev`.
-    pub fn last_commit<P, C>(&self, path: P, rev: &C) -> Result<Option<Commit>, Error>
+    pub fn last_commit<P, C>(&self, path: P, rev: C) -> Result<Option<Commit>, Error>
     where
         P: AsRef<Path>,
         C: ToCommit,
@@ -271,7 +271,7 @@ impl Repository {
     /// Gets the [`Stats`] of this repository.
     pub fn stats(&self) -> Result<Stats, Error> {
         let branches = self.branches(Glob::all_heads())?.count();
-        let mut history = self.history(&self.head()?)?;
+        let mut history = self.history(self.head()?)?;
         let (commits, contributors) = history.try_fold(
             (0, BTreeSet::new()),
             |(commits, mut contributors), commit| {
@@ -343,7 +343,7 @@ impl Repository {
     }
 
     /// Returns the history with the `head` commit.
-    pub fn history<C: ToCommit>(&self, head: &C) -> Result<History, Error> {
+    pub fn history<C: ToCommit>(&self, head: C) -> Result<History, Error> {
         History::new(self, head)
     }
 }

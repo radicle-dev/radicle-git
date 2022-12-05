@@ -54,7 +54,7 @@ mod directory {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         // Get the snapshot of the directory for a given commit.
         let root = repo
-            .root_dir(&"80ded66281a4de2889cc07293a8f10947c6d57fe")
+            .root_dir("80ded66281a4de2889cc07293a8f10947c6d57fe")
             .unwrap();
 
         // Assert that we can find the memory.rs file!

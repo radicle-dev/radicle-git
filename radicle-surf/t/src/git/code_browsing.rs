@@ -66,3 +66,18 @@ fn test_file_history() {
         .unwrap();
     assert_eq!(file.size(), 67);
 }
+
+#[test]
+fn test_commit_history() {
+    let repo = Repository::open(GIT_PLATINUM).unwrap();
+    let head = "a0dd9122d33dff2a35f564d564db127152c88e02";
+
+    // verify `&str` works.
+    let h1 = repo.history(head).unwrap();
+
+    // verify `&String` works.
+    let head_string = head.to_string();
+    let h2 = repo.history(&head_string).unwrap();
+
+    assert_eq!(h1.head().id, h2.head().id);
+}

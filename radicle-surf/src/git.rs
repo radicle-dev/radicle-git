@@ -127,23 +127,7 @@ impl Revision for RefString {
     }
 }
 
-impl Revision for &RefString {
-    type Error = git2::Error;
-
-    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
-        repo.refname_to_id(self)
-    }
-}
-
 impl Revision for Qualified<'_> {
-    type Error = git2::Error;
-
-    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
-        repo.refname_to_id(self)
-    }
-}
-
-impl Revision for &Qualified<'_> {
     type Error = git2::Error;
 
     fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
@@ -171,14 +155,6 @@ impl Revision for Branch {
     type Error = Error;
 
     fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
-        (&self).object_id(repo)
-    }
-}
-
-impl Revision for &Branch {
-    type Error = Error;
-
-    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
         let refname = repo.namespaced_refname(&self.refname())?;
         Ok(repo.refname_to_id(&refname)?)
     }
@@ -187,16 +163,24 @@ impl Revision for &Branch {
 impl Revision for Tag {
     type Error = Infallible;
 
-    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
-        (&self).object_id(repo)
+    fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
+        Ok(self.id())
     }
 }
 
-impl Revision for &Tag {
-    type Error = Infallible;
+impl Revision for String {
+    type Error = git2::Error;
 
     fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
-        Ok(self.id())
+        Oid::from_str(self).map(Oid::from)
+    }
+}
+
+impl<R: Revision> Revision for &R {
+    type Error = R::Error;
+
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        (*self).object_id(repo)
     }
 }
 
@@ -213,22 +197,22 @@ pub trait ToCommit {
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// Converts to a commit in `repo`.
-    fn to_commit(&self, repo: &Repository) -> Result<Commit, Self::Error>;
+    fn to_commit(self, repo: &Repository) -> Result<Commit, Self::Error>;
 }
 
 impl ToCommit for Commit {
     type Error = Infallible;
 
-    fn to_commit(&self, _repo: &Repository) -> Result<Commit, Self::Error> {
-        Ok(self.clone())
+    fn to_commit(self, _repo: &Repository) -> Result<Commit, Self::Error> {
+        Ok(self)
     }
 }
 
 impl<R: Revision> ToCommit for R {
     type Error = Error;
 
-    fn to_commit(&self, repo: &Repository) -> Result<Commit, Self::Error> {
-        let oid = repo.object_id(self)?;
+    fn to_commit(self, repo: &Repository) -> Result<Commit, Self::Error> {
+        let oid = repo.object_id(&self)?;
         let commit = repo.find_commit(oid)?;
         Ok(Commit::try_from(commit)?)
     }
