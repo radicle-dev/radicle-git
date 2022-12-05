@@ -44,6 +44,8 @@ pub mod error {
         Entry(#[from] Entry),
         #[error(transparent)]
         File(#[from] File),
+        #[error("the path {0} is not valid")]
+        InvalidPath(String),
     }
 
     #[derive(Debug, Error, PartialEq, Eq)]
@@ -178,6 +180,19 @@ impl Entries {
     }
 }
 
+impl Iterator for Entries {
+    type Item = Entry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Can be improved when `pop_first()` is stable for BTreeMap.
+        let next_key = match self.listing.keys().next() {
+            Some(k) => k.clone(),
+            None => return None,
+        };
+        self.listing.remove(&next_key)
+    }
+}
+
 /// An `Entry` is either a [`File`] entry or a [`Directory`] entry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Entry {
@@ -226,6 +241,16 @@ impl Entry {
             Entry::File(file) => file.location(),
             Entry::Directory(directory) => directory.location(),
         }
+    }
+
+    /// Returns `true` if the `Entry` is a file.
+    pub fn is_file(&self) -> bool {
+        matches!(self, Entry::File(_))
+    }
+
+    /// Returns `true` if the `Entry` is a directory.
+    pub fn is_directory(&self) -> bool {
+        matches!(self, Entry::Directory(_))
     }
 
     pub(crate) fn from_entry(
@@ -366,14 +391,18 @@ impl Directory {
         P: AsRef<Path>,
     {
         // Search the path in git2 tree.
+        let path = path.as_ref();
         let git2_tree = repo.find_tree(self.id)?;
         let entry = git2_tree
-            .get_path(path.as_ref())
+            .get_path(path)
             .map(Some)
             .or_matches::<git2::Error, _, _>(is_not_found_err, || Ok(None))?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| error::Directory::InvalidPath(path.to_string_lossy().to_string()))?;
 
         Ok(entry
-            .and_then(|entry| Entry::from_entry(&entry, path.as_ref().to_path_buf()).transpose())
+            .and_then(|entry| Entry::from_entry(&entry, parent.to_path_buf()).transpose())
             .transpose()
             .unwrap())
     }
@@ -396,13 +425,13 @@ impl Directory {
     /// Find the `Directory` found at `path`, if it exists.
     pub fn find_directory<P>(
         &self,
-        path: P,
+        path: &P,
         repo: &Repository,
     ) -> Result<Option<Self>, error::Directory>
     where
         P: AsRef<Path>,
     {
-        Ok(match self.find_entry(&path, repo)? {
+        Ok(match self.find_entry(path, repo)? {
             Some(Entry::Directory(d)) => Some(d),
             _ => None,
         })

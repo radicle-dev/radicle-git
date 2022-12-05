@@ -3,3 +3,6 @@
 
 #[cfg(test)]
 mod git;
+
+#[cfg(test)]
+mod file_system;

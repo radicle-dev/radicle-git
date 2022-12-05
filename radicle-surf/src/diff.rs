@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+//! Types that represent diff(s) in a Git repo.
+
 #![allow(dead_code, unused_variables, missing_docs)]
 
 use std::path::PathBuf;
