@@ -31,7 +31,7 @@ use git2::Blob;
 use radicle_git_ext::{is_not_found_err, Oid};
 use radicle_std_ext::result::ResultExt as _;
 
-use crate::git::{Repository, Revision};
+use crate::git::{Commit, Repository, Revision};
 
 pub mod error {
     use thiserror::Error;
@@ -79,6 +79,8 @@ pub struct File {
     prefix: PathBuf,
     /// The object identifier of the git blob of this file.
     id: Oid,
+    /// The commit that created this file version.
+    last_commit: Commit,
 }
 
 impl File {
@@ -88,14 +90,19 @@ impl File {
     /// so should not end in `name`.
     ///
     /// The `id` must point to a git blob.
-    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid) -> Self {
+    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid, last_commit: Commit) -> Self {
         debug_assert!(
             !prefix.ends_with(&name),
             "prefix = {:?}, name = {}",
             prefix,
             name
         );
-        Self { name, prefix, id }
+        Self {
+            name,
+            prefix,
+            id,
+            last_commit,
+        }
     }
 
     /// The name of this `File`.
@@ -256,12 +263,26 @@ impl Entry {
     pub(crate) fn from_entry(
         entry: &git2::TreeEntry,
         path: PathBuf,
+        repo: &Repository,
+        parent_commit: Oid,
     ) -> Result<Option<Self>, error::Entry> {
         let name = entry.name().ok_or(error::Entry::Utf8Error)?.to_string();
         let id = entry.id().into();
+        let escaped_name = name.replace('\\', r"\\");
+        let entry_path = path.join(escaped_name);
+        // FIXME: I don't like to use FIXME, but here it is. I would
+        // like to simplify the error definitions and then fix these
+        // unwrap(s).
+        let last_commit = repo
+            .last_commit(&entry_path, parent_commit)
+            .unwrap()
+            .unwrap();
+
         Ok(entry.kind().and_then(|kind| match kind {
-            git2::ObjectType::Tree => Some(Self::Directory(Directory::new(name, path, id))),
-            git2::ObjectType::Blob => Some(Self::File(File::new(name, path, id))),
+            git2::ObjectType::Tree => {
+                Some(Self::Directory(Directory::new(name, path, id, last_commit)))
+            },
+            git2::ObjectType::Blob => Some(Self::File(File::new(name, path, id, last_commit))),
             _ => None,
         }))
     }
@@ -285,16 +306,18 @@ pub struct Directory {
     prefix: PathBuf,
     /// The object identifier of the git tree of this directory.
     id: Oid,
+    /// The commit that created this directory version.
+    last_commit: Commit,
 }
 
+const ROOT_DIR: &str = "";
+
 impl Directory {
-    /// Creates a directory given its `id`.
+    /// Creates a directory given its `tree_id`.
     ///
     /// The `name` and `prefix` are both set to be empty.
-    ///
-    /// The `id` must point to a `git` tree.
-    pub(crate) fn root(id: Oid) -> Self {
-        Self::new("".to_string(), PathBuf::new(), id)
+    pub(crate) fn root(tree_id: Oid, repo_commit: Commit) -> Self {
+        Self::new(ROOT_DIR.to_string(), PathBuf::new(), tree_id, repo_commit)
     }
 
     /// Creates a directory given its `name` and `id`.
@@ -303,14 +326,19 @@ impl Directory {
     /// so should not end in `name`.
     ///
     /// The `id` must point to a `git` tree.
-    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid) -> Self {
+    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid, last_commit: Commit) -> Self {
         debug_assert!(
             name.is_empty() || !prefix.ends_with(&name),
             "prefix = {:?}, name = {}",
             prefix,
             name
         );
-        Self { name, prefix, id }
+        Self {
+            name,
+            prefix,
+            id,
+            last_commit,
+        }
     }
 
     /// Get the name of the current `Directory`.
@@ -354,9 +382,10 @@ impl Directory {
         let mut error = None;
         let path = self.path();
 
-        // Walks only the first level of entries.
-        tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
-            match Entry::from_entry(entry, path.clone()) {
+        // Walks only the first level of entries. And `_entry_path` is always
+        // empty for the first level.
+        tree.walk(git2::TreeWalkMode::PreOrder, |_entry_path, entry| {
+            match Entry::from_entry(entry, path.clone(), repo, self.last_commit.id) {
                 Ok(Some(entry)) => match entry {
                     Entry::File(_) => {
                         entries.insert(entry.name().clone(), entry);
@@ -382,6 +411,11 @@ impl Directory {
         }
     }
 
+    /// Returns the last commit that created or modified this directory.
+    pub fn last_commit(&self) -> &Commit {
+        &self.last_commit
+    }
+
     /// Find the [`Entry`] found at `path`, if it exists.
     pub fn find_entry<P>(
         &self,
@@ -401,9 +435,13 @@ impl Directory {
         let parent = path
             .parent()
             .ok_or_else(|| error::Directory::InvalidPath(path.to_string_lossy().to_string()))?;
+        let root_path = self.path().join(parent);
 
         Ok(entry
-            .and_then(|entry| Entry::from_entry(&entry, parent.to_path_buf()).transpose())
+            .and_then(|entry| {
+                Entry::from_entry(&entry, root_path.to_path_buf(), repo, self.last_commit.id)
+                    .transpose()
+            })
             .transpose()
             .unwrap())
     }
@@ -424,6 +462,8 @@ impl Directory {
     }
 
     /// Find the `Directory` found at `path`, if it exists.
+    ///
+    /// If `path` is `ROOT_DIR` (i.e. an empty path), returns self.
     pub fn find_directory<P>(
         &self,
         path: &P,
@@ -432,6 +472,10 @@ impl Directory {
     where
         P: AsRef<Path>,
     {
+        if path.as_ref() == Path::new(ROOT_DIR) {
+            return Ok(Some(self.clone()));
+        }
+
         Ok(match self.find_entry(path, repo)? {
             Some(Entry::Directory(d)) => Some(d),
             _ => None,

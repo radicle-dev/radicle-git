@@ -28,7 +28,10 @@ use thiserror::Error;
 
 use crate::{
     diff::{self, *},
-    file_system::{directory::FileContent, Directory},
+    file_system::{
+        directory::{self, File, FileContent},
+        Directory,
+    },
     git::{
         commit,
         glob,
@@ -44,6 +47,7 @@ use crate::{
         Tag,
         ToCommit,
     },
+    source::{self, commit::Header, Blob, Tree, TreeEntry},
 };
 
 pub mod iter;
@@ -65,6 +69,10 @@ pub enum Error {
     #[error(transparent)]
     Diff(#[from] diff::git::error::Diff),
     /// A wrapper around the generic [`git2::Error`].
+    #[error(transparent)]
+    Directory(#[from] directory::error::Directory),
+    #[error(transparent)]
+    File(#[from] directory::error::File),
     #[error(transparent)]
     Git(#[from] git2::Error),
     #[error(transparent)]
@@ -249,12 +257,72 @@ impl Repository {
             .map_err(|err| Error::ToCommit(err.into()))?;
         let git2_commit = self.inner.find_commit((commit.id).into())?;
         let tree = git2_commit.as_object().peel_to_tree()?;
-        Ok(Directory::root(tree.id().into()))
+        Ok(Directory::root(tree.id().into(), commit))
+    }
+
+    /// Returns a [`Directory`] for `path` in `commit`.
+    pub fn directory<C: ToCommit, P: AsRef<Path>>(
+        &self,
+        commit: C,
+        path: &P,
+    ) -> Result<Directory, Error> {
+        let root = self.root_dir(commit)?;
+        root.find_directory(path, self)?
+            .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))
+    }
+
+    /// Returns a [`File`] for `path` in `commit`.
+    pub fn file<C: ToCommit, P: AsRef<Path>>(&self, commit: C, path: &P) -> Result<File, Error> {
+        let root = self.root_dir(commit)?;
+        root.find_file(path, self)?
+            .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))
+    }
+
+    /// Returns a [`Tree`] for `path` in `commit`.
+    pub fn tree<C: ToCommit, P: AsRef<Path>>(&self, commit: C, path: &P) -> Result<Tree, Error> {
+        let commit = commit
+            .to_commit(self)
+            .map_err(|e| Error::ToCommit(e.into()))?;
+        let dir = self.directory(commit.id, path)?;
+        let mut entries = dir
+            .entries(self)?
+            .map(|en| {
+                let name = en.name().to_string();
+                let path = en.path();
+                let commit = self
+                    .last_commit(&path, commit.id)?
+                    .ok_or(Error::PathNotFound(path))?;
+                let commit_header = Header::from(commit);
+                Ok(TreeEntry::new(name, en.into(), commit_header))
+            })
+            .collect::<Result<Vec<TreeEntry>, Error>>()?;
+        entries.sort();
+
+        let last_commit = self
+            .last_commit(path, commit)?
+            .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))?;
+        let header = source::commit::Header::from(last_commit);
+        Ok(Tree::new(dir.id(), entries, header))
+    }
+
+    /// Returns a [`Blob`] for `path` in `commit`.
+    pub fn blob<C: ToCommit, P: AsRef<Path>>(&self, commit: C, path: &P) -> Result<Blob, Error> {
+        let commit = commit
+            .to_commit(self)
+            .map_err(|e| Error::ToCommit(e.into()))?;
+        let file = self.file(commit.id, path)?;
+        let last_commit = self
+            .last_commit(path, commit)?
+            .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))?;
+        let header = source::commit::Header::from(last_commit);
+
+        let content = file.content(self)?;
+        Ok(Blob::new(file.id(), content.as_bytes(), header))
     }
 
     /// Returns the last commit, if exists, for a `path` in the history of
     /// `rev`.
-    pub fn last_commit<P, C>(&self, path: P, rev: C) -> Result<Option<Commit>, Error>
+    pub fn last_commit<P, C>(&self, path: &P, rev: C) -> Result<Option<Commit>, Error>
     where
         P: AsRef<Path>,
         C: ToCommit,
@@ -444,7 +512,7 @@ impl Repository {
 
         let mut opts = git2::DiffOptions::new();
         if let Some(path) = path {
-            opts.pathspec(path);
+            opts.pathspec(path.to_string_lossy().to_string());
             // We're skipping the binary pass because we won't be inspecting deltas.
             opts.skip_binary_check(true);
         }

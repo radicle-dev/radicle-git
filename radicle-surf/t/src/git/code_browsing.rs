@@ -59,11 +59,9 @@ fn test_file_history() {
     let repo = Repository::open(GIT_PLATINUM).unwrap();
     let history = repo.history(&Branch::local(refname!("dev"))).unwrap();
     let path = Path::new("README.md");
-    let mut file_history = history.by_path(path);
+    let mut file_history = history.by_path(&path);
     let commit = file_history.next().unwrap().unwrap();
-    let file = repo
-        .get_commit_file(&commit.id, &Path::new("README.md"))
-        .unwrap();
+    let file = repo.get_commit_file(&commit.id, &path).unwrap();
     assert_eq!(file.size(), 67);
 }
 
