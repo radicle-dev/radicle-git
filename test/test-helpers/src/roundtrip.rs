@@ -20,6 +20,16 @@ where
     )
 }
 
+pub fn json_value<A>(a: A)
+where
+    for<'de> A: Clone + Debug + PartialEq + serde::Serialize + serde::Deserialize<'de>,
+{
+    assert_eq!(
+        a.clone(),
+        serde_json::from_value(serde_json::to_value(a).unwrap()).unwrap()
+    )
+}
+
 pub fn cbor<A>(a: A)
 where
     for<'de> A: Debug + PartialEq + minicbor::Encode + minicbor::Decode<'de>,
