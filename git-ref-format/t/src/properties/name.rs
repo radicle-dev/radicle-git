@@ -3,7 +3,7 @@
 
 use std::convert::TryFrom;
 
-use git_ref_format::{Error, RefStr, RefString};
+use git_ref_format::{name, refname, Error, RefStr, RefString};
 use proptest::prelude::*;
 use test_helpers::roundtrip;
 
@@ -75,7 +75,22 @@ proptest! {
 
     #[test]
     fn json(input in gen::valid()) {
-       roundtrip::json(RefString::try_from(input).unwrap())
+        let input = RefString::try_from(input).unwrap();
+        roundtrip::json(input.clone());
+        let qualified = refname!("refs/heads").and(input).qualified().unwrap().into_owned();
+        roundtrip::json(qualified.clone());
+        let namespaced = qualified.with_namespace(name::component!("foo"));
+        roundtrip::json(namespaced);
+    }
+
+    #[test]
+    fn json_value(input in gen::valid()) {
+        let input = RefString::try_from(input).unwrap();
+        roundtrip::json_value(input.clone());
+        let qualified = refname!("refs/heads").and(input).qualified().unwrap().into_owned();
+        roundtrip::json_value(qualified.clone());
+        let namespaced = qualified.with_namespace(name::component!("foo"));
+        roundtrip::json_value(namespaced);
     }
 
     #[test]

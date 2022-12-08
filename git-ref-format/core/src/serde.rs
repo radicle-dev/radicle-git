@@ -42,7 +42,8 @@ impl<'de> Deserialize<'de> for RefString {
     where
         D: Deserializer<'de>,
     {
-        Deserialize::deserialize(deserializer).map(|x: &RefStr| x.to_owned())
+        Deserialize::deserialize(deserializer)
+            .and_then(|x: String| Self::try_from(x).map_err(de::Error::custom))
     }
 }
 
@@ -83,7 +84,8 @@ impl<'de> Deserialize<'de> for PatternString {
     where
         D: Deserializer<'de>,
     {
-        Deserialize::deserialize(deserializer).map(|x: &PatternStr| x.to_owned())
+        Deserialize::deserialize(deserializer)
+            .and_then(|x: String| Self::try_from(x).map_err(de::Error::custom))
     }
 }
 
@@ -97,15 +99,17 @@ impl Serialize for PatternString {
     }
 }
 
-impl<'de: 'a, 'a> Deserialize<'de> for Qualified<'a> {
+impl<'de> Deserialize<'de> for Qualified<'static> {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        Deserialize::deserialize(deserializer).and_then(|s: &RefStr| {
+        Deserialize::deserialize(deserializer).and_then(|s: String| {
+            let s = RefString::try_from(s).map_err(de::Error::custom)?;
             s.qualified()
                 .ok_or_else(|| de::Error::custom("not a qualified ref"))
+                .map(|q| q.into_owned())
         })
     }
 }
@@ -120,15 +124,17 @@ impl Serialize for Qualified<'_> {
     }
 }
 
-impl<'de: 'a, 'a> Deserialize<'de> for Namespaced<'a> {
+impl<'de> Deserialize<'de> for Namespaced<'static> {
     #[inline]
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        Deserialize::deserialize(deserializer).and_then(|s: &RefStr| {
+        Deserialize::deserialize(deserializer).and_then(|s: String| {
+            let s = RefString::try_from(s).map_err(de::Error::custom)?;
             s.to_namespaced()
                 .ok_or_else(|| de::Error::custom("not a namespaced ref"))
+                .map(|ns| ns.into_owned())
         })
     }
 }

@@ -49,6 +49,11 @@ proptest! {
     }
 
     #[test]
+    fn json_value(input in gen::with_glob()) {
+        roundtrip::json_value(refspec::PatternString::try_from(input).unwrap())
+    }
+
+    #[test]
     fn cbor(input in gen::with_glob()) {
         roundtrip::cbor(refspec::PatternString::try_from(input).unwrap())
     }
