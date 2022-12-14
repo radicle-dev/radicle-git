@@ -47,7 +47,7 @@ pub struct Commit {
 }
 
 /// Representation of a code commit.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Header {
     /// Identifier of the commit in the form of a sha1 hash. Often referred to
     /// as oid or object id.
