@@ -352,10 +352,11 @@ impl Directory {
 
         let mut entries = BTreeMap::new();
         let mut error = None;
+        let path = self.path();
 
         // Walks only the first level of entries.
-        tree.walk(git2::TreeWalkMode::PreOrder, |path, entry| {
-            match Entry::from_entry(entry, Path::new(path).to_path_buf()) {
+        tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
+            match Entry::from_entry(entry, path.clone()) {
                 Ok(Some(entry)) => match entry {
                     Entry::File(_) => {
                         entries.insert(entry.name().clone(), entry);
