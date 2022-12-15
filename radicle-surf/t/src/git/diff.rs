@@ -9,7 +9,6 @@ use radicle_surf::{
         EofNewLine,
         FileDiff,
         Hunk,
-        Hunks,
         Line,
         Modification,
         Modified,
@@ -152,7 +151,14 @@ fn test_diff_serde() {
     let diff = Diff {
         added: vec![ Added {
             path: Path::new("LICENSE").to_path_buf(),
-            diff: FileDiff::Plain { hunks: Hunks::default() }
+            diff: FileDiff::Plain {
+                hunks: vec![Hunk {
+                    header: Line::from(b"@@ -0,0 +1,1".to_vec()),
+                    lines: vec![
+                        Addition { line: Line::from(b"MIT".to_vec()), line_no: 1 }
+                    ]
+                }].into()
+            }
         }],
         deleted: vec![],
         moved: vec![ Moved {
@@ -184,9 +190,17 @@ fn test_diff_serde() {
 
     let eof: Option<u8> = None;
     let json = serde_json::json!({
-        "added": [{"path": "LICENSE", "diff": {
+        "added": [{
+            "path": "LICENSE",
+            "diff": {
                 "type": "plain",
-                "hunks": []
+                "hunks": [{
+                    "header": "@@ -0,0 +1,1",
+                    "lines": [{
+                        "line": "MIT",
+                        "lineNo": 1,
+                    }]
+                }]
             },
         }],
         "deleted": [],
