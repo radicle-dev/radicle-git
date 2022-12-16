@@ -129,7 +129,7 @@ impl TryFrom<git2::Patch<'_>> for Hunks<Addition> {
 }
 
 impl TryFrom<git2::Patch<'_>> for Hunks<Deletion> {
-    type Error = git2::Error;
+    type Error = error::Deletion;
 
     fn try_from(patch: git2::Patch) -> Result<Self, Self::Error> {
         let mut hunks = Vec::with_capacity(patch.num_hunks());
@@ -140,7 +140,7 @@ impl TryFrom<git2::Patch<'_>> for Hunks<Deletion> {
 
             for l in 0..hunk_lines {
                 let line = patch.line_in_hunk(h, l)?;
-                lines.push(Deletion::try_from(line).expect("TODO"));
+                lines.push(Deletion::try_from(line)?);
             }
             hunks.push(Hunk { header, lines })
         }
