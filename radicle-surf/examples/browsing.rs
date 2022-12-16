@@ -38,7 +38,7 @@ fn main() {
             return;
         },
     };
-    let repo = Repository::discover(&repo_path).unwrap();
+    let repo = Repository::discover(repo_path).unwrap();
     let now = Instant::now();
     let head = repo.head().unwrap();
     let root = repo.root_dir(head).unwrap();

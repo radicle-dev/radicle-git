@@ -283,7 +283,7 @@ impl<N, R> Reference<N, R, One> {
 
     /// Build a reference that points to:
     ///     * `refs/namespaces/<namespace>/refs/heads/<name>`
-    ///     * `refs/namespaces/<namespace>/refs/remote/<peer_id>/heads/<name>
+    ///     * `refs/namespaces/<namespace>/refs/remote/<peer_id>/heads/<name>`
     pub fn head(namespace: impl Into<Option<N>>, remote: impl Into<Option<R>>, name: One) -> Self {
         Self {
             remote: remote.into(),
@@ -295,7 +295,7 @@ impl<N, R> Reference<N, R, One> {
 
     /// Build a reference that points to:
     /// * `refs/namespaces/<namespace>/refs/tags/<name>`
-    /// * `refs/namespaces/<namespace>/refs/remote/<peer_id>/tags/<name>
+    /// * `refs/namespaces/<namespace>/refs/remote/<peer_id>/tags/<name>`
     pub fn tag(namespace: impl Into<Option<N>>, remote: impl Into<Option<R>>, name: One) -> Self {
         Self {
             remote: remote.into(),
@@ -390,7 +390,7 @@ impl<N, R> Reference<N, R, Many> {
     where
         Self: ToString,
     {
-        ext::References::from_globs(repo, &[self.to_string()])
+        ext::References::from_globs(repo, [self.to_string()])
     }
 
     /// Build a reference that points to:

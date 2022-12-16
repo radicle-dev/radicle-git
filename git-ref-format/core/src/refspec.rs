@@ -345,7 +345,7 @@ impl<'a> QualifiedPattern<'a> {
     /// Add a namespace.
     ///
     /// Creates a new [`NamespacedPattern`] by prefxing `self` with
-    /// "refs/namespaces/<ns>".
+    /// `refs/namespaces/<ns>`.
     pub fn with_namespace<'b>(
         &self,
         ns: Component<'b>,

@@ -12,7 +12,7 @@ use super::GIT_PLATINUM;
 fn iterate_root_dir_recursive() {
     let repo = Repository::open(GIT_PLATINUM).unwrap();
 
-    let root_dir = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
+    let root_dir = repo.root_dir(Branch::local(refname!("master"))).unwrap();
     let count = println_dir(&root_dir, &repo);
 
     assert_eq!(count, 36); // Check total file count.
@@ -42,7 +42,7 @@ fn iterate_root_dir_recursive() {
 fn browse_repo_lazily() {
     let repo = Repository::open(GIT_PLATINUM).unwrap();
 
-    let root_dir = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
+    let root_dir = repo.root_dir(Branch::local(refname!("master"))).unwrap();
     let count = root_dir.entries(&repo).unwrap().entries().count();
     assert_eq!(count, 8);
     let count = traverse(&root_dir, &repo);

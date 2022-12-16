@@ -116,8 +116,8 @@ fn test_diff() -> Result<(), Error> {
 fn test_branch_diff() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
     let diff = repo.diff(
-        &Branch::local(refname!("master")),
-        &Branch::local(refname!("dev")),
+        Branch::local(refname!("master")),
+        Branch::local(refname!("dev")),
     )?;
 
     println!("Diff two branches: master -> dev");
