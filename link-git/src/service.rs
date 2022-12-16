@@ -19,7 +19,7 @@ pub struct Service(pub GitService);
 /// talking to an SSH remote. The `FromStr` implementation for this type expects
 /// a string of the form:
 ///
-/// <request type> /<path>
+/// `<request type> /<path>`
 ///
 /// Where the request type is either `upload-pack` or `receive-pack`, the
 /// leading slash before the urn is optional, and the `path` is whatever the

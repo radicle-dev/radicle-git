@@ -16,7 +16,7 @@ mod directory {
     #[test]
     fn directory_find_entry() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
-        let root = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
+        let root = repo.root_dir(Branch::local(refname!("master"))).unwrap();
 
         // find_entry for a file.
         let path = Path::new("src/memory.rs");
@@ -95,7 +95,7 @@ mod directory {
     #[test]
     fn directory_size() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
-        let root = repo.root_dir(&Branch::local(refname!("master"))).unwrap();
+        let root = repo.root_dir(Branch::local(refname!("master"))).unwrap();
 
         /*
         git-platinum (master) $ ls -l src

@@ -6,5 +6,5 @@ fn test_submodule_failure() {
     use radicle_surf::git::{Branch, Repository};
 
     let repo = Repository::discover(".").unwrap();
-    repo.root_dir(&Branch::local(refname!("main"))).unwrap();
+    repo.root_dir(Branch::local(refname!("main"))).unwrap();
 }

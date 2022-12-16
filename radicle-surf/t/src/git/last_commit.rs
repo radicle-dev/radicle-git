@@ -103,7 +103,7 @@ fn root() {
         .expect("Could not retrieve ./data/git-platinum as git repository");
     let rev = Branch::local(refname!("master"));
     let root_last_commit_id = repo
-        .last_commit(&PathBuf::new(), &rev)
+        .last_commit(PathBuf::new(), rev)
         .expect("Failed to get last commit")
         .map(|commit| commit.id);
 

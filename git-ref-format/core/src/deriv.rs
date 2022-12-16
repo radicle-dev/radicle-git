@@ -96,7 +96,7 @@ impl<'a> Qualified<'a> {
     /// Add a namespace.
     ///
     /// Creates a new [`Namespaced`] by prefxing `self` with
-    /// "refs/namespaces/<ns>".
+    /// `refs/namespaces/<ns>`.
     pub fn with_namespace<'b>(&self, ns: Component<'b>) -> Namespaced<'a> {
         Namespaced(Cow::Owned(
             IntoIterator::into_iter([lit::Refs.into(), lit::Namespaces.into(), ns])
