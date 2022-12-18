@@ -5,6 +5,8 @@ use radicle_surf::{
     diff::{
         Added,
         Addition,
+        Deleted,
+        Deletion,
         Diff,
         EofNewLine,
         FileDiff,
@@ -160,7 +162,17 @@ fn test_diff_serde() {
                 }].into()
             }
         }],
-        deleted: vec![],
+        deleted: vec![ Deleted {
+            path: Path::new("DCO").to_path_buf(),
+            diff: FileDiff::Plain {
+                hunks: vec![Hunk {
+                    header: Line::from(b"@@ -0,0 +1,1".to_vec()),
+                    lines: vec![
+                        Deletion { line: Line::from(b"TODO".to_vec()), line_no: 1 }
+                    ]
+                }].into()
+            }
+        }],
         moved: vec![ Moved {
             old_path: Path::new("CONTRIBUTING").to_path_buf(),
             new_path: Path::new("CONTRIBUTING.md").to_path_buf(),
@@ -199,11 +211,25 @@ fn test_diff_serde() {
                     "lines": [{
                         "line": "MIT",
                         "lineNo": 1,
+                        "type": "addition",
                     }]
                 }]
             },
         }],
-        "deleted": [],
+        "deleted": [{
+            "path": "DCO",
+            "diff": {
+                "type": "plain",
+                "hunks": [{
+                    "header": "@@ -0,0 +1,1",
+                    "lines": [{
+                        "line": "TODO",
+                        "lineNo": 1,
+                        "type": "deletion",
+                    }]
+                }]
+            },
+        }],
         "moved": [{ "oldPath": "CONTRIBUTING", "newPath": "CONTRIBUTING.md" }],
         "copied": [],
         "modified": [{

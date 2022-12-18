@@ -238,23 +238,15 @@ impl Serialize for Line {
 
 /// Either the modification of a single [`Line`], or just contextual
 /// information.
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize),
-    serde(tag = "type", rename_all = "camelCase")
-)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Modification {
     /// A lines is an addition in a file.
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Addition(Addition),
 
     /// A lines is a deletion in a file.
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Deletion(Deletion),
 
     /// A contextual line in a file, i.e. there were no changes to the line.
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Context {
         line: Line,
         line_no_old: u32,
@@ -262,20 +254,94 @@ pub enum Modification {
     },
 }
 
+#[cfg(feature = "serde")]
+impl Serialize for Modification {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeMap as _;
+
+        const NAME: &str = "Modification";
+        const ADDITION: &str = "Addition";
+        const DELETION: &str = "Deletion";
+        const CONTEXT: &str = "Context";
+
+        match self {
+            Modification::Addition(addition) => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("line", &addition.line)?;
+                map.serialize_entry("lineNo", &addition.line_no)?;
+                map.serialize_entry("type", "addition")?;
+                map.end()
+            },
+            Modification::Deletion(deletion) => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("line", &deletion.line)?;
+                map.serialize_entry("lineNo", &deletion.line_no)?;
+                map.serialize_entry("type", "deletion")?;
+                map.end()
+            },
+            Modification::Context {
+                line,
+                line_no_old,
+                line_no_new,
+            } => {
+                let mut map = serializer.serialize_map(Some(4))?;
+                map.serialize_entry("line", line)?;
+                map.serialize_entry("lineNoOld", line_no_old)?;
+                map.serialize_entry("lineNoNew", line_no_new)?;
+                map.serialize_entry("type", "context")?;
+                map.end()
+            },
+        }
+    }
+}
+
 /// A addition of a [`Line`] at the `line_no`.
-#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Addition {
     pub line: Line,
     pub line_no: u32,
 }
 
+#[cfg(feature = "serde")]
+impl Serialize for Addition {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct as _;
+
+        let mut s = serializer.serialize_struct("Addition", 3)?;
+        s.serialize_field("line", &self.line)?;
+        s.serialize_field("lineNo", &self.line_no)?;
+        s.serialize_field("type", "addition")?;
+        s.end()
+    }
+}
+
 /// A deletion of a [`Line`] at the `line_no`.
-#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Deletion {
     pub line: Line,
     pub line_no: u32,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for Deletion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct as _;
+
+        let mut s = serializer.serialize_struct("Deletion", 3)?;
+        s.serialize_field("line", &self.line)?;
+        s.serialize_field("lineNo", &self.line_no)?;
+        s.serialize_field("type", "deletion")?;
+        s.end()
+    }
 }
 
 impl Modification {
