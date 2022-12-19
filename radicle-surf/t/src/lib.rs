@@ -6,3 +6,6 @@ mod git;
 
 #[cfg(test)]
 mod file_system;
+
+#[cfg(test)]
+mod source;

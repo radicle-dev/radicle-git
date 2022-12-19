@@ -103,7 +103,7 @@ impl Serialize for Blob {
         state.serialize_field("content", &self.content)?;
         state.serialize_field("lastCommit", &self.commit)?;
         state.serialize_field("name", &self.file.name())?;
-        state.serialize_field("path", &self.file.location())?;
+        state.serialize_field("path", &self.file.path())?;
         state.end()
     }
 }

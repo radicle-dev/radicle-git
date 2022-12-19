@@ -33,6 +33,7 @@ use crate::{
 };
 
 /// Result of a directory listing, carries other trees and blobs.
+#[derive(Clone, Debug)]
 pub struct Tree {
     pub directory: Directory,
     pub commit: Option<commit::Header>,
@@ -95,7 +96,7 @@ impl Serialize for Tree {
         state.serialize_field("entries", &self.entries)?;
         state.serialize_field("lastCommit", &self.commit)?;
         state.serialize_field("name", &self.directory.name())?;
-        state.serialize_field("path", &self.directory.location())?;
+        state.serialize_field("path", &self.directory.path())?;
         state.end()
     }
 }
@@ -126,14 +127,14 @@ impl Serialize for TreeEntry {
     {
         const FIELDS: usize = 4;
         let mut state = serializer.serialize_struct("TreeEntry", FIELDS)?;
-        state.serialize_field("path", &self.entry.location())?;
+        state.serialize_field("path", &self.entry.path())?;
         state.serialize_field("name", &self.entry.name())?;
         state.serialize_field("lastCommit", &None::<commit::Header>)?;
         state.serialize_field(
             "kind",
             match self.entry {
                 directory::Entry::File(_) => "blob",
-                directory::Entry::Directory(_) => "directory",
+                directory::Entry::Directory(_) => "tree",
             },
         )?;
         state.end()
