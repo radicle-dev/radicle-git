@@ -33,6 +33,16 @@ impl Time {
     pub fn new(seconds: i64, offset: i32) -> Self {
         Self { seconds, offset }
     }
+
+    /// Return the time, in seconds, since the epoch.
+    pub fn seconds(&self) -> i64 {
+        self.seconds
+    }
+
+    /// Return the timezone offset, in minutes.
+    pub fn offset(&self) -> i32 {
+        self.offset
+    }
 }
 
 impl From<Time> for git2::Time {
