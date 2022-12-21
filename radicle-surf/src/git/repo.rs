@@ -336,10 +336,20 @@ impl Repository {
         rev.to_commit(self)
     }
 
-    /// Gets the [`Stats`] of this repository.
+    /// Gets the [`Stats`] of this repository starting from the
+    /// `HEAD` (see [`Repository::head`]) of the repository.
     pub fn stats(&self) -> Result<Stats, Error> {
+        self.stats_from(&self.head()?)
+    }
+
+    /// Gets the [`Stats`] of this repository starting from the given
+    /// `rev`.
+    pub fn stats_from<R>(&self, rev: &R) -> Result<Stats, Error>
+    where
+        R: Revision,
+    {
         let branches = self.branches(Glob::all_heads())?.count();
-        let mut history = self.history(self.head()?)?;
+        let mut history = self.history(rev)?;
         let (commits, contributors) = history.try_fold(
             (0, BTreeSet::new()),
             |(commits, mut contributors), commit| {
