@@ -2,7 +2,7 @@ use std::path::Path;
 
 use git_ref_format::refname;
 use radicle_surf::{
-    file_system::{directory, Directory},
+    fs::{self, Directory},
     git::{Branch, Repository},
 };
 
@@ -22,14 +22,14 @@ fn iterate_root_dir_recursive() {
     /// recursively.
     /// Returns the number of items visited (i.e. printed)
     fn println_dir(dir: &Directory, repo: &Repository) -> i32 {
-        dir.traverse::<directory::error::Directory, _, _>(
+        dir.traverse::<fs::error::Directory, _, _>(
             repo,
             (0, 0),
             &mut |(count, indent_level), entry| {
                 println!("> {}{}", " ".repeat(indent_level * 4), entry.name());
                 match entry {
-                    directory::Entry::File(_) => Ok((count + 1, indent_level)),
-                    directory::Entry::Directory(_) => Ok((count + 1, indent_level + 1)),
+                    fs::Entry::File(_) => Ok((count + 1, indent_level)),
+                    fs::Entry::Directory(_) => Ok((count + 1, indent_level + 1)),
                 }
             },
         )
@@ -49,7 +49,7 @@ fn browse_repo_lazily() {
     assert_eq!(count, 36);
 
     fn traverse(dir: &Directory, repo: &Repository) -> i32 {
-        dir.traverse::<directory::error::Directory, _, _>(repo, 0, &mut |count, _| Ok(count + 1))
+        dir.traverse::<fs::error::Directory, _, _>(repo, 0, &mut |count, _| Ok(count + 1))
             .unwrap()
     }
 }

@@ -25,7 +25,7 @@
 //! the directories in a tree-like structure.
 
 use radicle_surf::{
-    file_system::{directory, Directory},
+    fs::{self, Directory},
     git::Repository,
 };
 use std::{env, time::Instant};
@@ -53,8 +53,8 @@ fn print_directory(d: &Directory, repo: &Repository, indent_level: usize) {
     println!("{}{}/", &indent, d.name());
     for entry in d.entries(repo).unwrap() {
         match entry {
-            directory::Entry::File(f) => println!("    {}{}", &indent, f.name()),
-            directory::Entry::Directory(d) => print_directory(&d, repo, indent_level + 1),
+            fs::Entry::File(f) => println!("    {}{}", &indent, f.name()),
+            fs::Entry::Directory(d) => print_directory(&d, repo, indent_level + 1),
         }
     }
 }

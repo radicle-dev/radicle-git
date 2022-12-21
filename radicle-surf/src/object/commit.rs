@@ -29,7 +29,6 @@ use serde::{
 use crate::{
     diff,
     git::{self, glob, Glob, Repository},
-    source::person::Person,
 };
 
 use radicle_git_ext::Oid;
@@ -193,4 +192,15 @@ pub enum Error {
     /// Trying to find a file path which could not be found.
     #[error("the path '{0}' was not found")]
     PathNotFound(PathBuf),
+}
+
+/// Representation of a person (e.g. committer, author, signer) from a
+/// repository. Usually extracted from a signature.
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[derive(Clone, Debug)]
+pub struct Person {
+    /// Name part of the commit signature.
+    pub name: String,
+    /// Email part of the commit signature.
+    pub email: String,
 }

@@ -27,7 +27,7 @@ use serde::{
     Serialize,
 };
 
-use crate::source::commit;
+use crate::object::commit;
 
 /// Represents a git blob object.
 pub struct Blob {

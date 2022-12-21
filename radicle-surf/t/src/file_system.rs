@@ -6,7 +6,7 @@
 mod directory {
     use git_ref_format::refname;
     use radicle_surf::{
-        file_system::{directory, Entry},
+        fs::{self, Entry},
         git::{Branch, Repository},
     };
     use std::path::Path;
@@ -21,21 +21,21 @@ mod directory {
         // find_entry for a file.
         let path = Path::new("src/memory.rs");
         let entry = root.find_entry(&path, &repo).unwrap();
-        assert!(matches!(entry, Some(directory::Entry::File(_))));
+        assert!(matches!(entry, Some(fs::Entry::File(_))));
 
         // find_entry for a directory.
         let path = Path::new("this/is/a/really/deeply/nested/directory/tree");
         let entry = root.find_entry(&path, &repo).unwrap();
-        assert!(matches!(entry, Some(directory::Entry::Directory(_))));
+        assert!(matches!(entry, Some(fs::Entry::Directory(_))));
 
         // find_entry for a non-leaf directory and its relative path.
         let path = Path::new("text");
         let entry = root.find_entry(&path, &repo).unwrap();
-        assert!(matches!(entry, Some(directory::Entry::Directory(_))));
-        if let Some(directory::Entry::Directory(sub_dir)) = entry {
+        assert!(matches!(entry, Some(fs::Entry::Directory(_))));
+        if let Some(fs::Entry::Directory(sub_dir)) = entry {
             let inner_path = Path::new("garden.txt");
             let inner_entry = sub_dir.find_entry(&inner_path, &repo).unwrap();
-            assert!(matches!(inner_entry, Some(directory::Entry::File(_))));
+            assert!(matches!(inner_entry, Some(fs::Entry::File(_))));
         }
 
         // find_entry for non-existing file
@@ -108,8 +108,8 @@ mod directory {
 
         let path = Path::new("src");
         let entry = root.find_entry(&path, &repo).unwrap();
-        assert!(matches!(entry, Some(directory::Entry::Directory(_))));
-        if let Some(directory::Entry::Directory(d)) = entry {
+        assert!(matches!(entry, Some(fs::Entry::Directory(_))));
+        if let Some(fs::Entry::Directory(d)) = entry {
             assert_eq!(16297, d.size(&repo).unwrap());
         }
     }

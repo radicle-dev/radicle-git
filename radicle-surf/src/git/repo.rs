@@ -28,10 +28,7 @@ use thiserror::Error;
 
 use crate::{
     diff::{self, *},
-    file_system::{
-        directory::{self, File, FileContent},
-        Directory,
-    },
+    fs::{self, Directory, File, FileContent},
     git::{
         commit,
         glob,
@@ -47,7 +44,7 @@ use crate::{
         Tag,
         ToCommit,
     },
-    source::{self, commit::Header, Blob, Tree, TreeEntry},
+    object::{commit::Header, Blob, Tree, TreeEntry},
 };
 
 pub mod iter;
@@ -70,9 +67,9 @@ pub enum Error {
     Diff(#[from] diff::git::error::Diff),
     /// A wrapper around the generic [`git2::Error`].
     #[error(transparent)]
-    Directory(#[from] directory::error::Directory),
+    Directory(#[from] fs::error::Directory),
     #[error(transparent)]
-    File(#[from] directory::error::File),
+    File(#[from] fs::error::File),
     #[error(transparent)]
     Git(#[from] git2::Error),
     #[error(transparent)]
@@ -301,7 +298,7 @@ impl Repository {
         let last_commit = self
             .last_commit(path, commit)?
             .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))?;
-        let header = source::commit::Header::from(last_commit);
+        let header = Header::from(last_commit);
         Ok(Tree::new(dir.id(), entries, header))
     }
 
@@ -314,7 +311,7 @@ impl Repository {
         let last_commit = self
             .last_commit(path, commit)?
             .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))?;
-        let header = source::commit::Header::from(last_commit);
+        let header = Header::from(last_commit);
 
         let content = file.content(self)?;
         Ok(Blob::new(file.id(), content.as_bytes(), header))

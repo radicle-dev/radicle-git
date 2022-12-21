@@ -27,7 +27,7 @@ use serde::{
     Serialize,
 };
 
-use crate::{file_system::directory, source::commit};
+use crate::{fs, object::commit};
 
 /// Represents a tree object as in git. It is essentially the content of
 /// one directory. Note that multiple directories can have the same content,
@@ -176,11 +176,11 @@ impl PartialEq for TreeEntry {
 
 impl Eq for TreeEntry {}
 
-impl From<directory::Entry> for Entry {
-    fn from(entry: directory::Entry) -> Self {
+impl From<fs::Entry> for Entry {
+    fn from(entry: fs::Entry) -> Self {
         match entry {
-            directory::Entry::File(f) => Entry::Blob(f.id()),
-            directory::Entry::Directory(d) => Entry::Tree(d.id()),
+            fs::Entry::File(f) => Entry::Blob(f.id()),
+            fs::Entry::Directory(d) => Entry::Tree(d.id()),
         }
     }
 }
