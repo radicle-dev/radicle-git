@@ -85,6 +85,7 @@ mod directory {
             .find_directory(&Path::new("src"), &repo)
             .unwrap()
             .unwrap();
+        assert_eq!(src.path(), Path::new("src").to_path_buf());
         let src_contents: Vec<Entry> = src.entries(&repo).unwrap().collect();
         assert_eq!(src_contents.len(), 3);
         assert_eq!(src_contents[0].name(), "Eval.hs");
@@ -111,5 +112,17 @@ mod directory {
         if let Some(directory::Entry::Directory(d)) = entry {
             assert_eq!(16297, d.size(&repo).unwrap());
         }
+    }
+
+    #[test]
+    fn directory_last_commit() {
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
+        let root = repo.root_dir(Branch::local(refname!("dev"))).unwrap();
+        let dir = root.find_directory(&"this/is", &repo).unwrap().unwrap();
+        let last_commit = dir.last_commit();
+        assert_eq!(
+            last_commit.id.to_string(),
+            "2429f097664f9af0c5b7b389ab998b2199ffa977"
+        );
     }
 }

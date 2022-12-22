@@ -18,125 +18,213 @@
 //! Represents git object type 'tree', i.e. like directory entries in Unix.
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
-use std::path::Path;
+use std::cmp::Ordering;
 
+use radicle_git_ext::Oid;
 #[cfg(feature = "serde")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
 };
 
-use crate::{
-    file_system::{directory, Directory},
-    git::{self, Repository},
-    source::{commit, object::Error},
-};
+use crate::{file_system::directory, source::commit};
 
-/// Result of a directory listing, carries other trees and blobs.
+/// Represents a tree object as in git. It is essentially the content of
+/// one directory. Note that multiple directories can have the same content,
+/// i.e. have the same tree object. Hence this struct does not embed its path.
 #[derive(Clone, Debug)]
 pub struct Tree {
-    pub directory: Directory,
-    pub commit: Option<commit::Header>,
-    /// Entries listed in that tree result.
-    pub entries: Vec<TreeEntry>,
+    /// The object id of this tree.
+    id: Oid,
+    entries: Vec<TreeEntry>,
+    /// The commit object that created this tree object.
+    commit: commit::Header,
 }
 
 impl Tree {
-    /// Retrieve the [`Tree`] for the given `revision` and directory `prefix`.
-    ///
-    /// # Errors
-    ///
-    /// Will return [`Error`] if any of the surf interactions fail.
-    pub fn new<P, R>(repo: &Repository, revision: &R, prefix: Option<&P>) -> Result<Tree, Error>
-    where
-        P: AsRef<Path>,
-        R: git::Revision,
-    {
-        let prefix = prefix.map(|p| p.as_ref());
-
-        let prefix_dir = match prefix {
-            None => repo.root_dir(revision)?,
-            Some(path) => repo
-                .root_dir(revision)?
-                .find_directory(&path, repo)?
-                .ok_or_else(|| Error::PathNotFound(path.to_path_buf()))?,
-        };
-
-        let mut entries = prefix_dir
-            .entries(repo)?
-            .entries()
-            .cloned()
-            .map(TreeEntry::from)
-            .collect::<Vec<_>>();
-        entries.sort();
-
-        let last_commit = if prefix.is_none() {
-            let history = repo.history(revision)?;
-            Some(commit::Header::from(history.head()))
-        } else {
-            None
-        };
-
-        Ok(Tree {
+    /// Creates a new tree.
+    pub(crate) fn new(id: Oid, entries: Vec<TreeEntry>, commit: commit::Header) -> Self {
+        Self {
+            id,
             entries,
-            directory: prefix_dir,
-            commit: last_commit,
-        })
+            commit,
+        }
+    }
+
+    pub fn object_id(&self) -> Oid {
+        self.id
+    }
+
+    /// Returns the commit that created this tree.
+    pub fn commit(&self) -> &commit::Header {
+        &self.commit
+    }
+
+    /// Returns the entries of the tree.
+    pub fn entries(&self) -> &Vec<TreeEntry> {
+        &self.entries
     }
 }
 
 #[cfg(feature = "serde")]
 impl Serialize for Tree {
+    /// Sample output:
+    /// (for `<entry_1>` and `<entry_2>` sample output, see [`TreeEntry`])
+    /// ```
+    /// {
+    ///   "entries": [
+    ///     { <entry_1> },
+    ///     { <entry_2> },
+    ///   ],
+    ///   "lastCommit": {
+    ///     "author": {
+    ///       "email": "foobar@gmail.com",
+    ///       "name": "Foo Bar"
+    ///     },
+    ///     "committer": {
+    ///       "email": "noreply@github.com",
+    ///       "name": "GitHub"
+    ///     },
+    ///     "committerTime": 1582198877,
+    ///     "description": "A sample commit.",
+    ///     "sha1": "b57846bbc8ced6587bf8329fc4bce970eb7b757e",
+    ///     "summary": "Add a new sample"
+    ///   },
+    ///   "oid": "dd52e9f8dfe1d8b374b2a118c25235349a743dd2"
+    /// }
+    /// ```
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         const FIELDS: usize = 4;
         let mut state = serializer.serialize_struct("Tree", FIELDS)?;
+        state.serialize_field("oid", &self.id)?;
         state.serialize_field("entries", &self.entries)?;
         state.serialize_field("lastCommit", &self.commit)?;
-        state.serialize_field("name", &self.directory.name())?;
-        state.serialize_field("path", &self.directory.path())?;
         state.end()
     }
 }
 
-/// Entry in a Tree result.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TreeEntry {
-    pub entry: directory::Entry,
+#[derive(Debug, Clone, Copy)]
+pub enum Entry {
+    Tree(Oid),
+    Blob(Oid),
 }
 
-impl From<directory::Entry> for TreeEntry {
-    fn from(entry: directory::Entry) -> Self {
-        Self { entry }
+/// Entry in a Tree result.
+#[derive(Clone, Debug)]
+pub struct TreeEntry {
+    name: String,
+    entry: Entry,
+
+    /// The commit object that created this entry object.
+    commit: commit::Header,
+}
+
+impl TreeEntry {
+    pub(crate) fn new(name: String, entry: Entry, commit: commit::Header) -> Self {
+        Self {
+            name,
+            entry,
+            commit,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn entry(&self) -> &Entry {
+        &self.entry
+    }
+
+    pub fn is_tree(&self) -> bool {
+        matches!(self.entry, Entry::Tree(_))
+    }
+
+    pub fn commit(&self) -> &commit::Header {
+        &self.commit
+    }
+
+    pub fn object_id(&self) -> Oid {
+        match self.entry {
+            Entry::Blob(id) => id,
+            Entry::Tree(id) => id,
+        }
     }
 }
 
-impl From<TreeEntry> for directory::Entry {
-    fn from(TreeEntry { entry }: TreeEntry) -> Self {
-        entry
+// To support `sort`.
+impl Ord for TreeEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name.cmp(&other.name)
+    }
+}
+
+impl PartialOrd for TreeEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for TreeEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for TreeEntry {}
+
+impl From<directory::Entry> for Entry {
+    fn from(entry: directory::Entry) -> Self {
+        match entry {
+            directory::Entry::File(f) => Entry::Blob(f.id()),
+            directory::Entry::Directory(d) => Entry::Tree(d.id()),
+        }
     }
 }
 
 #[cfg(feature = "serde")]
 impl Serialize for TreeEntry {
+    /// Sample output:
+    /// ```
+    ///  {
+    ///     "kind": "blob",
+    ///     "lastCommit": {
+    ///       "author": {
+    ///         "email": "foobar@gmail.com",
+    ///         "name": "Foo Bar"
+    ///       },
+    ///       "committer": {
+    ///         "email": "noreply@github.com",
+    ///         "name": "GitHub"
+    ///       },
+    ///       "committerTime": 1578309972,
+    ///       "description": "This is a sample file",
+    ///       "sha1": "2873745c8f6ffb45c990eb23b491d4b4b6182f95",
+    ///       "summary": "Add a new sample"
+    ///     },
+    ///     "name": "Sample.rs",
+    ///     "oid": "6d6240123a8d8ea8a8376610168a0a4bcb96afd0"
+    ///   },
+    /// ```
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         const FIELDS: usize = 4;
         let mut state = serializer.serialize_struct("TreeEntry", FIELDS)?;
-        state.serialize_field("path", &self.entry.path())?;
-        state.serialize_field("name", &self.entry.name())?;
-        state.serialize_field("lastCommit", &None::<commit::Header>)?;
+        state.serialize_field("name", &self.name)?;
         state.serialize_field(
             "kind",
             match self.entry {
-                directory::Entry::File(_) => "blob",
-                directory::Entry::Directory(_) => "tree",
+                Entry::Blob(_) => "blob",
+                Entry::Tree(_) => "tree",
             },
         )?;
+        state.serialize_field("oid", &self.object_id())?;
+        state.serialize_field("lastCommit", &self.commit)?;
         state.end()
     }
 }

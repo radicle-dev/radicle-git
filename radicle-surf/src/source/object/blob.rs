@@ -18,76 +18,52 @@
 //! Represents git object type 'blob', i.e. actual file contents.
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
-use std::{path::Path, str};
+use std::str;
 
+use radicle_git_ext::Oid;
 #[cfg(feature = "serde")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
 };
 
-use crate::{
-    file_system::{File, FileContent},
-    git::{self, Repository},
-    source::{commit, object::Error},
-};
+use crate::source::commit;
 
-/// File data abstraction.
+/// Represents a git blob object.
 pub struct Blob {
-    pub file: File,
-    pub content: BlobContent,
-    pub commit: Option<commit::Header>,
+    id: Oid,
+    content: BlobContent,
+    commit: commit::Header,
 }
 
 impl Blob {
     /// Returns the [`Blob`] for a file at `revision` under `path`.
-    ///
-    /// # Errors
-    ///
-    /// Will return [`Error`] if the project doesn't exist or a surf interaction
-    /// fails.
-    pub fn new<P, R>(repo: &Repository, revision: &R, path: &P) -> Result<Blob, Error>
-    where
-        P: AsRef<Path>,
-        R: git::Revision,
-    {
-        Self::make_blob(repo, revision, path, |c| BlobContent::from(c))
-    }
-
-    fn make_blob<P, R>(
-        repo: &Repository,
-        revision: &R,
-        path: &P,
-        content: impl FnOnce(FileContent) -> BlobContent,
-    ) -> Result<Blob, Error>
-    where
-        P: AsRef<Path>,
-        R: git::Revision,
-    {
-        let path = path.as_ref();
-        let root = repo.root_dir(revision)?;
-
-        let file = root
-            .find_file(&path, repo)?
-            .ok_or_else(|| Error::PathNotFound(path.to_path_buf()))?;
-
-        let last_commit = repo
-            .last_commit(path, revision)?
-            .map(|c| commit::Header::from(&c));
-
-        let content = content(file.content(repo)?);
-
-        Ok(Blob {
-            file,
+    pub(crate) fn new(id: Oid, content: &[u8], commit: commit::Header) -> Self {
+        let content = BlobContent::from(content);
+        Self {
+            id,
             content,
-            commit: last_commit,
-        })
+            commit,
+        }
     }
 
     /// Indicates if the content of the [`Blob`] is binary.
     #[must_use]
     pub fn is_binary(&self) -> bool {
         matches!(self.content, BlobContent::Binary(_))
+    }
+
+    pub fn object_id(&self) -> Oid {
+        self.id
+    }
+
+    pub fn content(&self) -> &BlobContent {
+        &self.content
+    }
+
+    /// Returns the commit that created this blob.
+    pub fn commit(&self) -> &commit::Header {
+        &self.commit
     }
 }
 
@@ -102,8 +78,6 @@ impl Serialize for Blob {
         state.serialize_field("binary", &self.is_binary())?;
         state.serialize_field("content", &self.content)?;
         state.serialize_field("lastCommit", &self.commit)?;
-        state.serialize_field("name", &self.file.name())?;
-        state.serialize_field("path", &self.file.path())?;
         state.end()
     }
 }
@@ -115,6 +89,24 @@ pub enum BlobContent {
     Plain(String),
     /// Content is binary and needs special treatment.
     Binary(Vec<u8>),
+}
+
+impl BlobContent {
+    /// Returns the size of this `BlobContent`.
+    pub fn size(&self) -> usize {
+        match self {
+            Self::Plain(content) => content.len(),
+            Self::Binary(bytes) => bytes.len(),
+        }
+    }
+
+    /// Returns the content as bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Self::Plain(content) => content.as_bytes(),
+            Self::Binary(bytes) => &bytes[..],
+        }
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -133,12 +125,11 @@ impl Serialize for BlobContent {
     }
 }
 
-impl From<FileContent<'_>> for BlobContent {
-    fn from(content: FileContent) -> Self {
-        let content = content.as_bytes();
-        match str::from_utf8(content) {
+impl From<&[u8]> for BlobContent {
+    fn from(bytes: &[u8]) -> Self {
+        match str::from_utf8(bytes) {
             Ok(utf8) => BlobContent::Plain(utf8.to_owned()),
-            Err(_) => BlobContent::Binary(content.to_owned()),
+            Err(_) => BlobContent::Binary(bytes.to_owned()),
         }
     }
 }

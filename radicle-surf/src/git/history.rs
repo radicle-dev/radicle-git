@@ -62,7 +62,7 @@ impl<'a> History<'a> {
     ///
     /// Note that it is possible that a filtered History becomes empty,
     /// even though calling `.head()` still returns the original head.
-    pub fn by_path<P>(mut self, path: P) -> Self
+    pub fn by_path<P>(mut self, path: &P) -> Self
     where
         P: AsRef<Path>,
     {
