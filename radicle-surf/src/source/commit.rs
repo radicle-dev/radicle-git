@@ -174,7 +174,7 @@ pub fn commits<R>(repo: &Repository, revision: &R) -> Result<Commits, Error>
 where
     R: git::Revision,
 {
-    let stats = repo.stats()?;
+    let stats = repo.stats_from(revision)?;
     let commits = repo.history(revision)?.collect::<Result<Vec<_>, _>>()?;
     let headers = commits.into_iter().map(Header::from).collect();
     Ok(Commits { headers, stats })
