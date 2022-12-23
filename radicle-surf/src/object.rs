@@ -26,16 +26,18 @@ pub use blob::{Blob, BlobContent};
 pub mod tree;
 pub use tree::{Tree, TreeEntry};
 
-use crate::{file_system::directory, git};
+pub mod commit;
+
+use crate::{fs, git};
 
 /// An error reported by object types.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Directory(#[from] directory::error::Directory),
+    Directory(#[from] fs::error::Directory),
 
     #[error(transparent)]
-    File(#[from] directory::error::File),
+    File(#[from] fs::error::File),
 
     /// An error occurred during a git operation.
     #[error(transparent)]
