@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use git_ref_format::refname;
 use radicle_surf::git::Repository;
 use serde_json::json;
@@ -138,4 +140,28 @@ fn repo_blob() {
 
     // Verify as_bytes.
     assert_eq!(content.as_bytes().len(), content.size());
+}
+
+#[test]
+fn tree_ordering() {
+    let repo = Repository::open(GIT_PLATINUM).unwrap();
+    let tree = repo
+        .tree(refname!("refs/heads/master"), &PathBuf::new())
+        .unwrap();
+    assert_eq!(
+        tree.entries()
+            .iter()
+            .map(|entry| entry.name().to_string())
+            .collect::<Vec<_>>(),
+        vec![
+            "bin".to_string(),
+            "special".to_string(),
+            "src".to_string(),
+            "text".to_string(),
+            "this".to_string(),
+            ".i-am-well-hidden".to_string(),
+            ".i-too-am-hidden".to_string(),
+            "README.md".to_string(),
+        ]
+    );
 }
