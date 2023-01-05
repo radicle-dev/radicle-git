@@ -6,9 +6,9 @@ use std::{
     convert::TryFrom as _,
 };
 
-use git_ref_format::{lit, Qualified, RefString};
+use git_ref_format::{lit, name::Components, Component, Qualified, RefString};
 
-use crate::git::{refstr_join, tag, Branch, Namespace, Tag};
+use crate::{tag, Branch, Namespace, Tag};
 
 /// Iterator over [`Tag`]s.
 #[derive(Default)]
@@ -210,7 +210,7 @@ pub mod error {
     use git_ref_format::RefString;
     use thiserror::Error;
 
-    use crate::git::{branch, tag};
+    use crate::{branch, tag};
 
     #[derive(Debug, Error)]
     pub enum Branch {
@@ -239,4 +239,8 @@ pub mod error {
         #[error(transparent)]
         Tag(#[from] tag::error::FromReference),
     }
+}
+
+pub(crate) fn refstr_join<'a>(c: Component<'a>, cs: Components<'a>) -> RefString {
+    std::iter::once(c).chain(cs).collect::<RefString>()
 }

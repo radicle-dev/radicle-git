@@ -1,5 +1,5 @@
 use git_ref_format::refspec;
-use radicle_surf::git::{Glob, Repository};
+use radicle_surf::{Glob, Repository};
 
 use super::GIT_PLATINUM;
 

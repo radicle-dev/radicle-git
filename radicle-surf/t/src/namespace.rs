@@ -1,6 +1,6 @@
 use git_ref_format::{name::component, refname, refspec};
 use pretty_assertions::{assert_eq, assert_ne};
-use radicle_surf::git::{Branch, Error, Glob, Repository};
+use radicle_surf::{Branch, Error, Glob, Repository};
 
 use super::GIT_PLATINUM;
 

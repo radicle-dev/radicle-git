@@ -65,41 +65,10 @@
 
 use std::{convert::Infallible, str::FromStr};
 
-// Re-export git2 as sub-module
-pub use git2::{self, Error as Git2Error, Time};
-use git_ref_format::{name::Components, Component, Qualified, RefString};
-pub use radicle_git_ext::Oid;
+use git_ref_format::{Qualified, RefString};
+use radicle_git_ext::Oid;
 
-mod repo;
-pub use repo::{Error, Repository};
-
-pub mod glob;
-pub use glob::Glob;
-
-mod history;
-pub use history::History;
-
-/// Provides the data for talking about branches.
-pub mod branch;
-pub use branch::{Branch, Local, Remote};
-
-/// Provides the data for talking about tags.
-pub mod tag;
-pub use tag::Tag;
-
-/// Provides the data for talking about commits.
-pub mod commit;
-pub use commit::{Author, Commit};
-
-/// Provides the data for talking about namespaces.
-pub mod namespace;
-pub use namespace::Namespace;
-
-/// Provides the data for talking about repository statistics.
-pub mod stats;
-pub use stats::Stats;
-
-pub use crate::diff::Diff;
+use crate::{Branch, Commit, Error, Repository, Tag};
 
 /// The signature of a commit
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -216,8 +185,4 @@ impl<R: Revision> ToCommit for R {
         let commit = repo.find_commit(oid)?;
         Ok(Commit::try_from(commit)?)
     }
-}
-
-pub(crate) fn refstr_join<'a>(c: Component<'a>, cs: Components<'a>) -> RefString {
-    std::iter::once(c).chain(cs).collect::<RefString>()
 }

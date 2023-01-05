@@ -26,10 +26,7 @@ use serde::{
     Serialize,
 };
 
-use crate::{
-    diff,
-    git::{self, glob, Glob, Repository},
-};
+use crate::{diff, glob, Glob, Repository, Revision};
 
 use radicle_git_ext::Oid;
 
@@ -76,8 +73,8 @@ impl Header {
     }
 }
 
-impl From<&git::Commit> for Header {
-    fn from(commit: &git::Commit) -> Self {
+impl From<&crate::Commit> for Header {
+    fn from(commit: &crate::Commit) -> Self {
         Self {
             sha1: commit.id,
             author: Person {
@@ -95,8 +92,8 @@ impl From<&git::Commit> for Header {
     }
 }
 
-impl From<git::Commit> for Header {
-    fn from(commit: git::Commit) -> Self {
+impl From<crate::Commit> for Header {
+    fn from(commit: crate::Commit) -> Self {
         Self::from(&commit)
     }
 }
@@ -124,7 +121,7 @@ pub struct Commits {
     /// The commit headers
     pub headers: Vec<Header>,
     /// The statistics for the commit headers
-    pub stats: git::Stats,
+    pub stats: crate::Stats,
 }
 
 /// Retrieves a [`Commit`].
@@ -133,7 +130,7 @@ pub struct Commits {
 ///
 /// Will return [`Error`] if the project doesn't exist or the surf interaction
 /// fails.
-pub fn commit<R: git::Revision>(repo: &Repository, rev: R) -> Result<Commit, Error> {
+pub fn commit<R: Revision>(repo: &Repository, rev: R) -> Result<Commit, Error> {
     let commit = repo.commit(rev)?;
     let sha1 = commit.id;
     let header = Header::from(&commit);
@@ -171,7 +168,7 @@ pub fn header(repo: &Repository, sha1: Oid) -> Result<Header, Error> {
 /// fails.
 pub fn commits<R>(repo: &Repository, revision: &R) -> Result<Commits, Error>
 where
-    R: git::Revision,
+    R: Revision,
 {
     let stats = repo.stats_from(revision)?;
     let commits = repo.history(revision)?.collect::<Result<Vec<_>, _>>()?;
@@ -184,7 +181,7 @@ where
 pub enum Error {
     /// An error occurred during a git operation.
     #[error(transparent)]
-    Git(#[from] git::Error),
+    Git(#[from] crate::Error),
 
     #[error(transparent)]
     Glob(#[from] glob::Error),

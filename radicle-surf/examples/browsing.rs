@@ -26,7 +26,7 @@
 
 use radicle_surf::{
     fs::{self, Directory},
-    git::Repository,
+    Repository,
 };
 use std::{env, time::Instant};
 

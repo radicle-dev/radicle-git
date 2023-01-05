@@ -29,8 +29,8 @@ pub mod git;
 /// The serializable representation of a `git diff`.
 ///
 /// A [`Diff`] can be retrieved by the following functions:
-///    * [`crate::git::Repository::diff`]
-///    * [`crate::git::Repository::diff_commit`]
+///    * [`crate::Repository::diff`]
+///    * [`crate::Repository::diff_commit`]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Diff {

@@ -27,39 +27,33 @@ use radicle_git_ext::Oid;
 use thiserror::Error;
 
 use crate::{
+    commit,
     diff::{self, *},
     fs::{self, Directory, File, FileContent},
-    git::{
-        commit,
-        glob,
-        namespace,
-        Branch,
-        Commit,
-        Glob,
-        History,
-        Namespace,
-        Revision,
-        Signature,
-        Stats,
-        Tag,
-        ToCommit,
-    },
+    glob,
+    namespace,
     object::{commit::Header, Blob, Tree, TreeEntry},
+    refs::{self, BranchNames, Branches, Categories, Namespaces, TagNames, Tags},
+    Branch,
+    Commit,
+    Glob,
+    History,
+    Namespace,
+    Revision,
+    Signature,
+    Stats,
+    Tag,
+    ToCommit,
 };
 
-pub mod iter;
-pub use iter::{Branches, Categories, Namespaces, Tags};
-
-use self::iter::{BranchNames, TagNames};
-
-/// Enumeration of errors that can occur in operations from [`crate::git`].
+/// Enumeration of errors that can occur in repo operations.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
     #[error(transparent)]
-    Branches(#[from] iter::error::Branch),
+    Branches(#[from] refs::error::Branch),
     #[error(transparent)]
-    Categories(#[from] iter::error::Category),
+    Categories(#[from] refs::error::Category),
     #[error(transparent)]
     Commit(#[from] commit::Error),
     /// An error that comes from performing a *diff* operations.
@@ -95,7 +89,7 @@ pub enum Error {
     #[error(transparent)]
     ToCommit(Box<dyn std::error::Error + Send + Sync + 'static>),
     #[error(transparent)]
-    Tags(#[from] iter::error::Tag),
+    Tags(#[from] refs::error::Tag),
 }
 
 /// Wrapper around the `git2`'s `git2::Repository` type.
@@ -365,7 +359,7 @@ impl Repository {
     // TODO(finto): I think this can be removed in favour of using
     // `source::Blob::new`
     /// Retrieves the file with `path` in this commit.
-    pub fn get_commit_file<P, R>(&self, rev: &R, path: &P) -> Result<FileContent, crate::git::Error>
+    pub fn get_commit_file<P, R>(&self, rev: &R, path: &P) -> Result<FileContent, crate::Error>
     where
         P: AsRef<Path>,
         R: Revision,

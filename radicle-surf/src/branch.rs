@@ -3,8 +3,9 @@ use std::{
     str::{self, FromStr},
 };
 
-use crate::git::refstr_join;
 use git_ref_format::{component, lit, Component, Qualified, RefStr, RefString};
+
+use crate::refs::refstr_join;
 
 /// A `Branch` represents any git branch. This can either be a reference
 /// that is under the `refs/heads` or `refs/remotes` namespace.
@@ -93,7 +94,7 @@ impl FromStr for Branch {
         } else if category == component::REMOTES {
             Ok(Self::Remote(Remote::new(c, cs.collect::<RefString>())))
         } else {
-            Err(error::Branch::NotBranch(name.into()))
+            Err(error::Branch::InvalidName(name.into()))
         }
     }
 }
@@ -301,7 +302,7 @@ pub mod error {
     #[derive(Debug, Error)]
     pub enum Branch {
         #[error("the refname '{0}' did not begin with 'refs/heads' or 'refs/remotes'")]
-        NotBranch(RefString),
+        InvalidName(RefString),
         #[error("the refname '{0}' did not begin with 'refs/heads' or 'refs/remotes'")]
         NotQualified(String),
         #[error(transparent)]

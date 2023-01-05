@@ -20,7 +20,7 @@ extern crate radicle_surf;
 use std::{env::Args, str::FromStr, time::Instant};
 
 use radicle_git_ext::Oid;
-use radicle_surf::{diff::Diff, git};
+use radicle_surf::{diff::Diff, Repository};
 
 fn main() {
     let options = get_options_or_exit();
@@ -46,8 +46,8 @@ fn get_options_or_exit() -> Options {
     }
 }
 
-fn init_repository_or_exit(path_to_repo: &str) -> git::Repository {
-    match git::Repository::open(path_to_repo) {
+fn init_repository_or_exit(path_to_repo: &str) -> Repository {
+    match Repository::open(path_to_repo) {
         Ok(repo) => repo,
         Err(e) => {
             println!("Failed to create repository: {:?}", e);

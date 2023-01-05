@@ -3,7 +3,8 @@ use std::path::Path;
 use git_ref_format::refname;
 use radicle_surf::{
     fs::{self, Directory},
-    git::{Branch, Repository},
+    Branch,
+    Repository,
 };
 
 use super::GIT_PLATINUM;
