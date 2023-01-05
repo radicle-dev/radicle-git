@@ -210,8 +210,8 @@ impl Eq for TreeEntry {}
 impl From<fs::Entry> for Entry {
     fn from(entry: fs::Entry) -> Self {
         match entry {
-            fs::Entry::File(f) => Entry::Blob(f.id()),
-            fs::Entry::Directory(d) => Entry::Tree(d.id()),
+            fs::Entry::File(f) => Entry::Blob(f.blob_id()),
+            fs::Entry::Directory(d) => Entry::Tree(d.tree_id()),
         }
     }
 }
