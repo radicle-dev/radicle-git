@@ -18,8 +18,6 @@
 //! Common definitions for git objects (blob and tree).
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
-use std::path::PathBuf;
-
 pub mod blob;
 pub use blob::{Blob, BlobContent};
 
@@ -27,23 +25,3 @@ pub mod tree;
 pub use tree::{Tree, TreeEntry};
 
 pub mod commit;
-
-use crate::{fs, git};
-
-/// An error reported by object types.
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    Directory(#[from] fs::error::Directory),
-
-    #[error(transparent)]
-    File(#[from] fs::error::File),
-
-    /// An error occurred during a git operation.
-    #[error(transparent)]
-    Git(#[from] git::Error),
-
-    /// Trying to find a file path which could not be found.
-    #[error("the path '{0}' was not found")]
-    PathNotFound(PathBuf),
-}
