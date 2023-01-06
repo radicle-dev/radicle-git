@@ -3,7 +3,7 @@ use std::{convert::TryFrom, str};
 use git_ext::Oid;
 use git_ref_format::{component, lit, Qualified, RefStr, RefString};
 
-use crate::git::{refstr_join, Author};
+use crate::{refs::refstr_join, Author};
 
 /// The static information of a [`git2::Tag`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

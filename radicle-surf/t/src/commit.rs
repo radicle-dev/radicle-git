@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use proptest::prelude::*;
 use radicle_git_ext::Oid;
-use radicle_surf::git::{Author, Commit};
+use radicle_surf::{Author, Commit};
 use test_helpers::roundtrip;
 
 proptest! {

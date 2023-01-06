@@ -20,7 +20,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::git::{Commit, Error, Repository, ToCommit};
+use crate::{Commit, Error, Repository, ToCommit};
 
 /// An iterator that produces the history of commits for a given `head`,
 /// in the `repo`.

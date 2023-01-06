@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use git_ref_format::refname;
 use radicle_git_ext::Oid;
-use radicle_surf::git::{Branch, Repository};
+use radicle_surf::{Branch, Repository};
 
 use super::GIT_PLATINUM;
 

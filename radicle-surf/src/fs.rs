@@ -31,7 +31,7 @@ use git2::Blob;
 use radicle_git_ext::{is_not_found_err, Oid};
 use radicle_std_ext::result::ResultExt as _;
 
-use crate::git::{Commit, Repository, Revision};
+use crate::{Commit, Repository, Revision};
 
 pub mod error {
     use thiserror::Error;

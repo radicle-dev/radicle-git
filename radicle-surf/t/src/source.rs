@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use git_ref_format::refname;
-use radicle_surf::git::Repository;
+use radicle_surf::Repository;
 use serde_json::json;
 
 const GIT_PLATINUM: &str = "../data/git-platinum";

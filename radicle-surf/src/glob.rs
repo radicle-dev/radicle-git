@@ -26,7 +26,7 @@ use git_ref_format::{
 };
 use thiserror::Error;
 
-use crate::git::{Branch, Local, Namespace, Remote, Tag};
+use crate::{Branch, Local, Namespace, Remote, Tag};
 
 #[derive(Debug, Error)]
 pub enum Error {

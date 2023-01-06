@@ -3,7 +3,7 @@ use git_ref_format_test::gen;
 use proptest::prelude::*;
 use test_helpers::roundtrip;
 
-use radicle_surf::git::Branch;
+use radicle_surf::Branch;
 
 proptest! {
     #[test]

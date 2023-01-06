@@ -17,7 +17,9 @@ use radicle_surf::{
         Moved,
         Stats,
     },
-    git::{Branch, Error, Repository},
+    Branch,
+    Error,
+    Repository,
 };
 use std::{path::Path, str::FromStr};
 
