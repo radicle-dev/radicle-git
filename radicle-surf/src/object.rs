@@ -23,5 +23,3 @@ pub use blob::{Blob, BlobContent};
 
 pub mod tree;
 pub use tree::{Tree, TreeEntry};
-
-pub mod commit;

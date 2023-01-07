@@ -27,18 +27,18 @@ use serde::{
     Serialize,
 };
 
-use crate::object::commit;
+use crate::Commit;
 
 /// Represents a git blob object.
 pub struct Blob {
     id: Oid,
     content: BlobContent,
-    commit: commit::Header,
+    commit: Commit,
 }
 
 impl Blob {
     /// Returns the [`Blob`] for a file at `revision` under `path`.
-    pub(crate) fn new(id: Oid, content: &[u8], commit: commit::Header) -> Self {
+    pub(crate) fn new(id: Oid, content: &[u8], commit: Commit) -> Self {
         let content = BlobContent::from(content);
         Self {
             id,
@@ -62,7 +62,7 @@ impl Blob {
     }
 
     /// Returns the commit that created this blob.
-    pub fn commit(&self) -> &commit::Header {
+    pub fn commit(&self) -> &Commit {
         &self.commit
     }
 }

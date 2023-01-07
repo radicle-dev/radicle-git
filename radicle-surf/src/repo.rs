@@ -32,7 +32,7 @@ use crate::{
     fs::{self, Directory, File, FileContent},
     glob,
     namespace,
-    object::{commit::Header, Blob, Tree, TreeEntry},
+    object::{Blob, Tree, TreeEntry},
     refs::{self, BranchNames, Branches, Categories, Namespaces, TagNames, Tags},
     Branch,
     Commit,
@@ -283,8 +283,7 @@ impl Repository {
                 let commit = self
                     .last_commit(&path, commit.id)?
                     .ok_or(Error::PathNotFound(path))?;
-                let commit_header = Header::from(commit);
-                Ok(TreeEntry::new(name, en.into(), commit_header))
+                Ok(TreeEntry::new(name, en.into(), commit))
             })
             .collect::<Result<Vec<TreeEntry>, Error>>()?;
         entries.sort();
@@ -292,8 +291,7 @@ impl Repository {
         let last_commit = self
             .last_commit(path, commit)?
             .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))?;
-        let header = Header::from(last_commit);
-        Ok(Tree::new(dir.id(), entries, header))
+        Ok(Tree::new(dir.id(), entries, last_commit))
     }
 
     /// Returns a [`Blob`] for `path` in `commit`.
@@ -305,10 +303,8 @@ impl Repository {
         let last_commit = self
             .last_commit(path, commit)?
             .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))?;
-        let header = Header::from(last_commit);
-
         let content = file.content(self)?;
-        Ok(Blob::new(file.id(), content.as_bytes(), header))
+        Ok(Blob::new(file.id(), content.as_bytes(), last_commit))
     }
 
     /// Returns the last commit, if exists, for a `path` in the history of
@@ -415,31 +411,32 @@ impl Repository {
     pub fn history<C: ToCommit>(&self, head: C) -> Result<History, Error> {
         History::new(self, head)
     }
-}
 
-////////////////////////////////////////////////////////////
-// Private API, ONLY add `pub(crate) fn` or `fn` in here. //
-////////////////////////////////////////////////////////////
-impl Repository {
-    /// Lists branches that are reachable from `oid`.
-    pub(crate) fn revision_branches(
+    /// Lists branches that are reachable from `rev`.
+    pub fn revision_branches(
         &self,
-        oid: &Oid,
+        rev: impl Revision,
         glob: Glob<Branch>,
     ) -> Result<Vec<Branch>, Error> {
+        let oid = self.object_id(&rev)?;
         let mut contained_branches = vec![];
         for branch in self.branches(glob)? {
             let branch = branch?;
             let namespaced = self.namespaced_refname(&branch.refname())?;
             let reference = self.inner.find_reference(namespaced.as_str())?;
-            if self.reachable_from(&reference, oid)? {
+            if self.reachable_from(&reference, &oid)? {
                 contained_branches.push(branch);
             }
         }
 
         Ok(contained_branches)
     }
+}
 
+////////////////////////////////////////////////////////////
+// Private API, ONLY add `pub(crate) fn` or `fn` in here. //
+////////////////////////////////////////////////////////////
+impl Repository {
     pub(crate) fn find_blob(&self, oid: Oid) -> Result<git2::Blob<'_>, git2::Error> {
         self.inner.find_blob(oid.into())
     }
