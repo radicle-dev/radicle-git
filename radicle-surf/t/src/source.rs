@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use git_ref_format::refname;
-use radicle_surf::Repository;
+use radicle_surf::{Glob, Repository};
 use serde_json::json;
 
 const GIT_PLATINUM: &str = "../data/git-platinum";
@@ -18,15 +18,18 @@ fn tree_serialization() {
           "lastCommit": {
             "author": {
               "email": "fintan.halpenny@gmail.com",
-              "name": "Fintan Halpenny"
+              "name": "Fintan Halpenny",
+              "time": 1578309972
             },
             "committer": {
               "email": "noreply@github.com",
-              "name": "GitHub"
+              "name": "GitHub",
+              "time": 1578309972
             },
-            "committerTime": 1578309972,
             "description": "I want to have files under src that have separate commits.\r\nThat way src's latest commit isn't the same as all its files, instead it's the file that was touched last.",
-            "sha1": "3873745c8f6ffb45c990eb23b491d4b4b6182f95",
+            "id": "3873745c8f6ffb45c990eb23b491d4b4b6182f95",
+            "message": "Extend the docs (#2)\n\nI want to have files under src that have separate commits.\r\nThat way src's latest commit isn't the same as all its files, instead it's the file that was touched last.",
+            "parents": ["d6880352fc7fda8f521ae9b7357668b17bb5bad5"],
             "summary": "Extend the docs (#2)"
           },
           "name": "Eval.hs",
@@ -37,15 +40,18 @@ fn tree_serialization() {
           "lastCommit": {
             "author": {
               "email": "rudolfs@osins.org",
-              "name": "Rūdolfs Ošiņš"
+              "name": "Rūdolfs Ošiņš",
+              "time": 1575283266
             },
             "committer": {
               "email": "rudolfs@osins.org",
-              "name": "Rūdolfs Ošiņš"
+              "name": "Rūdolfs Ošiņš",
+              "time": 1575283266
             },
-            "committerTime": 1575283266,
             "description": "",
-            "sha1": "e24124b7538658220b5aaf3b6ef53758f0a106dc",
+            "id": "e24124b7538658220b5aaf3b6ef53758f0a106dc",
+            "message": "Move examples to \"src\"\n",
+            "parents": ["19bec071db6474af89c866a1bd0e4b1ff76e2b97"],
             "summary": "Move examples to \"src\""
           },
           "name": "memory.rs",
@@ -55,15 +61,18 @@ fn tree_serialization() {
       "lastCommit": {
         "author": {
           "email": "rudolfs@osins.org",
-          "name": "Rūdolfs Ošiņš"
+          "name": "Rūdolfs Ošiņš",
+          "time": 1582198877
         },
         "committer": {
           "email": "noreply@github.com",
-          "name": "GitHub"
+          "name": "GitHub",
+          "time": 1582198877
         },
-        "committerTime": 1582198877,
         "description": "It was a bad idea to have an actual source file which is used by\r\nradicle-upstream in the fixtures repository. It gets in the way of\r\nlinting and editors pick it up as a regular source file by accident.",
-        "sha1": "a57846bbc8ced6587bf8329fc4bce970eb7b757e",
+        "id": "a57846bbc8ced6587bf8329fc4bce970eb7b757e",
+        "message": "Remove src/Folder.svelte (#3)\n\nIt was a bad idea to have an actual source file which is used by\r\nradicle-upstream in the fixtures repository. It gets in the way of\r\nlinting and editors pick it up as a regular source file by accident.",
+        "parents": ["3873745c8f6ffb45c990eb23b491d4b4b6182f95"],
         "summary": "Remove src/Folder.svelte (#3)"
       },
       "oid": "ed52e9f8dfe1d8b374b2a118c25235349a743dd2"
@@ -81,7 +90,7 @@ fn repo_tree() {
 
     let commit_header = tree.commit();
     assert_eq!(
-        commit_header.sha1.to_string(),
+        commit_header.id.to_string(),
         "e24124b7538658220b5aaf3b6ef53758f0a106dc"
     );
 
@@ -102,7 +111,7 @@ fn repo_tree() {
     );
     let commit = entry.commit();
     assert_eq!(
-        commit.sha1.to_string(),
+        commit.id.to_string(),
         "e24124b7538658220b5aaf3b6ef53758f0a106dc"
     );
 
@@ -128,7 +137,7 @@ fn repo_blob() {
 
     let commit_header = blob.commit();
     assert_eq!(
-        commit_header.sha1.to_string(),
+        commit_header.id.to_string(),
         "e24124b7538658220b5aaf3b6ef53758f0a106dc"
     );
 
@@ -164,4 +173,27 @@ fn tree_ordering() {
             "README.md".to_string(),
         ]
     );
+}
+
+#[test]
+fn commit_branches() {
+    let repo = Repository::open(GIT_PLATINUM).unwrap();
+    let init_commit = "d3464e33d75c75c99bfb90fa2e9d16efc0b7d0e3";
+    let glob = Glob::all_heads().branches().and(Glob::all_remotes());
+    let branches = repo.revision_branches(init_commit, glob).unwrap();
+
+    assert_eq!(branches.len(), 7);
+    assert_eq!(branches[0].refname().as_str(), "refs/heads/dev");
+    assert_eq!(branches[1].refname().as_str(), "refs/heads/master");
+    assert_eq!(
+        branches[2].refname().as_str(),
+        "refs/remotes/banana/orange/pineapple"
+    );
+    assert_eq!(
+        branches[3].refname().as_str(),
+        "refs/remotes/banana/pineapple"
+    );
+    assert_eq!(branches[4].refname().as_str(), "refs/remotes/origin/HEAD");
+    assert_eq!(branches[5].refname().as_str(), "refs/remotes/origin/dev");
+    assert_eq!(branches[6].refname().as_str(), "refs/remotes/origin/master");
 }
