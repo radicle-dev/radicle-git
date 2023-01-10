@@ -118,12 +118,31 @@ mod directory {
     #[test]
     fn directory_last_commit() {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
-        let root = repo.root_dir(Branch::local(refname!("dev"))).unwrap();
+        let branch = Branch::local(refname!("dev"));
+        let root = repo.root_dir(&branch).unwrap();
         let dir = root.find_directory(&"this/is", &repo).unwrap().unwrap();
-        let last_commit = dir.last_commit();
+        let last_commit = repo.last_commit(&dir.path(), &branch).unwrap().unwrap();
         assert_eq!(
             last_commit.id.to_string(),
             "2429f097664f9af0c5b7b389ab998b2199ffa977"
+        );
+    }
+
+    #[test]
+    fn file_last_commit() {
+        let repo = Repository::open(GIT_PLATINUM).unwrap();
+        let branch = Branch::local(refname!("master"));
+        let root = repo.root_dir(&branch).unwrap();
+
+        // Find a file with "\" in its name.
+        let f = root
+            .find_file(&"special/faux\\path", &repo)
+            .unwrap()
+            .unwrap();
+        let last_commit = repo.last_commit(&f.path(), &branch).unwrap().unwrap();
+        assert_eq!(
+            last_commit.id.to_string(),
+            "a0dd9122d33dff2a35f564d564db127152c88e02"
         );
     }
 }

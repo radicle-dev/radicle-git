@@ -248,7 +248,7 @@ impl Repository {
             .map_err(|err| Error::ToCommit(err.into()))?;
         let git2_commit = self.inner.find_commit((commit.id).into())?;
         let tree = git2_commit.as_object().peel_to_tree()?;
-        Ok(Directory::root(tree.id().into(), commit))
+        Ok(Directory::root(tree.id().into()))
     }
 
     /// Returns a [`Directory`] for `path` in `commit`.
@@ -293,7 +293,7 @@ impl Repository {
             .last_commit(path, commit)?
             .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))?;
         let header = Header::from(last_commit);
-        Ok(Tree::new(dir.id(), entries, header))
+        Ok(Tree::new(dir.tree_id(), entries, header))
     }
 
     /// Returns a [`Blob`] for `path` in `commit`.
@@ -308,7 +308,7 @@ impl Repository {
         let header = Header::from(last_commit);
 
         let content = file.content(self)?;
-        Ok(Blob::new(file.id(), content.as_bytes(), header))
+        Ok(Blob::new(file.blob_id(), content.as_bytes(), header))
     }
 
     /// Returns the last commit, if exists, for a `path` in the history of
