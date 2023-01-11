@@ -31,9 +31,11 @@ use git2::Blob;
 use radicle_git_ext::{is_not_found_err, Oid};
 use radicle_std_ext::result::ResultExt as _;
 
-use crate::{Commit, Repository, Revision};
+use crate::{Repository, Revision};
 
 pub mod error {
+    use std::path::PathBuf;
+
     use thiserror::Error;
 
     #[derive(Debug, Error, PartialEq)]
@@ -45,7 +47,7 @@ pub mod error {
         #[error(transparent)]
         File(#[from] File),
         #[error("the path {0} is not valid")]
-        InvalidPath(String),
+        InvalidPath(PathBuf),
     }
 
     #[derive(Debug, Error, PartialEq, Eq)]
@@ -79,8 +81,6 @@ pub struct File {
     prefix: PathBuf,
     /// The object identifier of the git blob of this file.
     id: Oid,
-    /// The commit that created this file version.
-    last_commit: Commit,
 }
 
 impl File {
@@ -90,19 +90,14 @@ impl File {
     /// so should not end in `name`.
     ///
     /// The `id` must point to a git blob.
-    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid, last_commit: Commit) -> Self {
+    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid) -> Self {
         debug_assert!(
             !prefix.ends_with(&name),
             "prefix = {:?}, name = {}",
             prefix,
             name
         );
-        Self {
-            name,
-            prefix,
-            id,
-            last_commit,
-        }
+        Self { name, prefix, id }
     }
 
     /// The name of this `File`.
@@ -120,7 +115,7 @@ impl File {
     ///
     /// The path is relative to the git repository root.
     pub fn path(&self) -> PathBuf {
-        self.prefix.join(&self.name)
+        self.prefix.join(escaped_name(&self.name))
     }
 
     /// Return the [`Path`] where this `File` is located, relative to the
@@ -263,26 +258,13 @@ impl Entry {
     pub(crate) fn from_entry(
         entry: &git2::TreeEntry,
         path: PathBuf,
-        repo: &Repository,
-        parent_commit: Oid,
     ) -> Result<Option<Self>, error::Entry> {
         let name = entry.name().ok_or(error::Entry::Utf8Error)?.to_string();
         let id = entry.id().into();
-        let escaped_name = name.replace('\\', r"\\");
-        let entry_path = path.join(escaped_name);
-        // FIXME: I don't like to use FIXME, but here it is. I would
-        // like to simplify the error definitions and then fix these
-        // unwrap(s).
-        let last_commit = repo
-            .last_commit(&entry_path, parent_commit)
-            .unwrap()
-            .unwrap();
 
         Ok(entry.kind().and_then(|kind| match kind {
-            git2::ObjectType::Tree => {
-                Some(Self::Directory(Directory::new(name, path, id, last_commit)))
-            },
-            git2::ObjectType::Blob => Some(Self::File(File::new(name, path, id, last_commit))),
+            git2::ObjectType::Tree => Some(Self::Directory(Directory::new(name, path, id))),
+            git2::ObjectType::Blob => Some(Self::File(File::new(name, path, id))),
             _ => None,
         }))
     }
@@ -306,8 +288,6 @@ pub struct Directory {
     prefix: PathBuf,
     /// The object identifier of the git tree of this directory.
     id: Oid,
-    /// The commit that created this directory version.
-    last_commit: Commit,
 }
 
 const ROOT_DIR: &str = "";
@@ -316,8 +296,8 @@ impl Directory {
     /// Creates a directory given its `tree_id`.
     ///
     /// The `name` and `prefix` are both set to be empty.
-    pub(crate) fn root(tree_id: Oid, repo_commit: Commit) -> Self {
-        Self::new(ROOT_DIR.to_string(), PathBuf::new(), tree_id, repo_commit)
+    pub(crate) fn root(id: Oid) -> Self {
+        Self::new(ROOT_DIR.to_string(), PathBuf::new(), id)
     }
 
     /// Creates a directory given its `name` and `id`.
@@ -326,19 +306,14 @@ impl Directory {
     /// so should not end in `name`.
     ///
     /// The `id` must point to a `git` tree.
-    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid, last_commit: Commit) -> Self {
+    pub(crate) fn new(name: String, prefix: PathBuf, id: Oid) -> Self {
         debug_assert!(
             name.is_empty() || !prefix.ends_with(&name),
             "prefix = {:?}, name = {}",
             prefix,
             name
         );
-        Self {
-            name,
-            prefix,
-            id,
-            last_commit,
-        }
+        Self { name, prefix, id }
     }
 
     /// Get the name of the current `Directory`.
@@ -346,7 +321,7 @@ impl Directory {
         &self.name
     }
 
-    /// The object identifier of this `File`.
+    /// The object identifier of this `[Directory]`.
     pub fn id(&self) -> Oid {
         self.id
     }
@@ -356,7 +331,7 @@ impl Directory {
     ///
     /// The path is relative to the git repository root.
     pub fn path(&self) -> PathBuf {
-        self.prefix.join(&self.name)
+        self.prefix.join(escaped_name(&self.name))
     }
 
     /// Return the [`Path`] where this `Directory` is located, relative to the
@@ -385,7 +360,7 @@ impl Directory {
         // Walks only the first level of entries. And `_entry_path` is always
         // empty for the first level.
         tree.walk(git2::TreeWalkMode::PreOrder, |_entry_path, entry| {
-            match Entry::from_entry(entry, path.clone(), repo, self.last_commit.id) {
+            match Entry::from_entry(entry, path.clone()) {
                 Ok(Some(entry)) => match entry {
                     Entry::File(_) => {
                         entries.insert(entry.name().clone(), entry);
@@ -411,11 +386,6 @@ impl Directory {
         }
     }
 
-    /// Returns the last commit that created or modified this directory.
-    pub fn last_commit(&self) -> &Commit {
-        &self.last_commit
-    }
-
     /// Find the [`Entry`] found at `path`, if it exists.
     pub fn find_entry<P>(
         &self,
@@ -434,14 +404,11 @@ impl Directory {
             .or_matches::<git2::Error, _, _>(is_not_found_err, || Ok(None))?;
         let parent = path
             .parent()
-            .ok_or_else(|| error::Directory::InvalidPath(path.to_string_lossy().to_string()))?;
+            .ok_or_else(|| error::Directory::InvalidPath(path.to_path_buf()))?;
         let root_path = self.path().join(parent);
 
         Ok(entry
-            .and_then(|entry| {
-                Entry::from_entry(&entry, root_path.to_path_buf(), repo, self.last_commit.id)
-                    .transpose()
-            })
+            .and_then(|entry| Entry::from_entry(&entry, root_path.to_path_buf()).transpose())
             .transpose()
             .unwrap())
     }
@@ -537,4 +504,10 @@ impl Revision for Directory {
     fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
         Ok(self.id)
     }
+}
+
+/// When we need to escape "\" (represented as `\\`) for `PathBuf`
+/// so that it can be processed correctly.
+fn escaped_name(name: &str) -> String {
+    name.replace('\\', r"\\")
 }
