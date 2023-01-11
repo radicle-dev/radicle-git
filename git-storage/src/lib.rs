@@ -29,22 +29,14 @@
 //! [`Read`] and [`Write`] can be sent between threads, but it can't be shared
 //! between threads. _Some_ operations are safe to perform concurrently in much
 //! the same way two `git` processes can access the same repository.
-//! However, if you need multiple [`Read`]/[`Write`]s to be shared between
-//! threads, use a [`Pool`] instead.
 //!
 //! [refs]: https://git-scm.com/book/en/v2/Git-Internals-Git-References
 //! [objs]: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
-
-#[macro_use]
-extern crate async_trait;
 
 extern crate radicle_git_ext as git_ext;
 extern crate radicle_std_ext as std_ext;
 
 pub mod glob;
-
-pub mod pool;
-pub use pool::Pool;
 
 pub mod refdb;
 pub use refdb::{Applied, Reference, SymrefTarget, Target, Update, Updated};

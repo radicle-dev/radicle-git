@@ -35,8 +35,6 @@ impl Read {
     /// [`Read`] can be sent between threads, but it can't be shared between
     /// threads. _Some_ operations are safe to perform concurrently in much
     /// the same way two `git` processes can access the same repository.
-    /// However, if you need multiple [`Read`]s to be shared between
-    /// threads, use a [`crate::Pool`] instead.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, error::Init> {
         crate::init();
 
