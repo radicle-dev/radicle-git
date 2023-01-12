@@ -27,7 +27,7 @@ use serde::{
     Serialize,
 };
 
-use crate::{fs, object::commit};
+use crate::{fs, Commit};
 
 /// Represents a tree object as in git. It is essentially the content of
 /// one directory. Note that multiple directories can have the same content,
@@ -39,12 +39,12 @@ pub struct Tree {
     /// The first descendant entries for this tree.
     entries: Vec<TreeEntry>,
     /// The commit object that created this tree object.
-    commit: commit::Header,
+    commit: Commit,
 }
 
 impl Tree {
     /// Creates a new tree, ensuring the `entries` are sorted.
-    pub(crate) fn new(id: Oid, mut entries: Vec<TreeEntry>, commit: commit::Header) -> Self {
+    pub(crate) fn new(id: Oid, mut entries: Vec<TreeEntry>, commit: Commit) -> Self {
         entries.sort();
         Self {
             id,
@@ -58,7 +58,7 @@ impl Tree {
     }
 
     /// Returns the commit that created this tree.
-    pub fn commit(&self) -> &commit::Header {
+    pub fn commit(&self) -> &Commit {
         &self.commit
     }
 
@@ -148,11 +148,11 @@ pub struct TreeEntry {
     entry: Entry,
 
     /// The commit object that created this entry object.
-    commit: commit::Header,
+    commit: Commit,
 }
 
 impl TreeEntry {
-    pub(crate) fn new(name: String, entry: Entry, commit: commit::Header) -> Self {
+    pub(crate) fn new(name: String, entry: Entry, commit: Commit) -> Self {
         Self {
             name,
             entry,
@@ -172,7 +172,7 @@ impl TreeEntry {
         matches!(self.entry, Entry::Tree(_))
     }
 
-    pub fn commit(&self) -> &commit::Header {
+    pub fn commit(&self) -> &Commit {
         &self.commit
     }
 
