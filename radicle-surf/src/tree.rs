@@ -37,14 +37,14 @@ pub struct Tree {
     /// The object id of this tree.
     id: Oid,
     /// The first descendant entries for this tree.
-    entries: Vec<TreeEntry>,
+    entries: Vec<Entry>,
     /// The commit object that created this tree object.
     commit: Commit,
 }
 
 impl Tree {
     /// Creates a new tree, ensuring the `entries` are sorted.
-    pub(crate) fn new(id: Oid, mut entries: Vec<TreeEntry>, commit: Commit) -> Self {
+    pub(crate) fn new(id: Oid, mut entries: Vec<Entry>, commit: Commit) -> Self {
         entries.sort();
         Self {
             id,
@@ -63,7 +63,7 @@ impl Tree {
     }
 
     /// Returns the entries of the tree.
-    pub fn entries(&self) -> &Vec<TreeEntry> {
+    pub fn entries(&self) -> &Vec<Entry> {
         &self.entries
     }
 }
@@ -71,7 +71,7 @@ impl Tree {
 #[cfg(feature = "serde")]
 impl Serialize for Tree {
     /// Sample output:
-    /// (for `<entry_1>` and `<entry_2>` sample output, see [`TreeEntry`])
+    /// (for `<entry_1>` and `<entry_2>` sample output, see [`Entry`])
     /// ```
     /// {
     ///   "entries": [
@@ -109,50 +109,47 @@ impl Serialize for Tree {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Entry {
+pub enum EntryKind {
     Tree(Oid),
     Blob(Oid),
 }
 
-impl PartialOrd for Entry {
+impl PartialOrd for EntryKind {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Entry {
+impl Ord for EntryKind {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Entry::Tree(_), Entry::Tree(_)) => Ordering::Equal,
-            (Entry::Tree(_), Entry::Blob(_)) => Ordering::Less,
-            (Entry::Blob(_), Entry::Tree(_)) => Ordering::Greater,
-            (Entry::Blob(_), Entry::Blob(_)) => Ordering::Equal,
+            (EntryKind::Tree(_), EntryKind::Tree(_)) => Ordering::Equal,
+            (EntryKind::Tree(_), EntryKind::Blob(_)) => Ordering::Less,
+            (EntryKind::Blob(_), EntryKind::Tree(_)) => Ordering::Greater,
+            (EntryKind::Blob(_), EntryKind::Blob(_)) => Ordering::Equal,
         }
     }
 }
 
 /// An entry that can be found in a tree.
 ///
-/// Each entry consists of a [`TreeEntry::name`], its kind -- given as [`Entry`]
-/// -- and the header of its associated [`TreeEntry::commit`].
-///
 /// # Ordering
 ///
-/// The ordering of a `TreeEntry` is first by its [`Entry`] kind where
-/// [`Entry::Tree`]s come before [`Entry::Blob`]. If both kinds are
-/// equal then they are next compared by the lexicographical ordering
+/// The ordering of a [`Entry`] is first by its `entry` where
+/// [`EntryKind::Tree`]s come before [`EntryKind::Blob`]. If both kinds
+/// are equal then they are next compared by the lexicographical ordering
 /// of their `name`s.
 #[derive(Clone, Debug)]
-pub struct TreeEntry {
+pub struct Entry {
     name: String,
-    entry: Entry,
+    entry: EntryKind,
 
     /// The commit object that created this entry object.
     commit: Commit,
 }
 
-impl TreeEntry {
-    pub(crate) fn new(name: String, entry: Entry, commit: Commit) -> Self {
+impl Entry {
+    pub(crate) fn new(name: String, entry: EntryKind, commit: Commit) -> Self {
         Self {
             name,
             entry,
@@ -164,12 +161,12 @@ impl TreeEntry {
         &self.name
     }
 
-    pub fn entry(&self) -> &Entry {
+    pub fn entry(&self) -> &EntryKind {
         &self.entry
     }
 
     pub fn is_tree(&self) -> bool {
-        matches!(self.entry, Entry::Tree(_))
+        matches!(self.entry, EntryKind::Tree(_))
     }
 
     pub fn commit(&self) -> &Commit {
@@ -178,14 +175,14 @@ impl TreeEntry {
 
     pub fn object_id(&self) -> Oid {
         match self.entry {
-            Entry::Blob(id) => id,
-            Entry::Tree(id) => id,
+            EntryKind::Blob(id) => id,
+            EntryKind::Tree(id) => id,
         }
     }
 }
 
 // To support `sort`.
-impl Ord for TreeEntry {
+impl Ord for Entry {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entry
             .cmp(&other.entry)
@@ -193,31 +190,31 @@ impl Ord for TreeEntry {
     }
 }
 
-impl PartialOrd for TreeEntry {
+impl PartialOrd for Entry {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialEq for TreeEntry {
+impl PartialEq for Entry {
     fn eq(&self, other: &Self) -> bool {
         self.entry == other.entry && self.name == other.name
     }
 }
 
-impl Eq for TreeEntry {}
+impl Eq for Entry {}
 
-impl From<fs::Entry> for Entry {
+impl From<fs::Entry> for EntryKind {
     fn from(entry: fs::Entry) -> Self {
         match entry {
-            fs::Entry::File(f) => Entry::Blob(f.id()),
-            fs::Entry::Directory(d) => Entry::Tree(d.id()),
+            fs::Entry::File(f) => EntryKind::Blob(f.id()),
+            fs::Entry::Directory(d) => EntryKind::Tree(d.id()),
         }
     }
 }
 
 #[cfg(feature = "serde")]
-impl Serialize for TreeEntry {
+impl Serialize for Entry {
     /// Sample output:
     /// ```json
     ///  {
@@ -250,8 +247,8 @@ impl Serialize for TreeEntry {
         state.serialize_field(
             "kind",
             match self.entry {
-                Entry::Blob(_) => "blob",
-                Entry::Tree(_) => "tree",
+                EntryKind::Blob(_) => "blob",
+                EntryKind::Tree(_) => "tree",
             },
         )?;
         state.serialize_field("oid", &self.object_id())?;

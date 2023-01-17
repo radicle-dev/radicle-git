@@ -28,9 +28,10 @@ pub extern crate git_ref_format;
 
 extern crate radicle_git_ext as git_ext;
 
+pub mod blob;
 pub mod diff;
 pub mod fs;
-pub mod object;
+pub mod tree;
 
 // Re-export git2 as sub-module
 pub use git2::{self, Error as Git2Error, Time};
