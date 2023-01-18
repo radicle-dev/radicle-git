@@ -43,17 +43,15 @@ pub mod error {
         #[error(transparent)]
         Git(#[from] git2::Error),
         #[error(transparent)]
-        Entry(#[from] Entry),
-        #[error(transparent)]
         File(#[from] File),
         #[error("the path {0} is not valid")]
         InvalidPath(PathBuf),
-    }
-
-    #[derive(Debug, Error, PartialEq, Eq)]
-    pub enum Entry {
+        #[error("the entry at '{0}' must be of type {1}")]
+        InvalidType(PathBuf, &'static str),
         #[error("the entry name was not valid UTF-8")]
         Utf8Error,
+        #[error("the path {0} not found")]
+        PathNotFound(PathBuf),
     }
 
     #[derive(Debug, Error, PartialEq)]
@@ -258,15 +256,15 @@ impl Entry {
     pub(crate) fn from_entry(
         entry: &git2::TreeEntry,
         path: PathBuf,
-    ) -> Result<Option<Self>, error::Entry> {
-        let name = entry.name().ok_or(error::Entry::Utf8Error)?.to_string();
+    ) -> Result<Self, error::Directory> {
+        let name = entry.name().ok_or(error::Directory::Utf8Error)?.to_string();
         let id = entry.id().into();
 
-        Ok(entry.kind().and_then(|kind| match kind {
-            git2::ObjectType::Tree => Some(Self::Directory(Directory::new(name, path, id))),
-            git2::ObjectType::Blob => Some(Self::File(File::new(name, path, id))),
-            _ => None,
-        }))
+        match entry.kind() {
+            Some(git2::ObjectType::Tree) => Ok(Self::Directory(Directory::new(name, path, id))),
+            Some(git2::ObjectType::Blob) => Ok(Self::File(File::new(name, path, id))),
+            _ => Err(error::Directory::InvalidType(path, "tree or blob")),
+        }
     }
 }
 
@@ -361,7 +359,7 @@ impl Directory {
         // empty for the first level.
         tree.walk(git2::TreeWalkMode::PreOrder, |_entry_path, entry| {
             match Entry::from_entry(entry, path.clone()) {
-                Ok(Some(entry)) => match entry {
+                Ok(entry) => match entry {
                     Entry::File(_) => {
                         entries.insert(entry.name().clone(), entry);
                         git2::TreeWalkResult::Ok
@@ -372,7 +370,6 @@ impl Directory {
                         git2::TreeWalkResult::Skip
                     },
                 },
-                Ok(None) => git2::TreeWalkResult::Skip,
                 Err(err) => {
                     error = Some(err);
                     git2::TreeWalkResult::Abort
@@ -381,17 +378,13 @@ impl Directory {
         })?;
 
         match error {
-            Some(err) => Err(err.into()),
+            Some(err) => Err(err),
             None => Ok(Entries { listing: entries }),
         }
     }
 
-    /// Find the [`Entry`] found at `path`, if it exists.
-    pub fn find_entry<P>(
-        &self,
-        path: &P,
-        repo: &Repository,
-    ) -> Result<Option<Entry>, error::Directory>
+    /// Find the [`Entry`] found at a non-empty `path`, if it exists.
+    pub fn find_entry<P>(&self, path: &P, repo: &Repository) -> Result<Entry, error::Directory>
     where
         P: AsRef<Path>,
     {
@@ -400,53 +393,49 @@ impl Directory {
         let git2_tree = repo.find_tree(self.id)?;
         let entry = git2_tree
             .get_path(path)
-            .map(Some)
-            .or_matches::<git2::Error, _, _>(is_not_found_err, || Ok(None))?;
+            .or_matches::<error::Directory, _, _>(is_not_found_err, || {
+                Err(error::Directory::PathNotFound(path.to_path_buf()))
+            })?;
         let parent = path
             .parent()
             .ok_or_else(|| error::Directory::InvalidPath(path.to_path_buf()))?;
         let root_path = self.path().join(parent);
 
-        Ok(entry
-            .and_then(|entry| Entry::from_entry(&entry, root_path.to_path_buf()).transpose())
-            .transpose()
-            .unwrap())
+        Entry::from_entry(&entry, root_path)
     }
 
     /// Find the `Oid`, for a [`File`], found at `path`, if it exists.
-    pub fn find_file<P>(
-        &self,
-        path: &P,
-        repo: &Repository,
-    ) -> Result<Option<File>, error::Directory>
+    pub fn find_file<P>(&self, path: &P, repo: &Repository) -> Result<File, error::Directory>
     where
         P: AsRef<Path>,
     {
-        Ok(match self.find_entry(path, repo)? {
-            Some(Entry::File(file)) => Some(file),
-            _ => None,
-        })
+        match self.find_entry(path, repo)? {
+            Entry::File(file) => Ok(file),
+            _ => Err(error::Directory::InvalidType(
+                path.as_ref().to_path_buf(),
+                "file",
+            )),
+        }
     }
 
     /// Find the `Directory` found at `path`, if it exists.
     ///
     /// If `path` is `ROOT_DIR` (i.e. an empty path), returns self.
-    pub fn find_directory<P>(
-        &self,
-        path: &P,
-        repo: &Repository,
-    ) -> Result<Option<Self>, error::Directory>
+    pub fn find_directory<P>(&self, path: &P, repo: &Repository) -> Result<Self, error::Directory>
     where
         P: AsRef<Path>,
     {
         if path.as_ref() == Path::new(ROOT_DIR) {
-            return Ok(Some(self.clone()));
+            return Ok(self.clone());
         }
 
-        Ok(match self.find_entry(path, repo)? {
-            Some(Entry::Directory(d)) => Some(d),
-            _ => None,
-        })
+        match self.find_entry(path, repo)? {
+            Entry::Directory(d) => Ok(d),
+            _ => Err(error::Directory::InvalidType(
+                path.as_ref().to_path_buf(),
+                "directory",
+            )),
+        }
     }
 
     // TODO(fintan): This is going to be a bit trickier so going to leave it out for

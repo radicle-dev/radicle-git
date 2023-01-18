@@ -22,30 +22,35 @@ mod directory {
         // find_entry for a file.
         let path = Path::new("src/memory.rs");
         let entry = root.find_entry(&path, &repo).unwrap();
-        assert!(matches!(entry, Some(fs::Entry::File(_))));
+        assert!(matches!(entry, fs::Entry::File(_)));
 
         // find_entry for a directory.
         let path = Path::new("this/is/a/really/deeply/nested/directory/tree");
         let entry = root.find_entry(&path, &repo).unwrap();
-        assert!(matches!(entry, Some(fs::Entry::Directory(_))));
+        assert!(matches!(entry, fs::Entry::Directory(_)));
 
         // find_entry for a non-leaf directory and its relative path.
         let path = Path::new("text");
         let entry = root.find_entry(&path, &repo).unwrap();
-        assert!(matches!(entry, Some(fs::Entry::Directory(_))));
-        if let Some(fs::Entry::Directory(sub_dir)) = entry {
+        assert!(matches!(entry, fs::Entry::Directory(_)));
+        if let fs::Entry::Directory(sub_dir) = entry {
             let inner_path = Path::new("garden.txt");
             let inner_entry = sub_dir.find_entry(&inner_path, &repo).unwrap();
-            assert!(matches!(inner_entry, Some(fs::Entry::File(_))));
+            assert!(matches!(inner_entry, fs::Entry::File(_)));
         }
 
         // find_entry for non-existing file
         let path = Path::new("this/is/a/really/missing_file");
-        let result = root.find_entry(&path, &repo).unwrap();
-        assert_eq!(result, None);
+        let result = root.find_entry(&path, &repo);
+        assert!(matches!(result, Err(fs::error::Directory::PathNotFound(_))));
 
         // find_entry for absolute path: fail.
         let path = Path::new("/src/memory.rs");
+        let result = root.find_entry(&path, &repo);
+        assert!(result.is_err());
+
+        // find entry for an empty path
+        let path = Path::new("");
         let result = root.find_entry(&path, &repo);
         assert!(result.is_err());
     }
@@ -59,10 +64,7 @@ mod directory {
             .unwrap();
 
         // Assert that we can find the memory.rs file!
-        assert!(root
-            .find_file(&Path::new("src/memory.rs"), &repo)
-            .unwrap()
-            .is_some());
+        assert!(root.find_file(&Path::new("src/memory.rs"), &repo).is_ok());
 
         let root_contents: Vec<Entry> = root.entries(&repo).unwrap().collect();
         assert_eq!(root_contents.len(), 7);
@@ -82,10 +84,7 @@ mod directory {
         assert_eq!(root_contents[5].name(), "text");
         assert_eq!(root_contents[6].name(), "this");
 
-        let src = root
-            .find_directory(&Path::new("src"), &repo)
-            .unwrap()
-            .unwrap();
+        let src = root.find_directory(&Path::new("src"), &repo).unwrap();
         assert_eq!(src.path(), Path::new("src").to_path_buf());
         let src_contents: Vec<Entry> = src.entries(&repo).unwrap().collect();
         assert_eq!(src_contents.len(), 3);
@@ -109,8 +108,8 @@ mod directory {
 
         let path = Path::new("src");
         let entry = root.find_entry(&path, &repo).unwrap();
-        assert!(matches!(entry, Some(fs::Entry::Directory(_))));
-        if let Some(fs::Entry::Directory(d)) = entry {
+        assert!(matches!(entry, fs::Entry::Directory(_)));
+        if let fs::Entry::Directory(d) = entry {
             assert_eq!(16297, d.size(&repo).unwrap());
         }
     }
@@ -120,7 +119,7 @@ mod directory {
         let repo = Repository::open(GIT_PLATINUM).unwrap();
         let branch = Branch::local(refname!("dev"));
         let root = repo.root_dir(&branch).unwrap();
-        let dir = root.find_directory(&"this/is", &repo).unwrap().unwrap();
+        let dir = root.find_directory(&"this/is", &repo).unwrap();
         let last_commit = repo.last_commit(&dir.path(), &branch).unwrap().unwrap();
         assert_eq!(
             last_commit.id.to_string(),
@@ -135,10 +134,7 @@ mod directory {
         let root = repo.root_dir(&branch).unwrap();
 
         // Find a file with "\" in its name.
-        let f = root
-            .find_file(&"special/faux\\path", &repo)
-            .unwrap()
-            .unwrap();
+        let f = root.find_file(&"special/faux\\path", &repo).unwrap();
         let last_commit = repo.last_commit(&f.path(), &branch).unwrap().unwrap();
         assert_eq!(
             last_commit.id.to_string(),

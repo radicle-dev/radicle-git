@@ -258,15 +258,13 @@ impl Repository {
         path: &P,
     ) -> Result<Directory, Error> {
         let root = self.root_dir(commit)?;
-        root.find_directory(path, self)?
-            .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))
+        Ok(root.find_directory(path, self)?)
     }
 
     /// Returns a [`File`] for `path` in `commit`.
     pub fn file<C: ToCommit, P: AsRef<Path>>(&self, commit: C, path: &P) -> Result<File, Error> {
         let root = self.root_dir(commit)?;
-        root.find_file(path, self)?
-            .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))
+        Ok(root.find_file(path, self)?)
     }
 
     /// Returns a [`Tree`] for `path` in `commit`.
