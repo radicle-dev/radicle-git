@@ -26,7 +26,7 @@ use git_ref_format::{refspec::QualifiedPattern, Qualified, RefStr, RefString};
 use radicle_git_ext::Oid;
 
 use crate::{
-    blob::Blob,
+    blob::{Blob, BlobRef},
     diff::Diff,
     fs::{Directory, File, FileContent},
     refs::{BranchNames, Branches, Categories, Namespaces, TagNames, Tags},
@@ -258,7 +258,11 @@ impl Repository {
     }
 
     /// Returns a [`Blob`] for `path` in `commit`.
-    pub fn blob<C: ToCommit, P: AsRef<Path>>(&self, commit: C, path: &P) -> Result<Blob, Error> {
+    pub fn blob<'a, C: ToCommit, P: AsRef<Path>>(
+        &'a self,
+        commit: C,
+        path: &P,
+    ) -> Result<Blob<BlobRef<'a>>, Error> {
         let commit = commit
             .to_commit(self)
             .map_err(|e| Error::ToCommit(e.into()))?;
@@ -266,8 +270,8 @@ impl Repository {
         let last_commit = self
             .last_commit(path, commit)?
             .ok_or_else(|| error::Repo::PathNotFound(path.as_ref().to_path_buf()))?;
-        let content = file.content(self)?;
-        Ok(Blob::new(file.id(), content.as_bytes(), last_commit))
+        let git2_blob = self.find_blob(file.id())?;
+        Ok(Blob::<BlobRef<'a>>::new(file.id(), git2_blob, last_commit))
     }
 
     /// Returns the last commit, if exists, for a `path` in the history of

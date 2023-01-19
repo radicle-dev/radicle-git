@@ -163,6 +163,19 @@ fn repo_blob() {
 
     // Verify as_bytes.
     assert_eq!(content.as_bytes().len(), content.size());
+
+    // Verify to_owned().
+    let blob_owned = blob.to_owned();
+    assert_eq!(blob_owned.content().size(), 6253);
+    assert_eq!(blob_owned.content().as_bytes(), content.as_bytes());
+
+    // Verify JSON output is the same.
+    let json_ref = json!({ "content": content }).to_string();
+    let json_owned = json!( {
+      "content": blob_owned.content()
+    })
+    .to_string();
+    assert_eq!(json_ref, json_owned);
 }
 
 #[test]
