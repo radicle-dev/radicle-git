@@ -159,15 +159,12 @@ fn repo_blob() {
 
     // Verify the blob content size matches with the file size of "memory.rs"
     let content = blob.content();
-    assert_eq!(content.size(), 6253);
-
-    // Verify as_bytes.
-    assert_eq!(content.as_bytes().len(), content.size());
+    assert_eq!(blob.size(), 6253);
 
     // Verify to_owned().
     let blob_owned = blob.to_owned();
-    assert_eq!(blob_owned.content().size(), 6253);
-    assert_eq!(blob_owned.content().as_bytes(), content.as_bytes());
+    assert_eq!(blob_owned.size(), 6253);
+    assert_eq!(blob.content(), blob_owned.content());
 
     // Verify JSON output is the same.
     let json_ref = json!({ "content": content }).to_string();
