@@ -27,13 +27,14 @@ use radicle_git_ext::Oid;
 use thiserror::Error;
 
 use crate::{
+    blob::Blob,
     commit,
     diff::{self, *},
     fs::{self, Directory, File, FileContent},
     glob,
     namespace,
-    object::{Blob, Tree, TreeEntry},
     refs::{self, BranchNames, Branches, Categories, Namespaces, TagNames, Tags},
+    tree::{Entry, Tree},
     Branch,
     Commit,
     Glob,
@@ -281,9 +282,9 @@ impl Repository {
                 let commit = self
                     .last_commit(&path, commit.id)?
                     .ok_or(Error::PathNotFound(path))?;
-                Ok(TreeEntry::new(name, en.into(), commit))
+                Ok(Entry::new(name, en.into(), commit))
             })
-            .collect::<Result<Vec<TreeEntry>, Error>>()?;
+            .collect::<Result<Vec<Entry>, Error>>()?;
         entries.sort();
 
         let last_commit = self
