@@ -1,11 +1,13 @@
 use std::{convert::TryFrom, str};
 
-use git_ext::Oid;
 use git_ref_format::{component, lit, Qualified, RefStr, RefString};
+use radicle_git_ext::Oid;
 
 use crate::{refs::refstr_join, Author};
 
-/// The static information of a [`git2::Tag`].
+/// The metadata of a [`Git tag`][git-tag].
+///
+/// [git-tag]: https://git-scm.com/book/en/v2/Git-Basics-Tagging
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tag {
     /// A light-weight git tag.

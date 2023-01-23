@@ -22,8 +22,9 @@ use std::{
 
 use crate::{Commit, Error, Repository, ToCommit};
 
-/// An iterator that produces the history of commits for a given `head`,
-/// in the `repo`.
+/// An iterator that produces the history of commits for a given `head`.
+///
+/// The lifetime of this struct is attached to the underlying [`Repository`].
 pub struct History<'a> {
     repo: &'a Repository,
     head: Commit,

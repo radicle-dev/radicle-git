@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use proptest::prelude::*;
 use radicle_git_ext::Oid;
-use radicle_surf::{Author, Commit};
+use radicle_surf::{Author, Commit, Time};
 use test_helpers::roundtrip;
 
 proptest! {
@@ -18,12 +18,12 @@ fn commits_strategy() -> impl Strategy<Value = Commit> {
         author: Author {
             name: text.clone(),
             email: text.clone(),
-            time: git2::Time::new(time, 0),
+            time: Time::new(time, 0),
         },
         committer: Author {
             name: text.clone(),
             email: text.clone(),
-            time: git2::Time::new(time, 0),
+            time: Time::new(time, 0),
         },
         message: text.clone(),
         summary: text,
