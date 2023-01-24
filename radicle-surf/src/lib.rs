@@ -38,7 +38,7 @@ pub use git2::{self, Error as Git2Error, Time};
 pub use radicle_git_ext::Oid;
 
 mod repo;
-pub use repo::{Error, Repository};
+pub use repo::Repository;
 
 mod glob;
 pub use glob::Glob;
@@ -65,3 +65,6 @@ mod revision;
 pub use revision::{Revision, Signature, ToCommit};
 
 mod refs;
+
+mod error;
+pub use error::Error;

@@ -24,19 +24,16 @@ use std::{
 
 use git_ref_format::{refspec::QualifiedPattern, Qualified, RefStr, RefString};
 use radicle_git_ext::Oid;
-use thiserror::Error;
 
 use crate::{
     blob::Blob,
-    commit,
-    diff::{self, *},
-    fs::{self, Directory, File, FileContent},
-    glob,
-    namespace,
-    refs::{self, BranchNames, Branches, Categories, Namespaces, TagNames, Tags},
+    diff::Diff,
+    fs::{Directory, File, FileContent},
+    refs::{BranchNames, Branches, Categories, Namespaces, TagNames, Tags},
     tree::{Entry, Tree},
     Branch,
     Commit,
+    Error,
     Glob,
     History,
     Namespace,
@@ -48,49 +45,16 @@ use crate::{
 };
 
 /// Enumeration of errors that can occur in repo operations.
-#[derive(Debug, Error)]
-#[non_exhaustive]
-pub enum Error {
-    #[error(transparent)]
-    Branches(#[from] refs::error::Branch),
-    #[error(transparent)]
-    Categories(#[from] refs::error::Category),
-    #[error(transparent)]
-    Commit(#[from] commit::Error),
-    /// An error that comes from performing a *diff* operations.
-    #[error(transparent)]
-    Diff(#[from] diff::git::error::Diff),
-    /// A wrapper around the generic [`git2::Error`].
-    #[error(transparent)]
-    Directory(#[from] fs::error::Directory),
-    #[error(transparent)]
-    File(#[from] fs::error::File),
-    #[error(transparent)]
-    Git(#[from] git2::Error),
-    #[error(transparent)]
-    Glob(#[from] glob::Error),
-    #[error(transparent)]
-    Namespace(#[from] namespace::Error),
-    #[error("the reference '{0}' should be of the form 'refs/<category>/<path>'")]
-    NotQualified(String),
-    /// The requested file was not found.
-    #[error("path not found for: {0}")]
-    PathNotFound(PathBuf),
-    #[error(transparent)]
-    RefFormat(#[from] git_ref_format::Error),
-    #[error(transparent)]
-    Revision(Box<dyn std::error::Error + Send + Sync + 'static>),
-    /// A `revspec` was provided that could not be parsed into a branch, tag, or
-    /// commit object.
-    #[error("provided revspec '{rev}' could not be parsed into a git object")]
-    RevParseFailure {
-        /// The provided revspec that failed to parse.
-        rev: String,
-    },
-    #[error(transparent)]
-    ToCommit(Box<dyn std::error::Error + Send + Sync + 'static>),
-    #[error(transparent)]
-    Tags(#[from] refs::error::Tag),
+pub mod error {
+    use std::path::PathBuf;
+    use thiserror::Error;
+
+    #[derive(Debug, Error)]
+    #[non_exhaustive]
+    pub enum Repo {
+        #[error("path not found for: {0}")]
+        PathNotFound(PathBuf),
+    }
 }
 
 /// Wrapper around the `git2`'s `git2::Repository` type.
@@ -281,7 +245,7 @@ impl Repository {
                 let path = en.path();
                 let commit = self
                     .last_commit(&path, commit.id)?
-                    .ok_or(Error::PathNotFound(path))?;
+                    .ok_or(error::Repo::PathNotFound(path))?;
                 Ok(Entry::new(name, en.into(), commit))
             })
             .collect::<Result<Vec<Entry>, Error>>()?;
@@ -289,7 +253,7 @@ impl Repository {
 
         let last_commit = self
             .last_commit(path, commit)?
-            .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))?;
+            .ok_or_else(|| error::Repo::PathNotFound(path.as_ref().to_path_buf()))?;
         Ok(Tree::new(dir.id(), entries, last_commit))
     }
 
@@ -301,7 +265,7 @@ impl Repository {
         let file = self.file(commit.id, path)?;
         let last_commit = self
             .last_commit(path, commit)?
-            .ok_or_else(|| Error::PathNotFound(path.as_ref().to_path_buf()))?;
+            .ok_or_else(|| error::Repo::PathNotFound(path.as_ref().to_path_buf()))?;
         let content = file.content(self)?;
         Ok(Blob::new(file.id(), content.as_bytes(), last_commit))
     }
@@ -354,7 +318,7 @@ impl Repository {
     // TODO(finto): I think this can be removed in favour of using
     // `source::Blob::new`
     /// Retrieves the file with `path` in this commit.
-    pub fn get_commit_file<P, R>(&self, rev: &R, path: &P) -> Result<FileContent, crate::Error>
+    pub fn get_commit_file<P, R>(&self, rev: &R, path: &P) -> Result<FileContent, Error>
     where
         P: AsRef<Path>,
         R: Revision,
@@ -367,7 +331,7 @@ impl Repository {
         let object = entry.to_object(&self.inner)?;
         let blob = object
             .into_blob()
-            .map_err(|_| Error::PathNotFound(path.to_path_buf()))?;
+            .map_err(|_| error::Repo::PathNotFound(path.to_path_buf()))?;
         Ok(FileContent::new(blob))
     }
 
