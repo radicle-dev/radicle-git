@@ -86,9 +86,12 @@ impl<'a> Iterator for History<'a> {
 
                     // Handles the optional filter_by.
                     if let Some(FilterBy::File { path }) = &self.filter_by {
-                        let path_opt = self.repo.diff_commit_and_parents(path, &commit)?;
-                        if path_opt.is_none() {
-                            return Ok(None); // Filter out this commit.
+                        // Only check the commit diff if the path is not empty.
+                        if !path.as_os_str().is_empty() {
+                            let path_opt = self.repo.diff_commit_and_parents(path, &commit)?;
+                            if path_opt.is_none() {
+                                return Ok(None); // Filter out this commit.
+                            }
                         }
                     }
 

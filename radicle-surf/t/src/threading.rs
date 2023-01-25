@@ -20,11 +20,13 @@ fn basic_test() -> Result<(), Error> {
         branches,
         vec![
             Branch::local(refname!("dev")),
+            Branch::local(refname!("empty-branch")),
             Branch::local(refname!("master")),
             Branch::remote(banana.clone(), refname!("orange/pineapple")),
             Branch::remote(banana, refname!("pineapple")),
             Branch::remote(origin.clone(), refname!("HEAD")),
             Branch::remote(origin.clone(), refname!("dev")),
+            Branch::remote(origin.clone(), refname!("empty-branch")),
             Branch::remote(origin, refname!("master")),
         ]
     );
