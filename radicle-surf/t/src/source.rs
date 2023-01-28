@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use git_ref_format::refname;
-use radicle_surf::{Glob, Repository};
+use radicle_surf::{Branch, Glob, Repository};
 use serde_json::json;
 
 const GIT_PLATINUM: &str = "../data/git-platinum";
@@ -78,6 +78,20 @@ fn tree_serialization() {
       "oid": "ed52e9f8dfe1d8b374b2a118c25235349a743dd2"
     });
     assert_eq!(serde_json::to_value(tree).unwrap(), expected)
+}
+
+#[test]
+fn repo_tree_empty_branch() {
+    let repo = Repository::open(GIT_PLATINUM).unwrap();
+    let rev = Branch::local(refname!("empty-branch"));
+    let tree = repo.tree(rev, &"").unwrap();
+    assert_eq!(tree.entries().len(), 0);
+
+    // Verify the last commit is the empty commit.
+    assert_eq!(
+        tree.commit().id.to_string(),
+        "e972683fe8136bf8a5cb2378cf50303554008049"
+    );
 }
 
 #[test]
@@ -182,18 +196,23 @@ fn commit_branches() {
     let glob = Glob::all_heads().branches().and(Glob::all_remotes());
     let branches = repo.revision_branches(init_commit, glob).unwrap();
 
-    assert_eq!(branches.len(), 7);
+    assert_eq!(branches.len(), 9);
     assert_eq!(branches[0].refname().as_str(), "refs/heads/dev");
-    assert_eq!(branches[1].refname().as_str(), "refs/heads/master");
+    assert_eq!(branches[1].refname().as_str(), "refs/heads/empty-branch");
+    assert_eq!(branches[2].refname().as_str(), "refs/heads/master");
     assert_eq!(
-        branches[2].refname().as_str(),
+        branches[3].refname().as_str(),
         "refs/remotes/banana/orange/pineapple"
     );
     assert_eq!(
-        branches[3].refname().as_str(),
+        branches[4].refname().as_str(),
         "refs/remotes/banana/pineapple"
     );
-    assert_eq!(branches[4].refname().as_str(), "refs/remotes/origin/HEAD");
-    assert_eq!(branches[5].refname().as_str(), "refs/remotes/origin/dev");
-    assert_eq!(branches[6].refname().as_str(), "refs/remotes/origin/master");
+    assert_eq!(branches[5].refname().as_str(), "refs/remotes/origin/HEAD");
+    assert_eq!(branches[6].refname().as_str(), "refs/remotes/origin/dev");
+    assert_eq!(
+        branches[7].refname().as_str(),
+        "refs/remotes/origin/empty-branch"
+    );
+    assert_eq!(branches[8].refname().as_str(), "refs/remotes/origin/master");
 }
