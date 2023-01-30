@@ -340,7 +340,7 @@ impl OneLevel {
     }
 
     pub fn into_qualified(self, category: RefLike) -> Qualified {
-        Qualified(format!("refs/{}/{}", category, self))
+        Qualified(format!("refs/{category}/{self}"))
     }
 }
 
@@ -454,7 +454,7 @@ impl From<RefLike> for Qualified {
         if path.starts_with("refs/") {
             Self(path)
         } else {
-            Self(format!("refs/heads/{}", path))
+            Self(format!("refs/heads/{path}"))
         }
     }
 }

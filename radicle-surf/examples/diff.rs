@@ -40,7 +40,7 @@ fn get_options_or_exit() -> Options {
     match Options::parse(std::env::args()) {
         Ok(options) => options,
         Err(message) => {
-            println!("{}", message);
+            println!("{message}");
             std::process::exit(1);
         },
     }
@@ -50,7 +50,7 @@ fn init_repository_or_exit(path_to_repo: &str) -> Repository {
     match Repository::open(path_to_repo) {
         Ok(repo) => repo,
         Err(e) => {
-            println!("Failed to create repository: {:?}", e);
+            println!("Failed to create repository: {e:?}");
             std::process::exit(1);
         },
     }
@@ -74,7 +74,7 @@ fn print_diff_summary(diff: &Diff, elapsed_nanos: u128) {
         diff.modified.len(),
         diff.added.len() + diff.deleted.len() + diff.modified.len()
     );
-    println!("diff took {} nanos ", elapsed_nanos);
+    println!("diff took {elapsed_nanos} nanos ");
 }
 
 struct Options {

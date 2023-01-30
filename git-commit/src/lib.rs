@@ -276,14 +276,14 @@ impl ToString for Commit {
         writeln!(buf, "tree {}", self.tree).ok();
 
         for parent in &self.parents {
-            writeln!(buf, "parent {}", parent).ok();
+            writeln!(buf, "parent {parent}").ok();
         }
 
         writeln!(buf, "author {}", self.author).ok();
         writeln!(buf, "committer {}", self.committer).ok();
 
         for (name, value) in self.headers.iter() {
-            writeln!(buf, "{} {}", name, value.replace('\n', "\n ")).ok();
+            writeln!(buf, "{name} {}", value.replace('\n', "\n ")).ok();
         }
         writeln!(buf).ok();
         write!(buf, "{}", self.message.trim()).ok();

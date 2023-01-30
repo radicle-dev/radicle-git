@@ -36,10 +36,10 @@ pub trait Write: Read {
     /// The commit will not be associated with any reference. If this is
     /// required then you can use the [`Oid`] as the target for a
     /// [`crate::refdb::Update`].
-    fn write_commit<'a>(
+    fn write_commit(
         &self,
         tree: &Tree,
-        parents: &[&Commit<'a>],
+        parents: &[&Commit<'_>],
         message: &str,
     ) -> Result<Oid, Self::WriteCommit>;
 

@@ -45,7 +45,7 @@ fn main() {
     print_directory(&root, &repo, 0);
 
     let elapsed_millis = now.elapsed().as_millis();
-    println!("browse with print: {} ms", elapsed_millis);
+    println!("browse with print: {elapsed_millis} ms");
 }
 
 fn print_directory(d: &Directory, repo: &Repository, indent_level: usize) {
