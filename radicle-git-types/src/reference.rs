@@ -535,7 +535,7 @@ impl<S, T> SymbolicRef<S, T> {
         let source = Into::<ext::RefLike>::into(&self.source);
         let target = Into::<ext::RefLike>::into(&self.target);
 
-        let reflog_msg = &format!("creating symbolic ref {} -> {}", source, target);
+        let reflog_msg = &format!("creating symbolic ref {source} -> {target}");
         tracing::debug!("{}", reflog_msg);
 
         let _ = repo.refname_to_id(target.as_str())?;

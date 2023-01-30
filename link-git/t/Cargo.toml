@@ -22,7 +22,7 @@ futures_ringbuf = "0.3"
 tempfile = "3.3"
 
 [dev-dependencies.git2]
-version = "0.15.0"
+version = "0.16.1"
 default-features = false
 features = ["vendored-libgit2"]
 

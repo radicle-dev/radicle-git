@@ -540,10 +540,10 @@ impl odb::Write for Write {
         self.as_raw().blob(data).map(Oid::from)
     }
 
-    fn write_commit<'b>(
+    fn write_commit(
         &self,
         tree: &odb::Tree,
-        parents: &[&odb::Commit<'b>],
+        parents: &[&odb::Commit<'_>],
         message: &str,
     ) -> Result<Oid, Self::WriteCommit> {
         let author = self.info.signature()?;

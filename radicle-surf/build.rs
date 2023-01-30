@@ -60,7 +60,7 @@ fn main() {
 
     unpack(git_platinum_tarball, target).expect("Failed to unpack git-platinum");
 
-    println!("cargo:rerun-if-changed={}", git_platinum_tarball);
+    println!("cargo:rerun-if-changed={git_platinum_tarball}");
 }
 
 fn unpack(archive_path: impl AsRef<Path>, target: impl AsRef<Path>) -> anyhow::Result<()> {

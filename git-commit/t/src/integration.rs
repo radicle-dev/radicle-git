@@ -23,6 +23,6 @@ fn valid_commits() {
     for oid in walk.take(20) {
         let oid = oid.unwrap();
         let commit = Commit::read(&repo, oid);
-        assert!(commit.is_ok(), "Oid: {}, Error: {:?}", oid, commit)
+        assert!(commit.is_ok(), "Oid: {oid}, Error: {commit:?}")
     }
 }

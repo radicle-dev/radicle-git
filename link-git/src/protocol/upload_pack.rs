@@ -147,7 +147,7 @@ where
                     std::env::vars()
                         .filter(|(key, _)| key == "PATH" || key.starts_with("GIT_TRACE")),
                 )
-                .env("GIT_PROTOCOL", format!("version={}", protocol_version))
+                .env("GIT_PROTOCOL", format!("version={protocol_version}"))
                 .env("GIT_NAMESPACE", namespace)
                 .args([
                     "-c",

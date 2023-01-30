@@ -91,9 +91,7 @@ impl File {
     pub(crate) fn new(name: String, prefix: PathBuf, id: Oid) -> Self {
         debug_assert!(
             !prefix.ends_with(&name),
-            "prefix = {:?}, name = {}",
-            prefix,
-            name
+            "prefix = {prefix:?}, name = {name}",
         );
         Self { name, prefix, id }
     }
@@ -307,9 +305,7 @@ impl Directory {
     pub(crate) fn new(name: String, prefix: PathBuf, id: Oid) -> Self {
         debug_assert!(
             name.is_empty() || !prefix.ends_with(&name),
-            "prefix = {:?}, name = {}",
-            prefix,
-            name
+            "prefix = {prefix:?}, name = {name}",
         );
         Self { name, prefix, id }
     }

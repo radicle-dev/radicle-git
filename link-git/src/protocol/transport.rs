@@ -27,7 +27,7 @@ where
     W: AsyncWrite + Unpin,
 {
     pub fn new(repo: BString, recv: R, send: W) -> Self {
-        let url = format!("rad://{}", repo);
+        let url = format!("rad://{repo}");
         let inner = Connection::new(
             recv,
             send,

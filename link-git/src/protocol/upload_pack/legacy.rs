@@ -64,10 +64,7 @@ where
             .arg("-c")
             .arg("uploadpack.hiderefs=refs/")
             .arg("-c")
-            .arg(format!(
-                "uploadpack.hiderefs=!refs/namespaces/{}",
-                namespace
-            ));
+            .arg(format!("uploadpack.hiderefs=!refs/namespaces/{namespace}",));
 
         for r in unhide {
             cmd.arg("-c")

@@ -62,7 +62,7 @@ where
         let src = Into::<ext::RefspecPattern>::into(&self.src);
         let dst = Into::<ext::RefspecPattern>::into(&self.dst);
 
-        write!(f, "{}:{}", src, dst)
+        write!(f, "{src}:{dst}")
     }
 }
 
