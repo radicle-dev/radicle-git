@@ -34,7 +34,7 @@ pub enum Error {
     RefFormat(#[from] git_ref_format::Error),
 }
 
-/// A collection of globs for T (a git reference type).
+/// A collection of globs for a git reference type.
 #[derive(Clone, Debug)]
 pub struct Glob<T> {
     globs: Vec<QualifiedPattern<'static>>,

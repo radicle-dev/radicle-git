@@ -17,7 +17,7 @@
 
 use std::{convert::TryFrom, str};
 
-use git_ext::Oid;
+use radicle_git_ext::Oid;
 use thiserror::Error;
 
 #[cfg(feature = "serde")]
@@ -33,7 +33,7 @@ pub enum Error {
     Utf8Error(#[from] str::Utf8Error),
 }
 
-/// `Author` is the static information of a [`git2::Signature`].
+/// Represents the authorship of actions in a git repo.
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Author {
@@ -49,20 +49,48 @@ pub struct Author {
             deserialize_with = "deserialize_time"
         )
     )]
-    pub time: git2::Time,
+    pub time: Time,
+}
+
+/// Time used in the authorship of an action in a git repo.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Time {
+    inner: git2::Time,
+}
+
+impl From<git2::Time> for Time {
+    fn from(inner: git2::Time) -> Self {
+        Self { inner }
+    }
+}
+
+impl Time {
+    pub fn new(epoch_seconds: i64, offset_minutes: i32) -> Self {
+        git2::Time::new(epoch_seconds, offset_minutes).into()
+    }
+
+    /// Returns the seconds since UNIX epoch.
+    pub fn seconds(&self) -> i64 {
+        self.inner.seconds()
+    }
+
+    /// Returns the timezone offset in minutes.
+    pub fn offset_minutes(&self) -> i32 {
+        self.inner.offset_minutes()
+    }
 }
 
 #[cfg(feature = "serde")]
-fn deserialize_time<'de, D>(deserializer: D) -> Result<git2::Time, D::Error>
+fn deserialize_time<'de, D>(deserializer: D) -> Result<Time, D::Error>
 where
     D: Deserializer<'de>,
 {
     let seconds: i64 = Deserialize::deserialize(deserializer)?;
-    Ok(git2::Time::new(seconds, 0))
+    Ok(Time::new(seconds, 0))
 }
 
 #[cfg(feature = "serde")]
-fn serialize_time<S>(t: &git2::Time, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_time<S>(t: &Time, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -91,15 +119,15 @@ impl<'repo> TryFrom<git2::Signature<'repo>> for Author {
     fn try_from(signature: git2::Signature) -> Result<Self, Self::Error> {
         let name = str::from_utf8(signature.name_bytes())?.into();
         let email = str::from_utf8(signature.email_bytes())?.into();
-        let time = signature.when();
+        let time = signature.when().into();
 
         Ok(Author { name, email, time })
     }
 }
 
-/// `Commit` is the static information of a [`git2::Commit`]. To get back the
-/// original `Commit` in the repository we can use the [`Oid`] to retrieve
-/// it.
+/// `Commit` is the metadata of a [Git commit][git-commit].
+///
+/// [git-commit]: https://git-scm.com/book/en/v2/Git-Internals-Git-Objects
 #[cfg_attr(feature = "serde", derive(Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Commit {

@@ -57,10 +57,13 @@ pub mod error {
     }
 }
 
-/// Wrapper around the `git2`'s `git2::Repository` type.
-/// This is to to limit the functionality that we can do
-/// on the underlying object.
+/// Represents the state associated with a Git repository.
+///
+/// Many other types in this crate are derived from methods in this struct.
 pub struct Repository {
+    /// Wrapper around the `git2`'s `git2::Repository` type.
+    /// This is to to limit the functionality that we can do
+    /// on the underlying object.
     inner: git2::Repository,
 }
 

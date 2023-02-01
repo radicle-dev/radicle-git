@@ -17,8 +17,6 @@
 
 //! Types that represent diff(s) in a Git repo.
 
-#![allow(dead_code, unused_variables, missing_docs)]
-
 use std::path::PathBuf;
 
 #[cfg(feature = "serde")]
@@ -261,11 +259,6 @@ impl Serialize for Modification {
         S: Serializer,
     {
         use serde::ser::SerializeMap as _;
-
-        const NAME: &str = "Modification";
-        const ADDITION: &str = "Addition";
-        const DELETION: &str = "Deletion";
-        const CONTEXT: &str = "Context";
 
         match self {
             Modification::Addition(addition) => {

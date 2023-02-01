@@ -7,8 +7,7 @@ use git_ref_format::{component, lit, Component, Qualified, RefStr, RefString};
 
 use crate::refs::refstr_join;
 
-/// A `Branch` represents any git branch. This can either be a reference
-/// that is under the `refs/heads` or `refs/remotes` namespace.
+/// A `Branch` represents any git branch. It can be [`Local`] or [`Remote`].
 ///
 /// Note that if a `Branch` is created from a [`git2::Reference`] then
 /// any `refs/namespaces` will be stripped.
@@ -116,7 +115,7 @@ impl Local {
     /// If the name is qualified with `refs/heads`, this will be
     /// shortened to the suffix. To get the `Qualified` name again,
     /// use [`Local::refname`].
-    pub fn new<R>(name: R) -> Self
+    pub(crate) fn new<R>(name: R) -> Self
     where
         R: AsRef<RefStr>,
     {
@@ -213,7 +212,7 @@ impl Remote {
     /// `refs/remotes`, use [`Remote::from_refs_remotes`] instead.
     ///
     /// To get the `Qualified` name, use [`Remote::refname`].
-    pub fn new<R>(remote: Component, name: R) -> Self
+    pub(crate) fn new<R>(remote: Component, name: R) -> Self
     where
         R: AsRef<RefStr>,
     {

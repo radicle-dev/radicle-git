@@ -15,54 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! ```
-//! use nonempty::NonEmpty;
-//! use radicle_surf::file_system::{Directory, File, Label, Path, SystemType};
-//! use radicle_surf::file_system::unsound;
-//! use radicle_surf::vcs::git::*;
-//! use std::collections::HashMap;
-//! use std::str::FromStr;
-//! # use std::error::Error;
-//!
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! let repo = Repository::new("./data/git-platinum")?;
-//!
-//! // Pin the browser to a parituclar commit.
-//! let pin_commit = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
-//! let mut browser = Browser::new(&repo, Branch::local("master"))?;
-//! browser.commit(pin_commit)?;
-//!
-//! let directory = browser.get_directory()?;
-//! let mut directory_contents = directory.list_directory();
-//! directory_contents.sort();
-//!
-//! assert_eq!(directory_contents, vec![
-//!     SystemType::file(unsound::label::new(".i-am-well-hidden")),
-//!     SystemType::file(unsound::label::new(".i-too-am-hidden")),
-//!     SystemType::file(unsound::label::new("README.md")),
-//!     SystemType::directory(unsound::label::new("bin")),
-//!     SystemType::directory(unsound::label::new("src")),
-//!     SystemType::directory(unsound::label::new("text")),
-//!     SystemType::directory(unsound::label::new("this")),
-//! ]);
-//!
-//! // find src directory in the Git directory and the in-memory directory
-//! let src_directory = directory
-//!     .find_directory(Path::new(unsound::label::new("src")))
-//!     .expect("failed to find src");
-//! let mut src_directory_contents = src_directory.list_directory();
-//! src_directory_contents.sort();
-//!
-//! assert_eq!(src_directory_contents, vec![
-//!     SystemType::file(unsound::label::new("Eval.hs")),
-//!     SystemType::file(unsound::label::new("Folder.svelte")),
-//!     SystemType::file(unsound::label::new("memory.rs")),
-//! ]);
-//! #
-//! # Ok(())
-//! # }
-//! ```
-
 use std::{convert::Infallible, str::FromStr};
 
 use git_ref_format::{Qualified, RefString};
