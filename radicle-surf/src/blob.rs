@@ -18,6 +18,8 @@
 //! Represents git object type 'blob', i.e. actual file contents.
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
+use std::ops::Deref;
+
 use radicle_git_ext::Oid;
 #[cfg(feature = "serde")]
 use serde::{
@@ -29,7 +31,8 @@ use crate::Commit;
 
 /// Represents a git blob object.
 ///
-/// The type parameter `T` could be [`BlobRef`] or [`BlobVec`].
+/// The type parameter `T` can be fulfilled by [`BlobRef`] or a
+/// [`Vec`] of bytes.
 pub struct Blob<T> {
     id: Oid,
     is_binary: bool,
@@ -51,13 +54,23 @@ impl<T> Blob<T> {
         &self.commit
     }
 
-    pub fn content(&self) -> &T {
-        &self.content
+    pub fn content(&self) -> &[u8]
+    where
+        T: AsRef<[u8]>,
+    {
+        self.content.as_ref()
+    }
+
+    pub fn size(&self) -> usize
+    where
+        T: AsRef<[u8]>,
+    {
+        self.content.as_ref().len()
     }
 }
 
 impl<'a> Blob<BlobRef<'a>> {
-    /// Returns the [`Blob`] wrapping around an underlying `git2::Blob`.
+    /// Returns the [`Blob`] wrapping around an underlying [`git2::Blob`].
     pub(crate) fn new(id: Oid, git2_blob: git2::Blob<'a>, commit: Commit) -> Self {
         let is_binary = git2_blob.is_binary();
         let content = BlobRef { inner: git2_blob };
@@ -70,28 +83,13 @@ impl<'a> Blob<BlobRef<'a>> {
     }
 
     /// Converts into a `Blob` with owned content bytes.
-    pub fn to_owned(&self) -> Blob<BlobVec> {
-        Blob::<BlobVec>::new(
-            self.id,
-            self.content.as_bytes().to_vec(),
-            self.commit.clone(),
-            self.is_binary,
-        )
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'a> Serialize for Blob<BlobRef<'a>> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        const FIELDS: usize = 5;
-        let mut state = serializer.serialize_struct("Blob", FIELDS)?;
-        state.serialize_field("binary", &self.is_binary())?;
-        state.serialize_field("content", &self.content)?;
-        state.serialize_field("lastCommit", &self.commit)?;
-        state.end()
+    pub fn to_owned(&self) -> Blob<Vec<u8>> {
+        Blob {
+            id: self.id,
+            content: self.content.to_vec(),
+            commit: self.commit.clone(),
+            is_binary: self.is_binary,
+        }
     }
 }
 
@@ -100,91 +98,43 @@ pub struct BlobRef<'a> {
     inner: git2::Blob<'a>,
 }
 
-impl<'a> BlobRef<'a> {
-    /// Returns the size of the blob content.
-    pub fn size(&self) -> usize {
-        self.inner.size()
+impl AsRef<[u8]> for BlobRef<'_> {
+    fn as_ref(&self) -> &[u8] {
+        self.inner.content()
     }
+}
 
-    /// Returns the content as bytes.
-    pub fn as_bytes(&self) -> &[u8] {
+impl Deref for BlobRef<'_> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
         self.inner.content()
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'a> Serialize for BlobRef<'a> {
+impl<T> Serialize for Blob<T>
+where
+    T: AsRef<[u8]>,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serialize_bytes(self.as_bytes(), serializer)
-    }
-}
-
-/// Represents a blob with owned content bytes.
-pub struct BlobVec {
-    inner: Vec<u8>,
-}
-
-impl BlobVec {
-    pub fn size(&self) -> usize {
-        self.inner.len()
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        self.inner.as_ref()
-    }
-}
-
-impl Blob<BlobVec> {
-    pub(crate) fn new(id: Oid, bytes: Vec<u8>, commit: Commit, is_binary: bool) -> Self {
-        let content = BlobVec { inner: bytes };
-        Self {
-            id,
-            is_binary,
-            content,
-            commit,
-        }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for BlobVec {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serialize_bytes(self.as_bytes(), serializer)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for Blob<BlobVec> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        const FIELDS: usize = 5;
+        const FIELDS: usize = 4;
         let mut state = serializer.serialize_struct("Blob", FIELDS)?;
+        state.serialize_field("id", &self.id)?;
         state.serialize_field("binary", &self.is_binary())?;
-        state.serialize_field("content", &self.content)?;
+
+        let bytes = self.content.as_ref();
+        match std::str::from_utf8(bytes) {
+            Ok(s) => state.serialize_field("content", s)?,
+            Err(_) => {
+                let encoded = base64::encode(bytes);
+                state.serialize_field("content", &encoded)?
+            },
+        };
         state.serialize_field("lastCommit", &self.commit)?;
         state.end()
-    }
-}
-
-/// Common serialization for a `Blob`'s content bytes.
-#[cfg(feature = "serde")]
-fn serialize_bytes<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match std::str::from_utf8(bytes) {
-        Ok(s) => serializer.serialize_str(s),
-        Err(_) => {
-            let encoded = base64::encode(bytes);
-            serializer.serialize_str(&encoded)
-        },
     }
 }
