@@ -27,7 +27,7 @@ use radicle_git_ext::Oid;
 
 use crate::{
     blob::{Blob, BlobRef},
-    diff::Diff,
+    diff::{Diff, FileDiff},
     fs::{Directory, File, FileContent},
     refs::{BranchNames, Branches, Categories, Namespaces, TagNames, Tags},
     tree::{Entry, Tree},
@@ -199,6 +199,28 @@ impl Repository {
             Some(parent) => self.diff(*parent, commit.id),
             None => self.initial_diff(commit.id),
         }
+    }
+
+    /// Get the [`FileDiff`] between two revisions for a file at `path`.
+    ///
+    /// If `path` is only a directory name, not a file, returns
+    /// a [`FileDiff`] for any file under `path`.
+    pub fn diff_file<P: AsRef<Path>, R: Revision>(
+        &self,
+        path: &P,
+        from: R,
+        to: R,
+    ) -> Result<FileDiff, Error> {
+        let from_commit = self.find_commit(self.object_id(&from)?)?;
+        let to_commit = self.find_commit(self.object_id(&to)?)?;
+        let diff = self
+            .diff_commits(Some(path.as_ref()), Some(&from_commit), &to_commit)
+            .and_then(|diff| Diff::try_from(diff).map_err(Error::from))?;
+        let file_diff = diff
+            .into_files()
+            .pop()
+            .ok_or(error::Repo::PathNotFound(path.as_ref().to_path_buf()))?;
+        Ok(file_diff)
     }
 
     /// Parse an [`Oid`] from the given string.

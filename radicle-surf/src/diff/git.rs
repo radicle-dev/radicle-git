@@ -241,16 +241,16 @@ fn created(
 
     let patch = git2::Patch::from_diff(git_diff, idx)?;
     if let Some(patch) = patch {
-        diff.added(
+        diff.insert_added(
             path,
-            diff::FileDiff::Plain {
+            diff::DiffContent::Plain {
                 hunks: Hunks::try_from(patch)?,
             },
         );
     } else {
-        diff.added(
+        diff.insert_added(
             path,
-            diff::FileDiff::Plain {
+            diff::DiffContent::Plain {
                 hunks: Hunks::default(),
             },
         );
@@ -271,16 +271,16 @@ fn deleted(
         .to_path_buf();
     let patch = git2::Patch::from_diff(git_diff, idx)?;
     if let Some(patch) = patch {
-        diff.deleted(
+        diff.insert_deleted(
             path,
-            diff::FileDiff::Plain {
+            diff::DiffContent::Plain {
                 hunks: Hunks::try_from(patch)?,
             },
         );
     } else {
-        diff.deleted(
+        diff.insert_deleted(
             path,
-            diff::FileDiff::Plain {
+            diff::DiffContent::Plain {
                 hunks: Hunks::default(),
             },
         );
@@ -340,10 +340,10 @@ fn modified(
             (false, true) => Some(EofNewLine::NewMissing),
             (false, false) => None,
         };
-        diff.modified(path, hunks, eof);
+        diff.insert_modified(path, hunks, eof);
         Ok(())
     } else if diff_file.is_binary() {
-        diff.modified_binary(path);
+        diff.insert_modified_binary(path);
         Ok(())
     } else {
         Err(error::Diff::PatchUnavailable(path))
@@ -360,7 +360,7 @@ fn renamed(diff: &mut Diff, delta: &git2::DiffDelta<'_>) -> Result<(), error::Di
         .path()
         .ok_or(error::Diff::PathUnavailable)?;
 
-    diff.moved(old.to_path_buf(), new.to_path_buf());
+    diff.insert_moved(old.to_path_buf(), new.to_path_buf());
     Ok(())
 }
 
@@ -374,6 +374,6 @@ fn copied(diff: &mut Diff, delta: &git2::DiffDelta<'_>) -> Result<(), error::Dif
         .path()
         .ok_or(error::Diff::PathUnavailable)?;
 
-    diff.copied(old.to_path_buf(), new.to_path_buf());
+    diff.insert_copied(old.to_path_buf(), new.to_path_buf());
     Ok(())
 }

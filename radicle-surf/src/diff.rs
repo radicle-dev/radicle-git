@@ -20,7 +20,7 @@
 use std::path::PathBuf;
 
 #[cfg(feature = "serde")]
-use serde::{ser, Serialize, Serializer};
+use serde::{ser, ser::SerializeStruct, Serialize, Serializer};
 
 pub mod git;
 
@@ -29,59 +29,115 @@ pub mod git;
 /// A [`Diff`] can be retrieved by the following functions:
 ///    * [`crate::Repository::diff`]
 ///    * [`crate::Repository::diff_commit`]
-#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Diff {
-    pub added: Vec<Added>,
-    pub deleted: Vec<Deleted>,
-    pub moved: Vec<Moved>,
-    pub copied: Vec<Copied>,
-    pub modified: Vec<Modified>,
-    pub stats: Stats,
+    files: Vec<FileDiff>,
+    stats: Stats,
 }
 
 impl Diff {
-    pub fn new() -> Self {
+    /// Creates an empty diff.
+    pub(crate) fn new() -> Self {
         Diff::default()
     }
 
-    fn modified(
+    /// Returns an iterator of the file in the diff.
+    pub fn files(&self) -> impl Iterator<Item = &FileDiff> {
+        self.files.iter()
+    }
+
+    /// Returns owned files in the diff.
+    pub fn into_files(self) -> Vec<FileDiff> {
+        self.files
+    }
+
+    pub fn added(&self) -> impl Iterator<Item = &Added> {
+        self.files().filter_map(|x| match x {
+            FileDiff::Added(a) => Some(a),
+            _ => None,
+        })
+    }
+
+    pub fn deleted(&self) -> impl Iterator<Item = &Deleted> {
+        self.files().filter_map(|x| match x {
+            FileDiff::Deleted(a) => Some(a),
+            _ => None,
+        })
+    }
+
+    pub fn moved(&self) -> impl Iterator<Item = &Moved> {
+        self.files().filter_map(|x| match x {
+            FileDiff::Moved(a) => Some(a),
+            _ => None,
+        })
+    }
+
+    pub fn modified(&self) -> impl Iterator<Item = &Modified> {
+        self.files().filter_map(|x| match x {
+            FileDiff::Modified(a) => Some(a),
+            _ => None,
+        })
+    }
+
+    pub fn copied(&self) -> impl Iterator<Item = &Copied> {
+        self.files().filter_map(|x| match x {
+            FileDiff::Copied(a) => Some(a),
+            _ => None,
+        })
+    }
+
+    pub fn stats(&self) -> &Stats {
+        &self.stats
+    }
+
+    fn insert_modified(
         &mut self,
         path: PathBuf,
         hunks: impl Into<Hunks<Modification>>,
         eof: Option<EofNewLine>,
     ) {
-        self.modified.push(Modified {
+        let diff = DiffContent::Plain {
+            hunks: hunks.into(),
+        };
+        let diff = FileDiff::Modified(Modified { path, eof, diff });
+        self.files.push(diff)
+    }
+
+    fn insert_moved(&mut self, old_path: PathBuf, new_path: PathBuf) {
+        let diff = FileDiff::Moved(Moved {
+            old_path,
+            new_path,
+            diff: DiffContent::Empty,
+        });
+        self.files.push(diff);
+    }
+
+    fn insert_copied(&mut self, old_path: PathBuf, new_path: PathBuf) {
+        let diff = FileDiff::Copied(Copied {
+            old_path,
+            new_path,
+            diff: DiffContent::Empty,
+        });
+        self.files.push(diff);
+    }
+
+    fn insert_modified_binary(&mut self, path: PathBuf) {
+        let diff = FileDiff::Modified(Modified {
             path,
-            diff: FileDiff::Plain {
-                hunks: hunks.into(),
-            },
-            eof,
-        })
-    }
-
-    fn moved(&mut self, old_path: PathBuf, new_path: PathBuf) {
-        self.moved.push(Moved { old_path, new_path });
-    }
-
-    fn copied(&mut self, old_path: PathBuf, new_path: PathBuf) {
-        self.copied.push(Copied { old_path, new_path });
-    }
-
-    fn modified_binary(&mut self, path: PathBuf) {
-        self.modified.push(Modified {
-            path,
-            diff: FileDiff::Binary,
             eof: None,
-        })
+            diff: DiffContent::Binary,
+        });
+        self.files.push(diff)
     }
 
-    fn added(&mut self, path: PathBuf, diff: FileDiff<Addition>) {
-        self.added.push(Added { path, diff })
+    fn insert_added(&mut self, path: PathBuf, diff: DiffContent) {
+        let diff = FileDiff::Added(Added { path, diff });
+        self.files.push(diff);
     }
 
-    fn deleted(&mut self, path: PathBuf, diff: FileDiff<Deletion>) {
-        self.deleted.push(Deleted { path, diff })
+    fn insert_deleted(&mut self, path: PathBuf, diff: DiffContent) {
+        let diff = FileDiff::Deleted(Deleted { path, diff });
+        self.files.push(diff);
     }
 }
 
@@ -91,8 +147,7 @@ impl Diff {
 pub struct Added {
     /// The path to this file, relative to the repository root.
     pub path: PathBuf,
-    /// The set of [`Addition`]s to this file.
-    pub diff: FileDiff<Addition>,
+    pub diff: DiffContent,
 }
 
 /// A file that was deleted within a [`Diff`].
@@ -101,18 +156,32 @@ pub struct Added {
 pub struct Deleted {
     /// The path to this file, relative to the repository root.
     pub path: PathBuf,
-    /// The set of [`Deletion`]s to this file.
-    pub diff: FileDiff<Deletion>,
+    pub diff: DiffContent,
 }
 
 /// A file that was moved within a [`Diff`].
-#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Moved {
     /// The old path to this file, relative to the repository root.
     pub old_path: PathBuf,
     /// The new path to this file, relative to the repository root.
     pub new_path: PathBuf,
+    pub diff: DiffContent,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for Moved {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Moved", 2)?;
+        state.serialize_field("oldPath", &self.old_path)?;
+        state.serialize_field("newPath", &self.new_path)?;
+        // `DiffContent` is not serialized yet for `Moved`, only
+        // to keep the serialization same as before.
+        state.end()
+    }
 }
 
 /// A file that was copied within a [`Diff`].
@@ -123,6 +192,7 @@ pub struct Copied {
     pub old_path: PathBuf,
     /// The new path to this file, relative to the repository root.
     pub new_path: PathBuf,
+    pub diff: DiffContent,
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
@@ -139,8 +209,7 @@ pub enum EofNewLine {
 pub struct Modified {
     /// The path to this file, relative to the repository root.
     pub path: PathBuf,
-    /// The set of [`Modification`]s to this file.
-    pub diff: FileDiff<Modification>,
+    pub diff: DiffContent,
     /// Was there an EOF newline present.
     pub eof: Option<EofNewLine>,
 }
@@ -152,12 +221,75 @@ pub struct Modified {
     serde(tag = "type", rename_all = "camelCase")
 )]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum FileDiff<T> {
+pub enum DiffContent {
     /// The file is a binary file and so no set of changes can be provided.
     Binary,
     /// The set of changes, as [`Hunks`] for a plaintext file.
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    Plain { hunks: Hunks<T> },
+    Plain {
+        hunks: Hunks<Modification>,
+    },
+    Empty,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FileDiff {
+    Added(Added),
+    Deleted(Deleted),
+    Modified(Modified),
+    Moved(Moved),
+    Copied(Copied),
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for FileDiff {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("FileDiff", 7)?;
+        match &self {
+            FileDiff::Added(x) => {
+                state.serialize_field("path", &x.path)?;
+                state.serialize_field("diff", &x.diff)?
+            },
+            FileDiff::Deleted(x) => {
+                state.serialize_field("path", &x.path)?;
+                state.serialize_field("diff", &x.diff)?
+            },
+            FileDiff::Modified(x) => {
+                state.serialize_field("path", &x.path)?;
+                state.serialize_field("diff", &x.diff)?;
+                state.serialize_field("eof", &x.eof)?
+            },
+            FileDiff::Moved(x) => {
+                state.serialize_field("oldPath", &x.old_path)?;
+                state.serialize_field("newPath", &x.new_path)?
+            },
+            FileDiff::Copied(x) => {
+                state.serialize_field("oldPath", &x.old_path)?;
+                state.serialize_field("newPath", &x.new_path)?
+            },
+        }
+        state.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for Diff {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Diff", 6)?;
+        state.serialize_field("added", &self.added().collect::<Vec<_>>())?;
+        state.serialize_field("deleted", &self.deleted().collect::<Vec<_>>())?;
+        state.serialize_field("moved", &self.moved().collect::<Vec<_>>())?;
+        state.serialize_field("copied", &self.copied().collect::<Vec<_>>())?;
+        state.serialize_field("modified", &self.modified().collect::<Vec<_>>())?;
+        state.serialize_field("stats", &self.stats())?;
+        state.end()
+    }
 }
 
 /// Statistics describing a particular [`Diff`].

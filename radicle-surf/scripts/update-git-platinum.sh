@@ -23,6 +23,7 @@ rm -rf "$PLATINUM_REPO"
 # Clone an up-to-date version of git-platinum.
 git clone https://github.com/radicle-dev/git-platinum.git "$PLATINUM_REPO"
 git -C "$PLATINUM_REPO" checkout empty-branch
+git -C "$PLATINUM_REPO" checkout diff-test
 git -C "$PLATINUM_REPO" checkout dev
 
 # Add the necessary refs.

@@ -57,22 +57,22 @@ fn init_repository_or_exit(path_to_repo: &str) -> Repository {
 }
 
 fn print_diff_summary(diff: &Diff, elapsed_nanos: u128) {
-    diff.added.iter().for_each(|created| {
+    diff.added().for_each(|created| {
         println!("+++ {:?}", created.path);
     });
-    diff.deleted.iter().for_each(|deleted| {
+    diff.deleted().for_each(|deleted| {
         println!("--- {:?}", deleted.path);
     });
-    diff.modified.iter().for_each(|modified| {
+    diff.modified().for_each(|modified| {
         println!("mod {:?}", modified.path);
     });
 
     println!(
         "created {} / deleted {} / modified {} / total {}",
-        diff.added.len(),
-        diff.deleted.len(),
-        diff.modified.len(),
-        diff.added.len() + diff.deleted.len() + diff.modified.len()
+        diff.added().count(),
+        diff.deleted().count(),
+        diff.modified().count(),
+        diff.added().count() + diff.deleted().count() + diff.modified().count()
     );
     println!("diff took {elapsed_nanos} nanos ");
 }

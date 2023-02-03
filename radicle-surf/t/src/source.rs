@@ -209,23 +209,23 @@ fn commit_branches() {
     let glob = Glob::all_heads().branches().and(Glob::all_remotes());
     let branches = repo.revision_branches(init_commit, glob).unwrap();
 
-    assert_eq!(branches.len(), 9);
-    assert_eq!(branches[0].refname().as_str(), "refs/heads/dev");
-    assert_eq!(branches[1].refname().as_str(), "refs/heads/empty-branch");
-    assert_eq!(branches[2].refname().as_str(), "refs/heads/master");
+    assert_eq!(branches.len(), 11);
+
+    let refnames: Vec<_> = branches.iter().map(|b| b.refname().to_string()).collect();
     assert_eq!(
-        branches[3].refname().as_str(),
-        "refs/remotes/banana/orange/pineapple"
+        refnames,
+        vec![
+            "refs/heads/dev",
+            "refs/heads/diff-test",
+            "refs/heads/empty-branch",
+            "refs/heads/master",
+            "refs/remotes/banana/orange/pineapple",
+            "refs/remotes/banana/pineapple",
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/dev",
+            "refs/remotes/origin/diff-test",
+            "refs/remotes/origin/empty-branch",
+            "refs/remotes/origin/master"
+        ]
     );
-    assert_eq!(
-        branches[4].refname().as_str(),
-        "refs/remotes/banana/pineapple"
-    );
-    assert_eq!(branches[5].refname().as_str(), "refs/remotes/origin/HEAD");
-    assert_eq!(branches[6].refname().as_str(), "refs/remotes/origin/dev");
-    assert_eq!(
-        branches[7].refname().as_str(),
-        "refs/remotes/origin/empty-branch"
-    );
-    assert_eq!(branches[8].refname().as_str(), "refs/remotes/origin/master");
 }
