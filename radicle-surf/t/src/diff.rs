@@ -45,6 +45,7 @@ fn test_initial_diff() -> Result<(), Error> {
                 )],
             }]
             .into(),
+            eof: EofNewLine::default(),
         },
     })];
 
@@ -79,7 +80,6 @@ fn test_diff_file() -> Result<(), Error> {
     )?;
     let expected_diff = FileDiff::Modified(Modified {
             path: path_buf,
-            eof: None,
         diff: DiffContent::Plain {
             hunks: vec![Hunk {
                 header: Line::from(b"@@ -1 +1,2 @@\n".to_vec()),
@@ -88,7 +88,8 @@ fn test_diff_file() -> Result<(), Error> {
                     Modification::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
                     Modification::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
                 ]
-            }].into()
+            }].into(),
+            eof: EofNewLine::default(),
         },
     });
     assert_eq!(expected_diff, diff);
@@ -106,7 +107,6 @@ fn test_diff() -> Result<(), Error> {
 
     let expected_files = vec![FileDiff::Modified(Modified {
             path: Path::new("README.md").to_path_buf(),
-            eof: None,
             diff: DiffContent::Plain {
                 hunks: vec![Hunk {
                     header: Line::from(b"@@ -1 +1,2 @@\n".to_vec()),
@@ -115,7 +115,8 @@ fn test_diff() -> Result<(), Error> {
                         Modification::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
                         Modification::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
                     ]
-                }].into()
+                }].into(),
+                eof: EofNewLine::default(),
             },
         })];
     let expected_stats = Stats {
@@ -188,7 +189,6 @@ fn test_diff_serde() -> Result<(), Error> {
     let rev_to = Branch::local(refname!("diff-test"));
     let diff = repo.diff(rev_from, rev_to)?;
 
-    let eof: Option<u8> = None;
     let json = serde_json::json!({
         "added": [{
             "path": "LICENSE",
@@ -206,7 +206,8 @@ fn test_diff_serde() -> Result<(), Error> {
                         "lineNo": 2,
                         "type": "addition",
                     }]
-                }]
+                }],
+                "eof": "noneMissing",
             },
         }],
         "deleted": [{
@@ -252,7 +253,8 @@ fn test_diff_serde() -> Result<(), Error> {
                         "type": "deletion",
                     },
                     ]
-                }]
+                }],
+                "eof": "noneMissing",
             },
         }],
         "moved": [{
@@ -284,9 +286,9 @@ fn test_diff_serde() -> Result<(), Error> {
                           "type": "addition"
                         },
                     ]
-                }]
+                }],
+                "eof": "noneMissing",
             },
-            "eof": eof,
         }],
         "stats": {
             "deletions": 9,
@@ -315,7 +317,7 @@ index f89e4c0..7c56eb7 100644
     let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
     let diff = Diff::try_from(diff).unwrap();
     assert_eq!(
-        diff.modified().next().unwrap().eof,
+        diff.modified().next().unwrap().diff.eof(),
         Some(EofNewLine::BothMissing)
     );
 }
@@ -333,7 +335,10 @@ index f89e4c0..7c56eb7 100644
 "#;
     let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
     let diff = Diff::try_from(diff).unwrap();
-    assert_eq!(diff.modified().next().unwrap().eof, None);
+    assert_eq!(
+        diff.modified().next().unwrap().diff.eof(),
+        Some(EofNewLine::NoneMissing)
+    );
 }
 
 // TODO(xphoniex): uncomment once libgit2 has fixed the bug
