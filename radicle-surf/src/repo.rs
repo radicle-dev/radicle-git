@@ -375,19 +375,22 @@ impl Repository {
     ///
     /// # Arguments
     ///
-    /// `commit_oid` - The object ID of the commit
     /// `field` - the name of the header field containing the signature block;
     ///           pass `None` to extract the default 'gpgsig'
     pub fn extract_signature(
         &self,
-        commit_oid: &Oid,
+        commit: impl ToCommit,
         field: Option<&str>,
     ) -> Result<Option<Signature>, Error> {
         // Match is necessary here because according to the documentation for
         // git_commit_extract_signature at
         // https://libgit2.org/libgit2/#HEAD/group/commit/git_commit_extract_signature
         // the return value for a commit without a signature will be GIT_ENOTFOUND
-        match self.inner.extract_signature(commit_oid, field) {
+        let commit = commit
+            .to_commit(self)
+            .map_err(|e| Error::ToCommit(e.into()))?;
+
+        match self.inner.extract_signature(&commit.id, field) {
             Err(error) => {
                 if error.code() == git2::ErrorCode::NotFound {
                     Ok(None)

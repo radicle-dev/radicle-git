@@ -49,7 +49,6 @@ features = ["serde"]
 
 [dependencies.radicle-std-ext]
 version = "0.1.0"
-path = "../radicle-std-ext"
 
 [dependencies.serde]
 version = "1"
