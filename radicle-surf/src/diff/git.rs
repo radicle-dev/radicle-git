@@ -17,7 +17,7 @@
 
 use std::convert::TryFrom;
 
-use crate::diff::{self, Addition, Deletion, Diff, EofNewLine, Hunk, Hunks, Line, Modification};
+use super::{Diff, DiffContent, EofNewLine, Hunk, Hunks, Line, Modification, Stats};
 
 pub mod error {
     use std::path::PathBuf;
@@ -87,11 +87,14 @@ pub mod error {
     }
 }
 
-impl TryFrom<git2::Patch<'_>> for Hunks<Modification> {
+impl TryFrom<git2::Patch<'_>> for DiffContent {
     type Error = error::Hunk;
 
     fn try_from(patch: git2::Patch) -> Result<Self, Self::Error> {
         let mut hunks = Vec::new();
+        let mut old_missing_eof = false;
+        let mut new_missing_eof = false;
+
         for h in 0..patch.num_hunks() {
             let (hunk, hunk_lines) = patch.hunk(h)?;
             let header = Line(hunk.header().to_owned());
@@ -99,52 +102,37 @@ impl TryFrom<git2::Patch<'_>> for Hunks<Modification> {
 
             for l in 0..hunk_lines {
                 let line = patch.line_in_hunk(h, l)?;
+                match line.origin_value() {
+                    git2::DiffLineType::ContextEOFNL => {
+                        new_missing_eof = true;
+                        old_missing_eof = true;
+                        continue;
+                    },
+                    git2::DiffLineType::AddEOFNL => {
+                        old_missing_eof = true;
+                        continue;
+                    },
+                    git2::DiffLineType::DeleteEOFNL => {
+                        new_missing_eof = true;
+                        continue;
+                    },
+                    _ => {},
+                }
                 let line = Modification::try_from(line)?;
                 lines.push(line);
             }
             hunks.push(Hunk { header, lines });
         }
-        Ok(Hunks(hunks))
-    }
-}
-
-impl TryFrom<git2::Patch<'_>> for Hunks<Addition> {
-    type Error = error::Addition;
-
-    fn try_from(patch: git2::Patch) -> Result<Self, Self::Error> {
-        let mut hunks = Vec::with_capacity(patch.num_hunks());
-        for h in 0..patch.num_hunks() {
-            let (hunk, hunk_lines) = patch.hunk(h)?;
-            let header = Line(hunk.header().to_owned());
-            let mut lines: Vec<Addition> = Vec::with_capacity(hunk_lines);
-
-            for l in 0..hunk_lines {
-                let line = patch.line_in_hunk(h, l)?;
-                lines.push(Addition::try_from(line)?);
-            }
-            hunks.push(Hunk { header, lines })
-        }
-        Ok(hunks.into())
-    }
-}
-
-impl TryFrom<git2::Patch<'_>> for Hunks<Deletion> {
-    type Error = error::Deletion;
-
-    fn try_from(patch: git2::Patch) -> Result<Self, Self::Error> {
-        let mut hunks = Vec::with_capacity(patch.num_hunks());
-        for h in 0..patch.num_hunks() {
-            let (hunk, hunk_lines) = patch.hunk(h)?;
-            let header = Line(hunk.header().to_owned());
-            let mut lines: Vec<Deletion> = Vec::with_capacity(hunk_lines);
-
-            for l in 0..hunk_lines {
-                let line = patch.line_in_hunk(h, l)?;
-                lines.push(Deletion::try_from(line)?);
-            }
-            hunks.push(Hunk { header, lines })
-        }
-        Ok(hunks.into())
+        let eof = match (old_missing_eof, new_missing_eof) {
+            (true, true) => EofNewLine::BothMissing,
+            (true, false) => EofNewLine::OldMissing,
+            (false, true) => EofNewLine::NewMissing,
+            (false, false) => EofNewLine::NoneMissing,
+        };
+        Ok(DiffContent::Plain {
+            hunks: Hunks(hunks),
+            eof,
+        })
     }
 }
 
@@ -161,37 +149,7 @@ impl<'a> TryFrom<git2::DiffLine<'a>> for Modification {
     }
 }
 
-impl TryFrom<git2::DiffLine<'_>> for Addition {
-    type Error = error::Addition;
-
-    fn try_from(line: git2::DiffLine) -> Result<Self, Self::Error> {
-        debug_assert!(
-            line.old_lineno().is_none(),
-            "trying to build Addition with a modified line"
-        );
-        Ok(Self {
-            line: line.content().to_owned().into(),
-            line_no: line.new_lineno().ok_or(error::Addition::MissingNewLineNo)?,
-        })
-    }
-}
-
-impl TryFrom<git2::DiffLine<'_>> for Deletion {
-    type Error = error::Deletion;
-
-    fn try_from(line: git2::DiffLine) -> Result<Self, Self::Error> {
-        debug_assert!(
-            line.new_lineno().is_none(),
-            "trying to build Deletion with a modified line"
-        );
-        Ok(Self {
-            line: line.content().to_owned().into(),
-            line_no: line.old_lineno().ok_or(error::Deletion::MissingOldLineNo)?,
-        })
-    }
-}
-
-impl From<git2::DiffStats> for diff::Stats {
+impl From<git2::DiffStats> for Stats {
     fn from(stats: git2::DiffStats) -> Self {
         Self {
             files_changed: stats.files_changed(),
@@ -241,19 +199,11 @@ fn created(
 
     let patch = git2::Patch::from_diff(git_diff, idx)?;
     if let Some(patch) = patch {
-        diff.insert_added(
-            path,
-            diff::DiffContent::Plain {
-                hunks: Hunks::try_from(patch)?,
-            },
-        );
+        diff.insert_added(path, DiffContent::try_from(patch)?);
+    } else if diff_file.is_binary() {
+        diff.insert_added(path, DiffContent::Binary);
     } else {
-        diff.insert_added(
-            path,
-            diff::DiffContent::Plain {
-                hunks: Hunks::default(),
-            },
-        );
+        return Err(error::Diff::PatchUnavailable(path));
     }
     Ok(())
 }
@@ -271,19 +221,11 @@ fn deleted(
         .to_path_buf();
     let patch = git2::Patch::from_diff(git_diff, idx)?;
     if let Some(patch) = patch {
-        diff.insert_deleted(
-            path,
-            diff::DiffContent::Plain {
-                hunks: Hunks::try_from(patch)?,
-            },
-        );
+        diff.insert_deleted(path, DiffContent::try_from(patch)?);
+    } else if diff_file.is_binary() {
+        diff.insert_deleted(path, DiffContent::Binary);
     } else {
-        diff.insert_deleted(
-            path,
-            diff::DiffContent::Plain {
-                hunks: Hunks::default(),
-            },
-        );
+        return Err(error::Diff::PatchUnavailable(path));
     }
     Ok(())
 }
@@ -302,48 +244,10 @@ fn modified(
     let patch = git2::Patch::from_diff(git_diff, idx)?;
 
     if let Some(patch) = patch {
-        let mut hunks: Vec<Hunk<Modification>> = Vec::new();
-        let mut old_missing_eof = false;
-        let mut new_missing_eof = false;
-
-        for h in 0..patch.num_hunks() {
-            let (hunk, hunk_lines) = patch.hunk(h)?;
-            let header = Line(hunk.header().to_owned());
-            let mut lines: Vec<Modification> = Vec::new();
-
-            for l in 0..hunk_lines {
-                let line = patch.line_in_hunk(h, l)?;
-                match line.origin_value() {
-                    git2::DiffLineType::ContextEOFNL => {
-                        new_missing_eof = true;
-                        old_missing_eof = true;
-                        continue;
-                    },
-                    git2::DiffLineType::AddEOFNL => {
-                        old_missing_eof = true;
-                        continue;
-                    },
-                    git2::DiffLineType::DeleteEOFNL => {
-                        new_missing_eof = true;
-                        continue;
-                    },
-                    _ => {},
-                }
-                let line = Modification::try_from(line)?;
-                lines.push(line);
-            }
-            hunks.push(Hunk { header, lines });
-        }
-        let eof = match (old_missing_eof, new_missing_eof) {
-            (true, true) => Some(EofNewLine::BothMissing),
-            (true, false) => Some(EofNewLine::OldMissing),
-            (false, true) => Some(EofNewLine::NewMissing),
-            (false, false) => None,
-        };
-        diff.insert_modified(path, hunks, eof);
+        diff.insert_modified(path, DiffContent::try_from(patch)?);
         Ok(())
     } else if diff_file.is_binary() {
-        diff.insert_modified_binary(path);
+        diff.insert_modified(path, DiffContent::Binary);
         Ok(())
     } else {
         Err(error::Diff::PatchUnavailable(path))

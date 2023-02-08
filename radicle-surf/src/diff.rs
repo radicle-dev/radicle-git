@@ -90,16 +90,8 @@ impl Diff {
         &self.stats
     }
 
-    fn insert_modified(
-        &mut self,
-        path: PathBuf,
-        hunks: impl Into<Hunks<Modification>>,
-        eof: Option<EofNewLine>,
-    ) {
-        let diff = DiffContent::Plain {
-            hunks: hunks.into(),
-        };
-        let diff = FileDiff::Modified(Modified { path, eof, diff });
+    fn insert_modified(&mut self, path: PathBuf, diff: DiffContent) {
+        let diff = FileDiff::Modified(Modified { path, diff });
         self.files.push(diff)
     }
 
@@ -119,15 +111,6 @@ impl Diff {
             diff: DiffContent::Empty,
         });
         self.files.push(diff);
-    }
-
-    fn insert_modified_binary(&mut self, path: PathBuf) {
-        let diff = FileDiff::Modified(Modified {
-            path,
-            eof: None,
-            diff: DiffContent::Binary,
-        });
-        self.files.push(diff)
     }
 
     fn insert_added(&mut self, path: PathBuf, diff: DiffContent) {
@@ -201,17 +184,21 @@ pub enum EofNewLine {
     OldMissing,
     NewMissing,
     BothMissing,
+    NoneMissing,
+}
+
+impl Default for EofNewLine {
+    fn default() -> Self {
+        Self::NoneMissing
+    }
 }
 
 /// A file that was modified within a [`Diff`].
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Modified {
-    /// The path to this file, relative to the repository root.
     pub path: PathBuf,
     pub diff: DiffContent,
-    /// Was there an EOF newline present.
-    pub eof: Option<EofNewLine>,
 }
 
 /// The set of changes for a given file.
@@ -228,8 +215,18 @@ pub enum DiffContent {
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Plain {
         hunks: Hunks<Modification>,
+        eof: EofNewLine,
     },
     Empty,
+}
+
+impl DiffContent {
+    pub fn eof(&self) -> Option<EofNewLine> {
+        match self {
+            Self::Plain { hunks: _, eof } => Some(eof.clone()),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -260,7 +257,6 @@ impl Serialize for FileDiff {
             FileDiff::Modified(x) => {
                 state.serialize_field("path", &x.path)?;
                 state.serialize_field("diff", &x.diff)?;
-                state.serialize_field("eof", &x.eof)?
             },
             FileDiff::Moved(x) => {
                 state.serialize_field("oldPath", &x.old_path)?;
