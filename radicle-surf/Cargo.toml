@@ -1,8 +1,8 @@
 [package]
 name = "radicle-surf"
-description = "A code surfing library for VCS file systems"
+description = "A code surfing library for Git repositories"
 readme = "README.md"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["The Radicle Team <dev@radicle.xyz>"]
 edition = "2021"
 homepage = "https://github.com/radicle-dev/radicle-surf"
