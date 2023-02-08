@@ -292,12 +292,8 @@ impl ToString for Commit {
         if !self.trailers.is_empty() {
             writeln!(buf).ok();
         }
-        for (i, trailer) in self.trailers.iter().enumerate() {
-            if i < self.trailers.len() {
-                writeln!(buf, "{}", Trailer::from(trailer).display(": ")).ok();
-            } else {
-                write!(buf, "{}", Trailer::from(trailer).display(": ")).ok();
-            }
+        for trailer in self.trailers.iter() {
+            writeln!(buf, "{}", Trailer::from(trailer).display(": ")).ok();
         }
         buf
     }
