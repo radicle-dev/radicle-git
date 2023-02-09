@@ -17,7 +17,3 @@ thiserror = "1"
 version = "0.16.1"
 default-features = false
 features = ["vendored-libgit2"]
-
-[dependencies.git-trailers]
-version = "0.1.0"
-path = "../git-trailers"

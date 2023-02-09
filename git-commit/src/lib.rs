@@ -17,13 +17,18 @@ use std::{
 };
 
 use git2::{ObjectType, Oid};
-use git_trailers::{self as trailers, OwnedTrailer, Trailer};
 
 pub mod author;
 pub use author::Author;
 
 pub mod headers;
 pub use headers::{Headers, Signature};
+
+#[derive(Debug)]
+pub struct Trailer {
+    pub token: String,
+    pub value: String,
+}
 
 /// A git commit in its object description form, i.e. the output of
 /// `git cat-file` for a commit object.
@@ -35,24 +40,19 @@ pub struct Commit {
     committer: Author,
     headers: Headers,
     message: String,
-    trailers: Vec<OwnedTrailer>,
+    trailers: Vec<Trailer>,
 }
 
 impl Commit {
-    pub fn new<I, T>(
+    pub fn new(
         tree: Oid,
         parents: Vec<Oid>,
         author: Author,
         committer: Author,
         headers: Headers,
         message: String,
-        trailers: I,
-    ) -> Self
-    where
-        I: IntoIterator<Item = T>,
-        OwnedTrailer: From<T>,
-    {
-        let trailers = trailers.into_iter().map(OwnedTrailer::from).collect();
+        trailers: Vec<Trailer>,
+    ) -> Self {
         Self {
             tree,
             parents,
@@ -128,8 +128,27 @@ impl Commit {
         self.headers.push(name, value.trim());
     }
 
-    pub fn trailers(&self) -> impl Iterator<Item = &OwnedTrailer> {
+    /// Returns an iterator for all trailers in this commit.
+    pub fn trailers(&self) -> impl Iterator<Item = &Trailer> {
         self.trailers.iter()
+    }
+
+    /// A convenience method to return all trailer values parsed into `T`,
+    /// for a given `key`.
+    pub fn trailers_of_key<T: FromStr>(&self, key: &str) -> Result<Vec<T>, error::Parse> {
+        self.trailers
+            .iter()
+            .filter_map(|t| {
+                if t.token.as_str() == key {
+                    Some(
+                        T::from_str(&t.value)
+                            .map_err(|_| error::Parse::TrailerValue(t.value.clone())),
+                    )
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
@@ -162,10 +181,8 @@ pub mod error {
         InvalidFormat,
         #[error("missing '{0}' while parsing commit")]
         Missing(&'static str),
-        #[error(transparent)]
-        Token(#[from] git_trailers::InvalidToken),
-        #[error("error occurred while checking for git-trailers: {0}")]
-        Trailers(#[source] git2::Error),
+        #[error("{0}")]
+        TrailerValue(String),
         #[error(transparent)]
         Utf8(#[from] str::Utf8Error),
     }
@@ -243,19 +260,7 @@ impl FromStr for Commit {
             }
         }
 
-        let (message, trailers) = message.lines().fold(
-            (Vec::new(), Vec::new()),
-            |(mut message, mut trailers), line| match trailers::parser::trailer(line, ": ") {
-                Ok((_, trailer)) => {
-                    trailers.push(trailer.into());
-                    (message, trailers)
-                },
-                Err(_) => {
-                    message.push(line);
-                    (message, trailers)
-                },
-            },
-        );
+        let (message, trailers) = separate_trailers_from_message(message);
 
         Ok(Self {
             tree,
@@ -263,10 +268,74 @@ impl FromStr for Commit {
             author: author.ok_or(error::Parse::Missing("author"))?,
             committer: committer.ok_or(error::Parse::Missing("committer"))?,
             headers,
-            message: message.join("\n"),
+            message,
             trailers,
         })
     }
+}
+
+/// Returns a trailer-less message string and a vec of trailers.
+fn separate_trailers_from_message(message: &str) -> (String, Vec<Trailer>) {
+    let mut possible_trailers = vec![];
+    let mut previous_empty = false;
+    let mut in_trailer = false;
+    let mut message_endline = 0; // Marks the line before trailers start.
+
+    for (i, line) in message.lines().enumerate() {
+        if line.is_empty() {
+            previous_empty = true;
+            continue;
+        }
+
+        // Check the divider.
+        if line == "---" {
+            previous_empty = false;
+            break; // ignore the rest.
+        }
+
+        // Check if the current line is a trailer.
+        let parts: Vec<&str> = line.split(": ").collect();
+        if parts.len() == 2 && !parts[0].is_empty() && !parts[1].is_empty() {
+            // Check if at the start of trailers.
+            if previous_empty {
+                possible_trailers.clear();
+                message_endline = i - 1;
+            }
+
+            in_trailer = previous_empty || in_trailer;
+            if in_trailer {
+                possible_trailers.push(parts);
+            }
+        } else {
+            in_trailer = false;
+        }
+
+        previous_empty = false;
+    }
+
+    if previous_empty {
+        possible_trailers.clear();
+        message_endline = 0;
+    }
+
+    let trailers: Vec<_> = possible_trailers
+        .iter()
+        .map(|v| Trailer {
+            token: v[0].to_string(),
+            value: v[1].to_string(),
+        })
+        .collect();
+
+    // Collect the message lines before the trailers.
+    let mut message_lines = vec![];
+    for (i, line) in message.lines().enumerate() {
+        if message_endline > 0 && i >= message_endline {
+            break;
+        }
+        message_lines.push(line);
+    }
+
+    (message_lines.join("\n"), trailers)
 }
 
 impl ToString for Commit {
@@ -293,7 +362,7 @@ impl ToString for Commit {
             writeln!(buf).ok();
         }
         for trailer in self.trailers.iter() {
-            writeln!(buf, "{}", Trailer::from(trailer).display(": ")).ok();
+            writeln!(buf, "{}: {}", trailer.token, trailer.value).ok();
         }
         buf
     }

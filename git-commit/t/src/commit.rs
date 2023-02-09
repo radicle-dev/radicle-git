@@ -1,5 +1,6 @@
 use std::str::FromStr as _;
 
+use git2::Oid;
 use git_commit::Commit;
 
 const NO_TRAILER: &str = "\
@@ -42,6 +43,22 @@ We borrow code from `thrussh`, refactored to be runtime-less.
 
 X-Signed-Off-By: Alex Sellier
 X-Co-Authored-By: Fintan Halpenny
+";
+
+const RAD_RESOURCE: &str = "\
+tree b77cc435f83ed0fba90ed4500e9b4b96e9bd001b
+parent bf06ad645133f580a87895353508053c5de60716
+author keepsimple1 <keepsimple@gmail.com> 1664467633 +0200
+committer keepsimple1 <keepsimple@gmail.com> 1664786099 -0200
+
+Test Rad-Resource trailers.
+
+This is to test Rad-Resource trailers.
+
+Rad-Resource: b77cc435f83ed0fba90ed4500e9b4b96e9bd001b
+
+---
+diff content.
 ";
 
 const SSH_SIGNATURE: &str = "\
@@ -146,4 +163,25 @@ fn test_conversion() {
     );
     assert_eq!(Commit::from_str(SIGNED).unwrap().to_string(), SIGNED);
     assert_eq!(Commit::from_str(UNSIGNED).unwrap().to_string(), UNSIGNED);
+}
+
+#[test]
+fn test_trailers() {
+    // Verify the `trailers()` method.
+    let commit = Commit::from_str(SINGLE_TRAILER).unwrap();
+    let trailer = commit.trailers().next().unwrap();
+    assert_eq!(trailer.token, "Signed-off-by");
+    assert_eq!(trailer.value, "Fintan Halpenny <fintan.halpenny@gmail.com>");
+
+    // Verify the `trailers_of_key()` method.
+    let signs = commit.trailers_of_key::<String>("Signed-off-by").unwrap();
+    assert_eq!(signs[0], "Fintan Halpenny <fintan.halpenny@gmail.com>");
+
+    // Verify a different type (`Oid`) of trailer.
+    let commit = Commit::from_str(RAD_RESOURCE).unwrap();
+    let resources = commit.trailers_of_key::<Oid>("Rad-Resource").unwrap();
+    assert_eq!(
+        resources[0].to_string(),
+        "b77cc435f83ed0fba90ed4500e9b4b96e9bd001b".to_string()
+    );
 }

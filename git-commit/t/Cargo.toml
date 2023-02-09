@@ -14,7 +14,7 @@ doc = false
 [features]
 test = []
 
-[dependencies.git-commit]
+[dev-dependencies.git-commit]
 path = ".."
 
 [dev-dependencies.git2]
