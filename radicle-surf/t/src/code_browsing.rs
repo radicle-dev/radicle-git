@@ -80,3 +80,21 @@ fn test_commit_history() {
 
     assert_eq!(h1.head().id, h2.head().id);
 }
+
+#[test]
+fn test_commit_signature() {
+    let repo = Repository::open(GIT_PLATINUM).unwrap();
+    let commit_with_signature = "e24124b7538658220b5aaf3b6ef53758f0a106dc";
+    let signature = repo.extract_signature(commit_with_signature, None).unwrap();
+    assert!(signature.is_some());
+
+    let commit_without_signature = "80bacafba303bf0cdf6142921f430ff265f25095";
+    let signature = repo
+        .extract_signature(commit_without_signature, None)
+        .unwrap();
+    assert!(signature.is_none());
+
+    let commit_nonexist = "8080808080";
+    let signature = repo.extract_signature(commit_nonexist, None);
+    assert!(signature.is_err());
+}

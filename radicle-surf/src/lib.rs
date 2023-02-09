@@ -36,7 +36,7 @@
 pub use git_ref_format;
 
 /// Represents an object id in Git. Re-exported from `radicle-git-ext`.
-pub use radicle_git_ext::Oid;
+pub type Oid = radicle_git_ext::Oid;
 
 pub mod blob;
 pub mod diff;

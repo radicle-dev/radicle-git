@@ -21,6 +21,7 @@
 use crate::{commit, diff, fs, glob, namespace, refs, repo};
 use thiserror::Error;
 
+/// The crate level error type that wraps up module level error types.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
