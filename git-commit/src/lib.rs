@@ -17,13 +17,15 @@ use std::{
 };
 
 use git2::{ObjectType, Oid};
-use git_trailers::{self as trailers, OwnedTrailer, Trailer};
 
 pub mod author;
 pub use author::Author;
 
 pub mod headers;
 pub use headers::{Headers, Signature};
+
+pub mod trailers;
+pub use trailers::{OwnedTrailer, Trailer, Trailers};
 
 /// A git commit in its object description form, i.e. the output of
 /// `git cat-file` for a commit object.
@@ -162,8 +164,6 @@ pub mod error {
         InvalidFormat,
         #[error("missing '{0}' while parsing commit")]
         Missing(&'static str),
-        #[error(transparent)]
-        Token(#[from] git_trailers::InvalidToken),
         #[error("error occurred while checking for git-trailers: {0}")]
         Trailers(#[source] git2::Error),
         #[error(transparent)]
@@ -243,19 +243,14 @@ impl FromStr for Commit {
             }
         }
 
-        let (message, trailers) = message.lines().fold(
-            (Vec::new(), Vec::new()),
-            |(mut message, mut trailers), line| match trailers::parser::trailer(line, ": ") {
-                Ok((_, trailer)) => {
-                    trailers.push(trailer.into());
-                    (message, trailers)
-                },
-                Err(_) => {
-                    message.push(line);
-                    (message, trailers)
-                },
-            },
-        );
+        let trailers = trailers::Trailers::parse(message).map_err(error::Parse::Trailers)?;
+
+        let message = message
+            .strip_suffix(&trailers.to_string(": "))
+            .unwrap_or(message)
+            .to_string();
+
+        let trailers = trailers.iter().map(OwnedTrailer::from).collect();
 
         Ok(Self {
             tree,
@@ -263,7 +258,7 @@ impl FromStr for Commit {
             author: author.ok_or(error::Parse::Missing("author"))?,
             committer: committer.ok_or(error::Parse::Missing("committer"))?,
             headers,
-            message: message.join("\n"),
+            message,
             trailers,
         })
     }
