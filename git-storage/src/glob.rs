@@ -5,7 +5,6 @@
 
 use std::path::Path;
 
-use git_ext as ext;
 use git_ref_format::refspec::PatternString;
 
 pub trait Pattern {
@@ -26,12 +25,6 @@ impl Pattern for globset::GlobSet {
 
 #[derive(Clone, Debug)]
 pub struct RefspecMatcher(globset::GlobMatcher);
-
-impl From<ext::RefspecPattern> for RefspecMatcher {
-    fn from(pat: ext::RefspecPattern) -> Self {
-        Self(globset::Glob::new(pat.as_str()).unwrap().compile_matcher())
-    }
-}
 
 impl From<PatternString> for RefspecMatcher {
     fn from(pat: PatternString) -> Self {

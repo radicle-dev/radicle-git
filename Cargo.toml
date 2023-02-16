@@ -6,8 +6,6 @@ members = [
   "git-trailers",
   "link-git",
   "radicle-git-ext",
-  "radicle-git-types",
-  "radicle-macros",
   "radicle-std-ext",
   "radicle-surf",
   # TODO: port gitd-lib over

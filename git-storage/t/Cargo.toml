@@ -35,7 +35,7 @@ path = "../../test/test-helpers"
 version = "1"
 features = ["v4"]
 
-[dev-dependencies.git-ext-test]
+[dev-dependencies.radicle-git-ext-test]
 path = "../../radicle-git-ext/t"
 features = ["test"]
 
