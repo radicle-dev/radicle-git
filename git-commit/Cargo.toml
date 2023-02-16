@@ -8,7 +8,7 @@ authors = [
   "Fintan Halpenny <fintan.halpenny@gmail.com>",
 ]
 description = "A small library for parsing, displaying and creating a git commit"
-keywords = ["git", "radicle"]
+keywords = ["git", "git-commit", "git-trailers", "radicle"]
 
 [dependencies]
 thiserror = "1"
@@ -17,7 +17,3 @@ thiserror = "1"
 version = "0.16.1"
 default-features = false
 features = ["vendored-libgit2"]
-
-[dependencies.git-trailers]
-version = "0.1.0"
-path = "../git-trailers"
