@@ -19,10 +19,6 @@ features = ["test"]
 path = "../radicle-git-ext/t"
 features = ["test"]
 
-[dev-dependencies.git-ref-format-test]
-path = "../git-ref-format/t"
-features = ["test"]
-
 [dev-dependencies.git-trailers-test]
 path = "../git-trailers/t"
 features = ["test"]
@@ -38,4 +34,3 @@ features = ["test"]
 [dev-dependencies.git-storage-test]
 path = "../git-storage/t"
 features = ["test"]
-

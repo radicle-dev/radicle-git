@@ -4,7 +4,7 @@
 //! Unit tests for radicle_surf::file_system
 
 mod directory {
-    use git_ref_format::refname;
+    use radicle_git_ext::ref_format::refname;
     use radicle_surf::{
         fs::{self, Entry},
         Branch,

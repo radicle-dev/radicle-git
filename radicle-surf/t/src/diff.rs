@@ -1,6 +1,5 @@
-use git_ref_format::refname;
 use pretty_assertions::assert_eq;
-use radicle_git_ext::Oid;
+use radicle_git_ext::{ref_format::refname, Oid};
 use radicle_surf::{
     diff::{
         Added,

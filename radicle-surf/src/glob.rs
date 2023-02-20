@@ -17,7 +17,8 @@
 
 use std::marker::PhantomData;
 
-use git_ref_format::{
+use git_ext::ref_format::{
+    self,
     refname,
     refspec::{self, PatternString, QualifiedPattern},
     Qualified,
@@ -31,7 +32,7 @@ use crate::{Branch, Local, Namespace, Remote, Tag};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
-    RefFormat(#[from] git_ref_format::Error),
+    RefFormat(#[from] ref_format::Error),
 }
 
 /// A collection of globs for a git reference type.

@@ -23,16 +23,12 @@ version = "0.16.1"
 default-features = false
 features = ["vendored-libgit2"]
 
-[dev-dependencies.git-ref-format]
-path = "../../git-ref-format"
-features = ["macro"]
-
-[dev-dependencies.git-ref-format-test]
-path = "../../git-ref-format/t"
-features = ["test"]
-
 [dev-dependencies.radicle-git-ext]
 path = "../../radicle-git-ext"
+
+[dev-dependencies.radicle-git-ext-test]
+path = "../../radicle-git-ext/t"
+features = ["test"]
 
 [dev-dependencies.radicle-surf]
 path = ".."

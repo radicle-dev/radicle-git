@@ -17,8 +17,10 @@
 
 use std::{convert::Infallible, str::FromStr};
 
-use git_ref_format::{Qualified, RefString};
-use radicle_git_ext::Oid;
+use git_ext::{
+    ref_format::{Qualified, RefString},
+    Oid,
+};
 
 use crate::{Branch, Commit, Error, Repository, Tag};
 

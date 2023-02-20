@@ -1,9 +1,8 @@
-use git_ref_format::{RefStr, RefString};
-use git_ref_format_test::gen;
 use proptest::prelude::*;
-use test_helpers::roundtrip;
-
+use radicle_git_ext::ref_format::{RefStr, RefString};
+use radicle_git_ext_test::git_ref_format::gen;
 use radicle_surf::Branch;
+use test_helpers::roundtrip;
 
 proptest! {
     #[test]

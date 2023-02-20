@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use git_ref_format::refspec::PatternString;
+use git_ext::ref_format::refspec::PatternString;
 
 pub trait Pattern {
     fn matches<P: AsRef<Path>>(&self, path: P) -> bool;

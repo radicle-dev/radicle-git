@@ -22,8 +22,10 @@ use std::{
     str,
 };
 
-use git_ref_format::{refspec::QualifiedPattern, Qualified, RefStr, RefString};
-use radicle_git_ext::Oid;
+use git_ext::{
+    ref_format::{refspec::QualifiedPattern, Qualified, RefStr, RefString},
+    Oid,
+};
 
 use crate::{
     blob::{Blob, BlobRef},

@@ -19,8 +19,7 @@
 
 use std::fmt::Debug;
 
-use git_ext::Oid;
-use git_ref_format::RefString;
+use git_ext::{ref_format::RefString, Oid};
 
 pub mod iter;
 pub use iter::{References, ReferencesGlob};
@@ -104,7 +103,7 @@ pub mod error {
         #[error("reference name did contain valid UTF-8 bytes")]
         InvalidUtf8,
         #[error(transparent)]
-        RefString(#[from] git_ref_format::Error),
+        RefString(#[from] radicle_git_ext::ref_format::Error),
     }
 
     #[derive(Debug, Error)]

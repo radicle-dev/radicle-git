@@ -17,9 +17,6 @@ version = "0.16.1"
 default-features = false
 features = ["vendored-libgit2"]
 
-[dependencies.git-ref-format]
-path = "../git-ref-format"
-
 [dependencies.libgit2-sys]
 version = ">= 0.14.2"
 default-features = false

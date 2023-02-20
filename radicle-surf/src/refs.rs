@@ -6,7 +6,7 @@ use std::{
     convert::TryFrom as _,
 };
 
-use git_ref_format::{lit, name::Components, Component, Qualified, RefString};
+use git_ext::ref_format::{self, lit, name::Components, Component, Qualified, RefString};
 
 use crate::{tag, Branch, Namespace, Tag};
 
@@ -187,7 +187,7 @@ impl<'a> Iterator for Categories<'a> {
                     Some(res) => {
                         return Some(res.map_err(error::Category::from).and_then(|r| {
                             let name = std::str::from_utf8(r.name_bytes())?;
-                            let name = git_ref_format::RefStr::try_from_str(name)?;
+                            let name = ref_format::RefStr::try_from_str(name)?;
                             let name = name.qualified().ok_or_else(|| {
                                 error::Category::NotQualified(name.to_ref_string())
                             })?;
@@ -207,7 +207,7 @@ impl<'a> Iterator for Categories<'a> {
 pub mod error {
     use std::str;
 
-    use git_ref_format::RefString;
+    use radicle_git_ext::ref_format::{self, RefString};
     use thiserror::Error;
 
     use crate::{branch, tag};
@@ -227,7 +227,7 @@ pub mod error {
         #[error("the reference '{0}' was expected to be qualified, i.e. 'refs/<category>/<path>'")]
         NotQualified(RefString),
         #[error(transparent)]
-        RefFormat(#[from] git_ref_format::Error),
+        RefFormat(#[from] ref_format::Error),
         #[error(transparent)]
         Utf8(#[from] str::Utf8Error),
     }

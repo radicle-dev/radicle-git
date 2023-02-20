@@ -3,12 +3,12 @@
 
 use git2::ObjectType;
 
-use git_ref_format::RefString;
-use git_ref_format_test::gen::valid;
 use git_storage::{
     odb::{Read as _, Write as _},
     signature::UserInfo,
 };
+use radicle_git_ext::ref_format::RefString;
+use radicle_git_ext_test::git_ref_format::gen::valid;
 
 use proptest::prelude::*;
 

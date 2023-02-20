@@ -3,8 +3,10 @@
 
 use std::error::Error;
 
-use git_ext::Oid;
-use git_ref_format::{Qualified, RefString};
+use git_ext::{
+    ref_format::{Qualified, RefString},
+    Oid,
+};
 
 use super::read::Read;
 

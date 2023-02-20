@@ -1,10 +1,10 @@
 // Copyright © 2022 The Radicle Link Contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use git_ref_format::{check_ref_format, Error, Options};
 use proptest::prelude::*;
+use radicle_git_ext::ref_format::{check_ref_format, Error, Options};
 
-use crate::gen;
+use crate::git_ref_format::gen;
 
 mod name;
 mod pattern;
