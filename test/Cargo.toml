@@ -15,7 +15,7 @@ doc = false
 path = "../git-commit/t"
 features = ["test"]
 
-[dev-dependencies.git-ext-test]
+[dev-dependencies.radicle-git-ext-test]
 path = "../radicle-git-ext/t"
 features = ["test"]
 
