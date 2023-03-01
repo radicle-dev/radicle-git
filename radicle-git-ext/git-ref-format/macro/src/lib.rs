@@ -32,7 +32,7 @@ pub fn refname(input: TokenStream) -> TokenStream {
             let expand = quote! {
                 unsafe {
                     use ::std::mem::transmute;
-                    use ::git_ref_format::RefString;
+                    use ::radicle_git_ext::ref_format::RefString;
 
                     transmute::<_, RefString>(#safe.to_owned())
                 }
@@ -66,7 +66,7 @@ pub fn qualified(input: TokenStream) -> TokenStream {
                     let expand = quote! {
                         unsafe {
                             use ::std::{borrow::Cow, mem::transmute};
-                            use ::git_ref_format::{Component, RefStr, RefString, Qualified};
+                            use ::radicle_git_ext::ref_format::{Component, RefStr, RefString, Qualified};
 
                             let inner: RefString = transmute(#safe.to_owned());
                             let cow: Cow<'static, RefStr> = Cow::Owned(inner);
@@ -112,7 +112,7 @@ pub fn component(input: TokenStream) -> TokenStream {
                     let expand = quote! {
                         unsafe {
                             use ::std::{borrow::Cow, mem::transmute};
-                            use ::git_ref_format::{Component, RefStr, RefString};
+                            use ::radicle_git_ext::ref_format::{Component, RefStr, RefString};
 
                             let inner: RefString = transmute(#safe.to_owned());
                             let cow: Cow<'static, RefStr> = Cow::Owned(inner);
@@ -153,7 +153,7 @@ pub fn pattern(input: TokenStream) -> TokenStream {
             let expand = quote! {
                 unsafe {
                     use ::std::mem::transmute;
-                    use ::git_ref_format::refspec::PatternString;
+                    use ::radicle_git_ext::ref_format::refspec::PatternString;
 
                     transmute::<_, PatternString>(#safe.to_owned())
                 }

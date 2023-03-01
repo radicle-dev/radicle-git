@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use git_ref_format::refname;
+use radicle_git_ext::ref_format::refname;
 use radicle_surf::{
     fs::{self, Directory},
     Branch,

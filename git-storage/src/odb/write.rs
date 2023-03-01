@@ -3,8 +3,7 @@
 
 use std::error::Error;
 
-use git_ext::Oid;
-use git_ref_format::RefStr;
+use git_ext::{ref_format::RefStr, Oid};
 
 use super::{Commit, Object, Read, Tree, TreeBuilder};
 

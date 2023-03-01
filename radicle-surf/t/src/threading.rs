@@ -1,6 +1,6 @@
 use std::sync::{Mutex, MutexGuard};
 
-use git_ref_format::{name::component, refname};
+use radicle_git_ext::ref_format::{name::component, refname};
 use radicle_surf::{Branch, Error, Glob, Repository};
 
 use super::GIT_PLATINUM;

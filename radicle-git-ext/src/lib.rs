@@ -20,3 +20,5 @@ pub use oid::*;
 pub use revwalk::*;
 pub use transport::*;
 pub use tree::Tree;
+
+pub use git_ref_format as ref_format;

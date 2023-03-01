@@ -5,7 +5,7 @@
 
 use std::{fmt, path::Path};
 
-use git_ext::{error::is_not_found_err, Oid};
+use git_ext::{error::is_not_found_err, ref_format, Oid};
 use std_ext::result::ResultExt as _;
 
 use crate::{
@@ -89,7 +89,7 @@ impl<'a> refdb::Read for &'a Read {
 
     fn find_reference<Ref>(&self, reference: Ref) -> Result<Option<Reference>, Self::FindRef>
     where
-        Ref: AsRef<git_ref_format::RefStr>,
+        Ref: AsRef<ref_format::RefStr>,
     {
         let reference = self
             .raw
@@ -101,7 +101,7 @@ impl<'a> refdb::Read for &'a Read {
 
     fn find_references<Pat>(&self, reference: Pat) -> Result<Self::References, Self::FindRefs>
     where
-        Pat: AsRef<git_ref_format::refspec::PatternStr>,
+        Pat: AsRef<ref_format::refspec::PatternStr>,
     {
         Ok(References {
             inner: ReferencesGlob {
@@ -113,7 +113,7 @@ impl<'a> refdb::Read for &'a Read {
 
     fn find_reference_oid<Ref>(&self, reference: Ref) -> Result<Option<Oid>, Self::FindRefOid>
     where
-        Ref: AsRef<git_ref_format::RefStr>,
+        Ref: AsRef<ref_format::RefStr>,
     {
         self.raw
             .refname_to_id(reference.as_ref().as_str())

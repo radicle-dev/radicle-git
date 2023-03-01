@@ -32,8 +32,10 @@
 //!
 //! [serde]: https://crates.io/crates/serde
 
+extern crate radicle_git_ext as git_ext;
+
 /// Re-exports.
-pub use git_ref_format;
+pub use radicle_git_ext::ref_format;
 
 /// Represents an object id in Git. Re-exported from `radicle-git-ext`.
 pub type Oid = radicle_git_ext::Oid;

@@ -3,11 +3,11 @@
 
 use std::convert::TryFrom;
 
-use git_ref_format::{name, refname, Error, RefStr, RefString};
 use proptest::prelude::*;
+use radicle_git_ext::ref_format::{name, refname, Error, RefStr, RefString};
 use test_helpers::roundtrip;
 
-use crate::gen;
+use crate::git_ref_format::gen;
 
 proptest! {
     #[test]

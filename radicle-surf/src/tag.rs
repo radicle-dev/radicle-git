@@ -1,7 +1,9 @@
 use std::{convert::TryFrom, str};
 
-use git_ref_format::{component, lit, Qualified, RefStr, RefString};
-use radicle_git_ext::Oid;
+use git_ext::{
+    ref_format::{component, lit, Qualified, RefStr, RefString},
+    Oid,
+};
 
 use crate::{refs::refstr_join, Author};
 
@@ -60,13 +62,13 @@ impl Tag {
 pub mod error {
     use std::str;
 
-    use git_ref_format::RefString;
+    use radicle_git_ext::ref_format::{self, RefString};
     use thiserror::Error;
 
     #[derive(Debug, Error)]
     pub enum FromTag {
         #[error(transparent)]
-        RefFormat(#[from] git_ref_format::Error),
+        RefFormat(#[from] ref_format::Error),
         #[error(transparent)]
         Utf8(#[from] str::Utf8Error),
     }
@@ -82,7 +84,7 @@ pub mod error {
         #[error("the refname '{0}' did not begin with 'refs/tags'")]
         NotTag(RefString),
         #[error(transparent)]
-        RefFormat(#[from] git_ref_format::Error),
+        RefFormat(#[from] ref_format::Error),
         #[error(transparent)]
         Utf8(#[from] str::Utf8Error),
     }

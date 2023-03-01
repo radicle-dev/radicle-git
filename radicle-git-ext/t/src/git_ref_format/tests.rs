@@ -1,7 +1,7 @@
 // Copyright © 2022 The Radicle Link Contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use git_ref_format::{
+use radicle_git_ext::ref_format::{
     component,
     name,
     qualified,

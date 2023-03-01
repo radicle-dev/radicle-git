@@ -7,8 +7,11 @@ use std::path::Path;
 
 use either::Either;
 
-use git_ext::{error::is_not_found_err, Oid};
-use git_ref_format::{Qualified, RefStr, RefString};
+use git_ext::{
+    error::is_not_found_err,
+    ref_format::{self, Qualified, RefStr, RefString},
+    Oid,
+};
 
 use crate::{
     odb,
@@ -103,21 +106,21 @@ impl<'a> refdb::Read for &'a Write {
 
     fn find_reference<Ref>(&self, reference: Ref) -> Result<Option<Reference>, Self::FindRef>
     where
-        Ref: AsRef<git_ref_format::RefStr>,
+        Ref: AsRef<ref_format::RefStr>,
     {
         self.read_only().find_reference(reference)
     }
 
     fn find_references<Pat>(&self, reference: Pat) -> Result<Self::References, Self::FindRefs>
     where
-        Pat: AsRef<git_ref_format::refspec::PatternStr>,
+        Pat: AsRef<ref_format::refspec::PatternStr>,
     {
         self.read_only().find_references(reference)
     }
 
     fn find_reference_oid<Ref>(&self, reference: Ref) -> Result<Option<Oid>, Self::FindRefOid>
     where
-        Ref: AsRef<git_ref_format::RefStr>,
+        Ref: AsRef<ref_format::RefStr>,
     {
         self.read_only().find_reference_oid(reference)
     }

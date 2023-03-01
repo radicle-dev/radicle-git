@@ -1,4 +1,4 @@
-use git_ref_format::refspec;
+use radicle_git_ext::ref_format::refspec;
 use radicle_surf::{Glob, Repository};
 
 use super::GIT_PLATINUM;

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use git_ref_format::refname;
+use radicle_git_ext::ref_format::refname;
 use radicle_surf::{Branch, Glob, Repository};
 use serde_json::json;
 
