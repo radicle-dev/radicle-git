@@ -40,9 +40,9 @@ pub struct Commit {
 }
 
 impl Commit {
-    pub fn new<I, T>(
+    pub fn new<P, I, T>(
         tree: Oid,
-        parents: Vec<Oid>,
+        parents: P,
         author: Author,
         committer: Author,
         headers: Headers,
@@ -50,10 +50,12 @@ impl Commit {
         trailers: I,
     ) -> Self
     where
+        P: IntoIterator<Item = Oid>,
         I: IntoIterator<Item = T>,
         OwnedTrailer: From<T>,
     {
         let trailers = trailers.into_iter().map(OwnedTrailer::from).collect();
+        let parents = parents.into_iter().collect();
         Self {
             tree,
             parents,
@@ -75,9 +77,10 @@ impl Commit {
 
     /// Write the given [`Commit`] to the `repo`. The resulting `Oid`
     /// is the identifier for this commit.
-    pub fn write(&self, repo: &git2::Repository) -> Result<Oid, git2::Error> {
-        let odb = repo.odb()?;
-        odb.write(ObjectType::Commit, self.to_string().as_bytes())
+    pub fn write(&self, repo: &git2::Repository) -> Result<Oid, error::Write> {
+        let odb = repo.odb().map_err(error::Write::Odb)?;
+        self.verify_for_write(&odb)?;
+        Ok(odb.write(ObjectType::Commit, self.to_string().as_bytes())?)
     }
 
     /// The tree [`Oid`] this commit points to.
@@ -132,6 +135,35 @@ impl Commit {
     pub fn trailers(&self) -> impl Iterator<Item = &OwnedTrailer> {
         self.trailers.iter()
     }
+
+    fn verify_for_write(&self, odb: &git2::Odb) -> Result<(), error::Write> {
+        for parent in &self.parents {
+            verify_object(odb, parent, ObjectType::Commit)?;
+        }
+        verify_object(odb, &self.tree, ObjectType::Tree)?;
+
+        Ok(())
+    }
+}
+
+fn verify_object(odb: &git2::Odb, oid: &Oid, expected: ObjectType) -> Result<(), error::Write> {
+    use git2::{Error, ErrorClass, ErrorCode};
+
+    let (_, _, kind) = odb
+        .reader(*oid)
+        .map_err(|err| error::Write::OdbRead { oid: *oid, err })?;
+    if kind != expected {
+        Err(error::Write::NotCommit {
+            oid: *oid,
+            err: Error::new(
+                ErrorCode::NotFound,
+                ErrorClass::Object,
+                format!("Object '{oid}' is not expected object type {expected}"),
+            ),
+        })
+    } else {
+        Ok(())
+    }
 }
 
 pub mod error {
@@ -140,6 +172,26 @@ pub mod error {
     use thiserror::Error;
 
     use crate::author;
+
+    #[derive(Debug, Error)]
+    pub enum Write {
+        #[error(transparent)]
+        Git(#[from] git2::Error),
+        #[error("the parent '{oid}' provided is not a commit object")]
+        NotCommit {
+            oid: git2::Oid,
+            #[source]
+            err: git2::Error,
+        },
+        #[error("failed to access git odb")]
+        Odb(#[source] git2::Error),
+        #[error("failed to read '{oid}' from git odb")]
+        OdbRead {
+            oid: git2::Oid,
+            #[source]
+            err: git2::Error,
+        },
+    }
 
     #[derive(Debug, Error)]
     pub enum Read {
@@ -269,7 +321,7 @@ impl ToString for Commit {
 
         writeln!(buf, "tree {}", self.tree).ok();
 
-        for parent in &self.parents {
+        for parent in self.parents() {
             writeln!(buf, "parent {parent}").ok();
         }
 
