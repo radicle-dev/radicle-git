@@ -1,6 +1,10 @@
-use std::str::FromStr as _;
+use std::{io, str::FromStr as _};
 
-use radicle_git_ext::commit::Commit;
+use radicle_git_ext::{
+    author::{self, Author},
+    commit::{headers::Headers, trailers::OwnedTrailer, Commit},
+};
+use test_helpers::tempdir::WithTmpDir;
 
 const NO_TRAILER: &str = "\
 tree 50d6ef440728217febf9e35716d8b0296608d7f8
@@ -148,9 +152,6 @@ fn test_conversion() {
     assert_eq!(Commit::from_str(UNSIGNED).unwrap().to_string(), UNSIGNED);
 }
 
-use std::io;
-use test_helpers::tempdir::WithTmpDir;
-
 #[test]
 fn valid_commits() {
     let radicle_git = format!(
@@ -173,4 +174,71 @@ fn valid_commits() {
         let commit = Commit::read(&repo, oid);
         assert!(commit.is_ok(), "Oid: {oid}, Error: {commit:?}")
     }
+}
+
+#[test]
+fn write_valid_commit() {
+    let repo = WithTmpDir::new(|path| {
+        git2::Repository::init(path).map_err(|err| io::Error::new(io::ErrorKind::Other, err))
+    })
+    .unwrap();
+    let author = Author {
+        name: "Terry".to_owned(),
+        email: "terry.pratchett@proton.mail".to_owned(),
+        time: author::Time::new(0, 0),
+    };
+    let blob = repo.blob(b"The Colour of Magic").unwrap();
+    let mut tb = repo.treebuilder(None).unwrap();
+    tb.insert("The Colour of Magic", blob, git2::FileMode::Blob.into())
+        .unwrap();
+    let tree = tb.write().unwrap();
+    let commit = repo
+        .commit(
+            None,
+            &git2::Signature::try_from(&author).unwrap(),
+            &git2::Signature::try_from(&author).unwrap(),
+            "New beginnings",
+            &repo.find_tree(tree).unwrap(),
+            &[],
+        )
+        .unwrap();
+
+    let headers = Headers::new();
+    let message = "Write Discworld".to_owned();
+
+    let invalid = Commit::new(
+        tree,
+        vec![blob],
+        author.clone(),
+        author.clone(),
+        headers.clone(),
+        message.clone(),
+        None::<OwnedTrailer>,
+    )
+    .write(&repo);
+    assert!(invalid.is_err());
+
+    let invalid = Commit::new(
+        blob,
+        vec![commit],
+        author.clone(),
+        author.clone(),
+        headers.clone(),
+        message.clone(),
+        None::<OwnedTrailer>,
+    )
+    .write(&repo);
+    assert!(invalid.is_err());
+
+    let valid = Commit::new(
+        tree,
+        vec![commit],
+        author.clone(),
+        author,
+        headers,
+        message,
+        None::<OwnedTrailer>,
+    )
+    .write(&repo);
+    assert!(valid.is_ok())
 }

@@ -19,7 +19,7 @@ anyhow = "1"
 bstr = "0.2"
 futures = "0.3"
 futures_ringbuf = "0.3"
-tempfile = "3.3"
+tempfile = "3.4"
 
 [dev-dependencies.git2]
 version = "0.16.1"
