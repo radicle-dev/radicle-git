@@ -48,6 +48,7 @@ use crate::{
 
 /// Enumeration of errors that can occur in repo operations.
 pub mod error {
+    use crate::Oid;
     use std::path::PathBuf;
     use thiserror::Error;
 
@@ -56,6 +57,8 @@ pub mod error {
     pub enum Repo {
         #[error("path not found for: {0}")]
         PathNotFound(PathBuf),
+        #[error("blob not found for: {0}")]
+        BlobNotFound(Oid),
     }
 }
 
@@ -301,6 +304,20 @@ impl Repository {
         Ok(Blob::<BlobRef<'a>>::new(file.id(), git2_blob, last_commit))
     }
 
+    /// Retrieves the blob with `oid` in `commit`.
+    pub fn blob_at<'a, C: ToCommit>(
+        &'a self,
+        commit: C,
+        oid: Oid,
+    ) -> Result<Blob<BlobRef<'a>>, Error> {
+        let commit = commit
+            .to_commit(self)
+            .map_err(|e| Error::ToCommit(e.into()))?;
+        let git2_blob = self.find_blob(oid)?;
+        let last_commit = self.find_commit_of_blob(oid, &commit)?;
+        Ok(Blob::<BlobRef<'a>>::new(oid, git2_blob, last_commit))
+    }
+
     /// Returns the last commit, if exists, for a `path` in the history of
     /// `rev`.
     pub fn last_commit<P, C>(&self, path: &P, rev: C) -> Result<Option<Commit>, Error>
@@ -522,6 +539,53 @@ impl Repository {
         diff.find_similar(Some(&mut find_opts))?;
 
         Ok(diff)
+    }
+
+    /// Returns true if the diff between `from` and `to` creates `oid`.
+    fn diff_commits_has_oid(
+        &self,
+        from: Option<&git2::Commit>,
+        to: &git2::Commit,
+        oid: &git2::Oid,
+    ) -> Result<bool, Error> {
+        let diff = self.diff_commits(None, from, to)?;
+        for delta in diff.deltas() {
+            if &delta.new_file().id() == oid {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    /// Returns whether `oid` was created in `commit` or not.
+    fn is_oid_in_commit(&self, oid: Oid, commit: &git2::Commit) -> Result<bool, Error> {
+        if commit.parent_count() == 0 {
+            return self.diff_commits_has_oid(None, commit, oid.as_ref());
+        }
+
+        for p in commit.parents() {
+            if self.diff_commits_has_oid(Some(&p), commit, oid.as_ref())? {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    /// Returns the commit that created the blob with `oid`.
+    ///
+    /// It is assumed that `oid` exists in `head`.
+    fn find_commit_of_blob(&self, oid: Oid, head: &Commit) -> Result<Commit, Error> {
+        let mut revwalk = self.revwalk()?;
+        revwalk.push(head.id.into())?;
+        for commit_id in revwalk {
+            let commit_id = commit_id?;
+            let git2_commit = self.inner.find_commit(commit_id)?;
+            if self.is_oid_in_commit(oid, &git2_commit)? {
+                return Ok(Commit::try_from(git2_commit)?);
+            }
+        }
+        Err(Error::Repo(error::Repo::BlobNotFound(oid)))
     }
 
     /// Returns a full reference name with namespace(s) included.
