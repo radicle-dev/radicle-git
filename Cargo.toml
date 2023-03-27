@@ -1,13 +1,8 @@
 [workspace]
 members = [
-  "git-commit",
   "git-storage",
-  "git-trailers",
-  "link-git",
   "radicle-git-ext",
   "radicle-std-ext",
   "radicle-surf",
-  # TODO: port gitd-lib over
-  # "cli/gitd-lib",
   "test",
 ]
