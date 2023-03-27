@@ -1,9 +1,11 @@
 [package]
 name = "radicle-git-ext"
-version = "0.2.1"
+version = "0.3.0"
 authors = [
+  "Alexis Sellier <alexis@radicle.xyz>",
   "Kim Altintop <kim@eagain.st>",
   "Fintan Halpenny <fintan.halpenny@gmail.com",
+  "Han Xu <keepsimple@gmail.com>",
 ]
 edition = "2021"
 license = "GPL-3.0-or-later"
