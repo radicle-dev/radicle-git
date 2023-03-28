@@ -11,20 +11,8 @@ doctest = false
 test = true
 doc = false
 
-[dev-dependencies.git-commit-test]
-path = "../git-commit/t"
-features = ["test"]
-
 [dev-dependencies.radicle-git-ext-test]
 path = "../radicle-git-ext/t"
-features = ["test"]
-
-[dev-dependencies.git-trailers-test]
-path = "../git-trailers/t"
-features = ["test"]
-
-[dev-dependencies.link-git-test]
-path = "../link-git/t"
 features = ["test"]
 
 [dev-dependencies.radicle-surf-test]
