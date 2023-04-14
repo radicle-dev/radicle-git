@@ -21,7 +21,7 @@ percent-encoding = "2"
 thiserror = "1"
 
 [dependencies.git2]
-version = "0.16.1"
+version = "0.17.0"
 default-features = false
 features = ["vendored-libgit2"]
 
