@@ -17,7 +17,7 @@
 
 //! Types that represent diff(s) in a Git repo.
 
-use std::path::PathBuf;
+use std::{borrow::Cow, path::PathBuf, string::FromUtf8Error};
 
 #[cfg(feature = "serde")]
 use serde::{ser, ser::SerializeStruct, Serialize, Serializer};
@@ -337,6 +337,20 @@ impl<T> From<Vec<Hunk<T>>> for Hunks<T> {
 /// The content of a single line.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Line(pub(crate) Vec<u8>);
+
+impl Line {
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+
+    pub fn from_utf8(self) -> Result<String, FromUtf8Error> {
+        String::from_utf8(self.0)
+    }
+
+    pub fn from_utf8_lossy(&self) -> Cow<str> {
+        String::from_utf8_lossy(&self.0)
+    }
+}
 
 impl From<Vec<u8>> for Line {
     fn from(v: Vec<u8>) -> Self {
