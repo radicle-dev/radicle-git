@@ -1,6 +1,6 @@
 [package]
 name = "git-ref-format"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
   "Kim Altintop <kim@eagain.st>",
   "Fintan Halpenny <fintan.halpenny@gmail.com>",
@@ -22,10 +22,10 @@ percent-encoding = ["git-ref-format-core/percent-encoding"]
 serde = ["git-ref-format-core/serde"]
 
 [dependencies.git-ref-format-core]
-version = "0.2.0"
+version = "0.2.1"
 path = "./core"
 
 [dependencies.git-ref-format-macro]
-version = "0.2.0"
+version = "0.2.1"
 path = "./macro"
 optional = true
