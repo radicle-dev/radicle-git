@@ -130,6 +130,19 @@ impl Deref for Token<'_> {
     }
 }
 
+impl<'a> TryFrom<&'a str> for Token<'a> {
+    type Error = &'static str;
+
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        let is_token = s.chars().all(|c| c.is_alphanumeric() || c == '-');
+        if is_token {
+            Ok(Token(s))
+        } else {
+            Err("token contains invalid characters")
+        }
+    }
+}
+
 pub struct Display<'a> {
     trailer: &'a Trailer<'a>,
     separator: &'a str,
