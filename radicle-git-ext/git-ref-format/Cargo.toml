@@ -1,6 +1,6 @@
 [package]
 name = "git-ref-format"
-version = "0.2.1"
+version = "0.2.2"
 authors = [
   "Kim Altintop <kim@eagain.st>",
   "Fintan Halpenny <fintan.halpenny@gmail.com>",
