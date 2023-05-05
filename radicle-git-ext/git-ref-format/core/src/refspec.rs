@@ -6,7 +6,7 @@
 use std::{
     borrow::{Borrow, Cow},
     convert::TryFrom,
-    fmt::{self, Display},
+    fmt::{self, Display, Write as _},
     iter::FromIterator,
     ops::Deref,
 };
@@ -556,5 +556,32 @@ impl Display for NamespacedPattern<'_> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+/// A Git [refspec].
+///
+/// **Note** that this is a simplified version of a [refspec] where
+/// the `src` and `dst` are required and there is no way to construct
+/// a negative refspec, e.g. `^refs/heads/no-thanks`.
+///
+/// [refspec]: https://git-scm.com/book/en/v2/Git-Internals-The-Refspec
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Refspec<T, U> {
+    pub src: T,
+    pub dst: U,
+    pub force: bool,
+}
+
+impl<T, U> fmt::Display for Refspec<T, U>
+where
+    T: fmt::Display,
+    U: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.force {
+            f.write_char('+')?;
+        }
+        write!(f, "{}:{}", self.src, self.dst)
     }
 }

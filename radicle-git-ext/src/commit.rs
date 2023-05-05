@@ -149,8 +149,8 @@ impl Commit {
 fn verify_object(odb: &git2::Odb, oid: &Oid, expected: ObjectType) -> Result<(), error::Write> {
     use git2::{Error, ErrorClass, ErrorCode};
 
-    let (_, _, kind) = odb
-        .reader(*oid)
+    let (_, kind) = odb
+        .read_header(*oid)
         .map_err(|err| error::Write::OdbRead { oid: *oid, err })?;
     if kind != expected {
         Err(error::Write::NotCommit {

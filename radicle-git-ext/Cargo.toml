@@ -1,6 +1,6 @@
 [package]
 name = "radicle-git-ext"
-version = "0.4.1"
+version = "0.4.2"
 authors = [
   "Alexis Sellier <alexis@radicle.xyz>",
   "Kim Altintop <kim@eagain.st>",
@@ -26,7 +26,7 @@ default-features = false
 features = ["vendored-libgit2"]
 
 [dependencies.git-ref-format]
-version = "0.2.1"
+version = "0.2.2"
 path = "./git-ref-format"
 features = ["macro", "serde", "minicbor"]
 
