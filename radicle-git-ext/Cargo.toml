@@ -16,6 +16,9 @@ keywords = ["git", "radicle"]
 doctest = false
 test = false
 
+[features]
+minicbor = ["git-ref-format/minicbor"]
+
 [dependencies]
 percent-encoding = "2"
 thiserror = "1"
@@ -28,7 +31,7 @@ features = ["vendored-libgit2"]
 [dependencies.git-ref-format]
 version = "0.2.3"
 path = "./git-ref-format"
-features = ["macro", "serde", "minicbor"]
+features = ["macro", "serde"]
 
 [dependencies.serde]
 version = "1"

@@ -30,7 +30,7 @@ features = ["vendored-libgit2"]
 
 [dependencies.radicle-git-ext]
 path = ".."
-features = ["serde"]
+features = ["serde", "minicbor"]
 
 [dev-dependencies.test-helpers]
 path = "../../test/test-helpers"
