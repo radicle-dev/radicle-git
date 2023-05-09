@@ -60,7 +60,9 @@ impl From<git2::Time> for Time {
 impl fmt::Display for Time {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let sign = if self.offset.is_negative() { '-' } else { '+' };
-        write!(f, "{} {}{:0>4}", self.seconds, sign, self.offset.abs())
+        let hours = self.offset.abs() / 60;
+        let minutes = self.offset.abs() % 60;
+        write!(f, "{} {}{:0>2}{:0>2}", self.seconds, sign, hours, minutes)
     }
 }
 
@@ -110,7 +112,17 @@ impl FromStr for Author {
         let mut components = s.split(' ');
         let offset = match components.next_back() {
             None => return Err(ParseError::Missing("offset")),
-            Some(offset) => offset.parse::<i32>().map_err(ParseError::Offset)?,
+            Some(offset) => {
+                // The offset is in the form of timezone offset,
+                // e.g. +0200, -0100.  This needs to be converted into
+                // minutes. The first two digits in the offset are the
+                // number of hours in the offset, while the latter two
+                // digits are the number of minutes in the offset.
+                let tz_offset = offset.parse::<i32>().map_err(ParseError::Offset)?;
+                let hours = tz_offset / 100;
+                let minutes = tz_offset % 100;
+                hours * 60 + minutes
+            },
         };
         let time = match components.next_back() {
             None => return Err(ParseError::Missing("time")),
