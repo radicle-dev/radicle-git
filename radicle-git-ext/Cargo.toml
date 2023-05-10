@@ -1,6 +1,6 @@
 [package]
 name = "radicle-git-ext"
-version = "0.4.3"
+version = "0.5.0"
 authors = [
   "Alexis Sellier <alexis@radicle.xyz>",
   "Kim Altintop <kim@eagain.st>",
