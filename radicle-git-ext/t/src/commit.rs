@@ -1,4 +1,4 @@
-use std::{io, str::FromStr as _};
+use std::{io, str::FromStr as _, string::ToString as _};
 
 use radicle_git_ext::{
     author::{self, Author},
@@ -241,4 +241,25 @@ fn write_valid_commit() {
     )
     .write(&repo);
     assert!(valid.is_ok())
+}
+
+#[test]
+fn author_roundtrip() {
+    let author = "author Fintan Halpenny <fintan.halpenny@gmail.com> 1669292989 +0000";
+    assert_eq!(
+        author.parse::<Author>().unwrap().to_string(),
+        author.to_string()
+    );
+
+    let author = "author Alexis Sellier <alexis@radicle.xyz> 1664467633 +0200";
+    assert_eq!(
+        author.parse::<Author>().unwrap().to_string(),
+        author.to_string()
+    );
+
+    let author = "author Alexis Sellier <alexis@radicle.xyz> 1664467633 -0200";
+    assert_eq!(
+        author.parse::<Author>().unwrap().to_string(),
+        author.to_string()
+    );
 }
