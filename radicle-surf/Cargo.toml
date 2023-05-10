@@ -2,7 +2,7 @@
 name = "radicle-surf"
 description = "A code surfing library for Git repositories"
 readme = "README.md"
-version = "0.10.3"
+version = "0.11.0"
 authors = ["The Radicle Team <dev@radicle.xyz>"]
 edition = "2021"
 homepage = "https://github.com/radicle-dev/radicle-surf"
@@ -25,6 +25,7 @@ doctest = false
 # certain branches to be setup. So we use this feature flag
 # to ignore the test on CI.
 gh-actions = []
+minicbor = ["radicle-git-ext/minicbor"]
 
 [dependencies]
 base64 = "0.13"
@@ -38,7 +39,7 @@ default-features = false
 features = ["vendored-libgit2"]
 
 [dependencies.radicle-git-ext]
-version = "0.4.3"
+version = "0.5.0"
 path = "../radicle-git-ext"
 features = ["serde"]
 
