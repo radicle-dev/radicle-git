@@ -5,8 +5,10 @@ use radicle_surf::{
         Added,
         Diff,
         DiffContent,
+        DiffFile,
         EofNewLine,
         FileDiff,
+        FileMode,
         Hunk,
         Line,
         Modification,
@@ -46,6 +48,10 @@ fn test_initial_diff() -> Result<(), Error> {
             .into(),
             eof: EofNewLine::default(),
         },
+        new: DiffFile {
+            oid: Oid::from_str("7f48df0118b1674f4ab0ed1717c1368091a5dddc").unwrap(),
+            mode: FileMode::Blob,
+        },
     })];
 
     let expected_stats = Stats {
@@ -78,7 +84,7 @@ fn test_diff_file() -> Result<(), Error> {
         "223aaf87d6ea62eef0014857640fd7c8dd0f80b5",
     )?;
     let expected_diff = FileDiff::Modified(Modified {
-            path: path_buf,
+        path: path_buf,
         diff: DiffContent::Plain {
             hunks: vec![Hunk {
                 header: Line::from(b"@@ -1 +1,2 @@\n".to_vec()),
@@ -86,9 +92,18 @@ fn test_diff_file() -> Result<(), Error> {
                     Modification::deletion(b"This repository is a data source for the Upstream front-end tests.\n".to_vec(), 1),
                     Modification::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
                     Modification::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
-                ]
-            }].into(),
+                ],
+            }]
+            .into(),
             eof: EofNewLine::default(),
+        },
+        old: DiffFile {
+            oid: Oid::from_str("7f48df0118b1674f4ab0ed1717c1368091a5dddc").unwrap(),
+            mode: FileMode::Blob,
+        },
+        new: DiffFile {
+            oid: Oid::from_str("5e07534cd74a6a9b2ccd2729b181c4ef26173a5e").unwrap(),
+            mode: FileMode::Blob,
         },
     });
     assert_eq!(expected_diff, diff);
@@ -105,19 +120,28 @@ fn test_diff() -> Result<(), Error> {
     let diff = repo.diff(*parent_oid, oid)?;
 
     let expected_files = vec![FileDiff::Modified(Modified {
-            path: Path::new("README.md").to_path_buf(),
-            diff: DiffContent::Plain {
-                hunks: vec![Hunk {
-                    header: Line::from(b"@@ -1 +1,2 @@\n".to_vec()),
-                    lines: vec![
-                        Modification::deletion(b"This repository is a data source for the Upstream front-end tests.\n".to_vec(), 1),
-                        Modification::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
-                        Modification::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
-                    ]
-                }].into(),
-                eof: EofNewLine::default(),
-            },
-        })];
+        path: Path::new("README.md").to_path_buf(),
+        diff: DiffContent::Plain {
+            hunks: vec![Hunk {
+                header: Line::from(b"@@ -1 +1,2 @@\n".to_vec()),
+                lines: vec![
+                    Modification::deletion(b"This repository is a data source for the Upstream front-end tests.\n".to_vec(), 1),
+                    Modification::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
+                    Modification::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
+                ],
+            }]
+            .into(),
+            eof: EofNewLine::default(),
+        },
+        old: DiffFile {
+            oid: Oid::from_str("7f48df0118b1674f4ab0ed1717c1368091a5dddc").unwrap(),
+            mode: FileMode::Blob,
+        },
+        new: DiffFile {
+            oid: Oid::from_str("5e07534cd74a6a9b2ccd2729b181c4ef26173a5e").unwrap(),
+            mode: FileMode::Blob,
+        },
+    })];
     let expected_stats = Stats {
         files_changed: 1,
         insertions: 2,
@@ -208,9 +232,17 @@ fn test_diff_serde() -> Result<(), Error> {
                 }],
                 "eof": "noneMissing",
             },
+            "new": {
+                "mode": "blob",
+                "oid": "02f70f56ec62396ceaf38804c37e169e875ab291",
+            },
         }],
         "deleted": [{
             "path": "text/arrows.txt",
+            "old": {
+                "mode": "blob",
+                "oid": "95418c04010a3cc758fb3a37f9918465f147566f",
+             },
             "diff": {
                 "type": "plain",
                 "hunks": [{
@@ -287,6 +319,14 @@ fn test_diff_serde() -> Result<(), Error> {
                     ]
                 }],
                 "eof": "noneMissing",
+            },
+            "new": {
+                "mode": "blob",
+                "oid": "b033ecf407a44922b28c942c696922a7d7daf06e",
+            },
+            "old": {
+                "mode": "blob",
+                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
             },
         }],
         "stats": {
