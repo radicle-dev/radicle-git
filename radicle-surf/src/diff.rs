@@ -22,6 +22,8 @@ use std::{borrow::Cow, path::PathBuf, string::FromUtf8Error};
 #[cfg(feature = "serde")]
 use serde::{ser, ser::SerializeStruct, Serialize, Serializer};
 
+use git_ext::Oid;
+
 pub mod git;
 
 /// The serializable representation of a `git diff`.
@@ -90,8 +92,13 @@ impl Diff {
         &self.stats
     }
 
-    fn insert_modified(&mut self, path: PathBuf, diff: DiffContent) {
-        let diff = FileDiff::Modified(Modified { path, diff });
+    fn insert_modified(&mut self, path: PathBuf, diff: DiffContent, old: DiffFile, new: DiffFile) {
+        let diff = FileDiff::Modified(Modified {
+            path,
+            diff,
+            old,
+            new,
+        });
         self.files.push(diff)
     }
 
@@ -113,13 +120,13 @@ impl Diff {
         self.files.push(diff);
     }
 
-    fn insert_added(&mut self, path: PathBuf, diff: DiffContent) {
-        let diff = FileDiff::Added(Added { path, diff });
+    fn insert_added(&mut self, path: PathBuf, diff: DiffContent, new: DiffFile) {
+        let diff = FileDiff::Added(Added { path, diff, new });
         self.files.push(diff);
     }
 
-    fn insert_deleted(&mut self, path: PathBuf, diff: DiffContent) {
-        let diff = FileDiff::Deleted(Deleted { path, diff });
+    fn insert_deleted(&mut self, path: PathBuf, diff: DiffContent, old: DiffFile) {
+        let diff = FileDiff::Deleted(Deleted { path, diff, old });
         self.files.push(diff);
     }
 }
@@ -131,6 +138,7 @@ pub struct Added {
     /// The path to this file, relative to the repository root.
     pub path: PathBuf,
     pub diff: DiffContent,
+    pub new: DiffFile,
 }
 
 /// A file that was deleted within a [`Diff`].
@@ -140,6 +148,7 @@ pub struct Deleted {
     /// The path to this file, relative to the repository root.
     pub path: PathBuf,
     pub diff: DiffContent,
+    pub old: DiffFile,
 }
 
 /// A file that was moved within a [`Diff`].
@@ -199,6 +208,8 @@ impl Default for EofNewLine {
 pub struct Modified {
     pub path: PathBuf,
     pub diff: DiffContent,
+    pub old: DiffFile,
+    pub new: DiffFile,
 }
 
 /// The set of changes for a given file.
@@ -227,6 +238,44 @@ impl DiffContent {
             _ => None,
         }
     }
+}
+
+/// File mode in a diff.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub enum FileMode {
+    /// For regular files.
+    Blob,
+    /// For regular files that are executable.
+    BlobExecutable,
+    /// For directories.
+    Tree,
+    /// For symbolic links.
+    Link,
+    /// Used for Git submodules.
+    Commit,
+}
+
+impl From<FileMode> for u32 {
+    fn from(m: FileMode) -> Self {
+        git2::FileMode::from(m).into()
+    }
+}
+
+impl From<FileMode> for i32 {
+    fn from(m: FileMode) -> Self {
+        git2::FileMode::from(m).into()
+    }
+}
+
+/// A modified file.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+pub struct DiffFile {
+    /// File blob id.
+    pub oid: Oid,
+    /// File mode.
+    pub mode: FileMode,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

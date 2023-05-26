@@ -17,7 +17,18 @@
 
 use std::convert::TryFrom;
 
-use super::{Diff, DiffContent, EofNewLine, Hunk, Hunks, Line, Modification, Stats};
+use super::{
+    Diff,
+    DiffContent,
+    DiffFile,
+    EofNewLine,
+    FileMode,
+    Hunk,
+    Hunks,
+    Line,
+    Modification,
+    Stats,
+};
 
 pub mod error {
     use std::path::PathBuf;
@@ -40,6 +51,13 @@ pub mod error {
         Git(#[from] git2::Error),
         #[error("the new line number was missing for an deleted line")]
         MissingOldLineNo,
+    }
+
+    #[derive(Debug, Error)]
+    #[non_exhaustive]
+    pub enum FileMode {
+        #[error("unknown file mode `{0:?}`")]
+        Unknown(git2::FileMode),
     }
 
     #[derive(Debug, Error)]
@@ -75,6 +93,8 @@ pub mod error {
         #[error(transparent)]
         Git(#[from] git2::Error),
         #[error(transparent)]
+        FileMode(#[from] FileMode),
+        #[error(transparent)]
         Hunk(#[from] Hunk),
         #[error(transparent)]
         Line(#[from] Modification),
@@ -84,6 +104,44 @@ pub mod error {
         /// A The path of a file isn't available.
         #[error("couldn't retrieve file path")]
         PathUnavailable,
+    }
+}
+
+impl<'a> TryFrom<git2::DiffFile<'a>> for DiffFile {
+    type Error = error::FileMode;
+
+    fn try_from(value: git2::DiffFile) -> Result<Self, Self::Error> {
+        Ok(Self {
+            mode: value.mode().try_into()?,
+            oid: value.id().into(),
+        })
+    }
+}
+
+impl TryFrom<git2::FileMode> for FileMode {
+    type Error = error::FileMode;
+
+    fn try_from(value: git2::FileMode) -> Result<Self, Self::Error> {
+        match value {
+            git2::FileMode::Blob => Ok(Self::Blob),
+            git2::FileMode::BlobExecutable => Ok(Self::BlobExecutable),
+            git2::FileMode::Commit => Ok(Self::Commit),
+            git2::FileMode::Tree => Ok(Self::Tree),
+            git2::FileMode::Link => Ok(Self::Link),
+            _ => Err(error::FileMode::Unknown(value)),
+        }
+    }
+}
+
+impl From<FileMode> for git2::FileMode {
+    fn from(m: FileMode) -> Self {
+        match m {
+            FileMode::Blob => git2::FileMode::Blob,
+            FileMode::BlobExecutable => git2::FileMode::BlobExecutable,
+            FileMode::Tree => git2::FileMode::Tree,
+            FileMode::Link => git2::FileMode::Link,
+            FileMode::Commit => git2::FileMode::Commit,
+        }
     }
 }
 
@@ -192,16 +250,18 @@ fn created(
     delta: &git2::DiffDelta<'_>,
 ) -> Result<(), error::Diff> {
     let diff_file = delta.new_file();
+    let is_binary = diff_file.is_binary();
     let path = diff_file
         .path()
         .ok_or(error::Diff::PathUnavailable)?
         .to_path_buf();
+    let new = DiffFile::try_from(diff_file)?;
 
     let patch = git2::Patch::from_diff(git_diff, idx)?;
     if let Some(patch) = patch {
-        diff.insert_added(path, DiffContent::try_from(patch)?);
-    } else if diff_file.is_binary() {
-        diff.insert_added(path, DiffContent::Binary);
+        diff.insert_added(path, DiffContent::try_from(patch)?, new);
+    } else if is_binary {
+        diff.insert_added(path, DiffContent::Binary, new);
     } else {
         return Err(error::Diff::PatchUnavailable(path));
     }
@@ -215,15 +275,18 @@ fn deleted(
     delta: &git2::DiffDelta<'_>,
 ) -> Result<(), error::Diff> {
     let diff_file = delta.old_file();
+    let is_binary = diff_file.is_binary();
     let path = diff_file
         .path()
         .ok_or(error::Diff::PathUnavailable)?
         .to_path_buf();
     let patch = git2::Patch::from_diff(git_diff, idx)?;
+    let old = DiffFile::try_from(diff_file)?;
+
     if let Some(patch) = patch {
-        diff.insert_deleted(path, DiffContent::try_from(patch)?);
-    } else if diff_file.is_binary() {
-        diff.insert_deleted(path, DiffContent::Binary);
+        diff.insert_deleted(path, DiffContent::try_from(patch)?, old);
+    } else if is_binary {
+        diff.insert_deleted(path, DiffContent::Binary, old);
     } else {
         return Err(error::Diff::PatchUnavailable(path));
     }
@@ -242,12 +305,14 @@ fn modified(
         .ok_or(error::Diff::PathUnavailable)?
         .to_path_buf();
     let patch = git2::Patch::from_diff(git_diff, idx)?;
+    let old = DiffFile::try_from(delta.old_file())?;
+    let new = DiffFile::try_from(delta.new_file())?;
 
     if let Some(patch) = patch {
-        diff.insert_modified(path, DiffContent::try_from(patch)?);
+        diff.insert_modified(path, DiffContent::try_from(patch)?, old, new);
         Ok(())
     } else if diff_file.is_binary() {
-        diff.insert_modified(path, DiffContent::Binary);
+        diff.insert_modified(path, DiffContent::Binary, old, new);
         Ok(())
     } else {
         Err(error::Diff::PatchUnavailable(path))
