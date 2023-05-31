@@ -1,6 +1,6 @@
 [package]
 name = "radicle-git-ext"
-version = "0.5.0"
+version = "0.5.1"
 authors = [
   "Alexis Sellier <alexis@radicle.xyz>",
   "Kim Altintop <kim@eagain.st>",
@@ -18,6 +18,8 @@ test = false
 
 [features]
 minicbor = ["git-ref-format/minicbor"]
+bstr = ["git-ref-format/bstr"]
+percent-encoding = ["git-ref-format/percent-encoding"]
 
 [dependencies]
 percent-encoding = "2"
