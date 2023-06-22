@@ -179,7 +179,12 @@ impl TryFrom<git2::Patch<'_>> for DiffContent {
                 let line = Modification::try_from(line)?;
                 lines.push(line);
             }
-            hunks.push(Hunk { header, lines });
+            hunks.push(Hunk {
+                header,
+                lines,
+                old: hunk.old_start()..hunk.old_start() + hunk.old_lines(),
+                new: hunk.new_start()..hunk.new_start() + hunk.new_lines(),
+            });
         }
         let eof = match (old_missing_eof, new_missing_eof) {
             (true, true) => EofNewLine::BothMissing,
