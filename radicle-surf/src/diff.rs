@@ -17,7 +17,7 @@
 
 //! Types that represent diff(s) in a Git repo.
 
-use std::{borrow::Cow, path::PathBuf, string::FromUtf8Error};
+use std::{borrow::Cow, ops::Range, path::PathBuf, string::FromUtf8Error};
 
 #[cfg(feature = "serde")]
 use serde::{ser, ser::SerializeStruct, Serialize, Serializer};
@@ -358,6 +358,10 @@ pub struct Stats {
 pub struct Hunk<T> {
     pub header: Line,
     pub lines: Vec<T>,
+    /// Old line range.
+    pub old: Range<u32>,
+    /// New line range.
+    pub new: Range<u32>,
 }
 
 /// A set of [`Hunk`] changes.

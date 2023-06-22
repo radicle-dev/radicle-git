@@ -44,6 +44,8 @@ fn test_initial_diff() -> Result<(), Error> {
                         .to_vec(),
                     1,
                 )],
+                old: 0..0,
+                new: 1..2,
             }]
             .into(),
             eof: EofNewLine::default(),
@@ -93,6 +95,8 @@ fn test_diff_file() -> Result<(), Error> {
                     Modification::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
                     Modification::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
                 ],
+                old: 1..2,
+                new: 1..3,
             }]
             .into(),
             eof: EofNewLine::default(),
@@ -129,6 +133,8 @@ fn test_diff() -> Result<(), Error> {
                     Modification::addition(b"This repository is a data source for the Upstream front-end tests and the\n".to_vec(), 1),
                     Modification::addition(b"[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n".to_vec(), 2),
                 ],
+                old: 1..2,
+                new: 1..3,
             }]
             .into(),
             eof: EofNewLine::default(),
@@ -228,7 +234,9 @@ fn test_diff_serde() -> Result<(), Error> {
                         "line": "\n",
                         "lineNo": 2,
                         "type": "addition",
-                    }]
+                    }],
+                    "old": { "start": 0, "end": 0 },
+                    "new": { "start": 1, "end": 3 },
                 }],
                 "eof": "noneMissing",
             },
@@ -248,42 +256,44 @@ fn test_diff_serde() -> Result<(), Error> {
                 "hunks": [{
                     "header": "@@ -1,7 +0,0 @@\n",
                     "lines": [
-                    {
-                        "line": "  ;;;;;        ;;;;;        ;;;;;\n",
-                        "lineNo": 1,
-                        "type": "deletion",
-                    },
-                    {
-                        "line": "  ;;;;;        ;;;;;        ;;;;;\n",
-                        "lineNo": 2,
-                        "type": "deletion",
-                    },
-                    {
-                        "line": "  ;;;;;        ;;;;;        ;;;;;\n",
-                        "lineNo": 3,
-                        "type": "deletion",
-                    },
-                    {
-                        "line": "  ;;;;;        ;;;;;        ;;;;;\n",
-                        "lineNo": 4,
-                        "type": "deletion",
-                    },
-                    {
-                        "line": "..;;;;;..    ..;;;;;..    ..;;;;;..\n",
-                        "lineNo": 5,
-                        "type": "deletion",
-                    },
-                    {
-                        "line": " ':::::'      ':::::'      ':::::'\n",
-                        "lineNo": 6,
-                        "type": "deletion",
-                    },
-                    {
-                        "line": "   ':`          ':`          ':`\n",
-                        "lineNo": 7,
-                        "type": "deletion",
-                    },
-                    ]
+                        {
+                            "line": "  ;;;;;        ;;;;;        ;;;;;\n",
+                            "lineNo": 1,
+                            "type": "deletion",
+                        },
+                        {
+                            "line": "  ;;;;;        ;;;;;        ;;;;;\n",
+                            "lineNo": 2,
+                            "type": "deletion",
+                        },
+                        {
+                            "line": "  ;;;;;        ;;;;;        ;;;;;\n",
+                            "lineNo": 3,
+                            "type": "deletion",
+                        },
+                        {
+                            "line": "  ;;;;;        ;;;;;        ;;;;;\n",
+                            "lineNo": 4,
+                            "type": "deletion",
+                        },
+                        {
+                            "line": "..;;;;;..    ..;;;;;..    ..;;;;;..\n",
+                            "lineNo": 5,
+                            "type": "deletion",
+                        },
+                        {
+                            "line": " ':::::'      ':::::'      ':::::'\n",
+                            "lineNo": 6,
+                            "type": "deletion",
+                        },
+                        {
+                            "line": "   ':`          ':`          ':`\n",
+                            "lineNo": 7,
+                            "type": "deletion",
+                        },
+                    ],
+                    "old": { "start": 1, "end": 8 },
+                    "new": { "start": 0, "end": 0 },
                 }],
                 "eof": "noneMissing",
             },
@@ -316,7 +326,9 @@ fn test_diff_serde() -> Result<(), Error> {
                           "line": "[`radicle-surf`](https://github.com/radicle-dev/radicle-surf) unit tests.\n",
                           "type": "addition"
                         },
-                    ]
+                    ],
+                    "old": { "start": 1, "end": 3 },
+                    "new": { "start": 1, "end": 3 },
                 }],
                 "eof": "noneMissing",
             },
