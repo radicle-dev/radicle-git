@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Verify that the script is run from project root.
-BASE=$(basename $(pwd))
+BASE=$(basename "$(pwd)")
 
 if [ "${BASE}" != "radicle-surf" ]
 then
@@ -30,9 +30,9 @@ git -C "$PLATINUM_REPO" checkout dev
 input="./data/mock-branches.txt"
 while IFS= read -r line
 do
-    IFS=, read -a pair <<< $line
+    IFS=, read -ra pair <<< "$line"
     echo "Creating branch ${pair[0]}"
-    git -C "$PLATINUM_REPO" update-ref ${pair[0]} ${pair[1]}
+    git -C "$PLATINUM_REPO" update-ref "${pair[0]}" "${pair[1]}"
 done < "$input"
 
 # Update the archive.
