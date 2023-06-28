@@ -44,8 +44,8 @@ pub enum Update<'a> {
         ///
         /// 1. A ref with the same name already exists
         /// 2. The ref is a direct ref, and the update is a [`Update::Direct`]
-        /// 3. Both the existing and the update [`Oid`] point to a commit
-        ///    object without peeling
+        /// 3. Both the existing and the update [`Oid`] point to a commit object
+        ///    without peeling
         /// 4. The existing commit is an ancestor of the update commit
         ///
         /// or:
