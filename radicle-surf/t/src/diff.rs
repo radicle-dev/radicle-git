@@ -302,7 +302,13 @@ fn test_diff_serde() -> Result<(), Error> {
             "oldPath": "text/emoji.txt",
             "newPath": "emoji.txt",
         }],
-        "copied": [],
+        "copied": [{
+            "diff": {
+                "type": "empty",
+            },
+            "newPath": "file_operations/copied.md",
+            "oldPath": "README.md",
+        }],
         "modified": [{
             "path": "README.md",
             "diff": {
@@ -343,7 +349,7 @@ fn test_diff_serde() -> Result<(), Error> {
         }],
         "stats": {
             "deletions": 9,
-            "filesChanged": 4,
+            "filesChanged": 5,
             "insertions": 4,
         }
     });

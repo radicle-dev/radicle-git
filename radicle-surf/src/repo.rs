@@ -519,6 +519,7 @@ impl Repository {
         // Detect renames by default.
         let mut find_opts = git2::DiffFindOptions::new();
         find_opts.renames(true);
+        find_opts.copies(true);
         diff.find_similar(Some(&mut find_opts))?;
 
         Ok(diff)
