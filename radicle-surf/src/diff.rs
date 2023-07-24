@@ -17,7 +17,12 @@
 
 //! Types that represent diff(s) in a Git repo.
 
-use std::{borrow::Cow, ops::Range, path::PathBuf, string::FromUtf8Error};
+use std::{
+    borrow::Cow,
+    ops::Range,
+    path::{Path, PathBuf},
+    string::FromUtf8Error,
+};
 
 #[cfg(feature = "serde")]
 use serde::{ser, ser::SerializeStruct, Serialize, Serializer};
@@ -285,6 +290,18 @@ pub enum FileDiff {
     Modified(Modified),
     Moved(Moved),
     Copied(Copied),
+}
+
+impl FileDiff {
+    pub fn path(&self) -> &Path {
+        match self {
+            FileDiff::Added(x) => x.path.as_path(),
+            FileDiff::Deleted(x) => x.path.as_path(),
+            FileDiff::Modified(x) => x.path.as_path(),
+            FileDiff::Moved(x) => x.new_path.as_path(),
+            FileDiff::Copied(x) => x.new_path.as_path(),
+        }
+    }
 }
 
 #[cfg(feature = "serde")]
