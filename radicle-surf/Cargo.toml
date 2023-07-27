@@ -5,8 +5,8 @@ readme = "README.md"
 version = "0.14.0"
 authors = ["The Radicle Team <dev@radicle.xyz>"]
 edition = "2021"
-homepage = "https://github.com/radicle-dev/radicle-surf"
-repository = "https://github.com/radicle-dev/radicle-surf"
+homepage = "https://github.com/radicle-dev/radicle-git/blob/main/radicle-surf/README.md"
+repository = "https://github.com/radicle-dev/radicle-git/tree/main/radicle-surf"
 license = "GPL-3.0-or-later"
 
 include = [
