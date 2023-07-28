@@ -233,6 +233,12 @@ pub enum DiffContent {
         hunks: Hunks<Modification>,
         eof: EofNewLine,
     },
+    /// The set of changes, as [`Hunks`] for a diff file.
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    Diff {
+        hunks: Hunks<DiffModification>,
+        eof: EofNewLine,
+    },
     Empty,
 }
 
@@ -443,6 +449,294 @@ impl Serialize for Line {
         let s = std::str::from_utf8(&self.0).map_err(ser::Error::custom)?;
 
         serializer.serialize_str(s)
+    }
+}
+
+/// Either the modification of a single diff [`Line`], or just contextual
+/// information.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DiffModification {
+    /// An addition line is to be added.
+    AdditionAddition(AdditionAddition),
+    AdditionContext {
+        line: Line,
+        line_no_old: u32,
+        line_no_new: u32,
+    },
+    /// An addition line is to be removed.
+    AdditionDeletion(AdditionDeletion),
+    /// A context line is to be added.
+    ContextAddition(ContextAddition),
+    /// A contextual line in a file, i.e. there were no changes to the line.
+    ContextContext {
+        line: Line,
+        line_no_old: u32,
+        line_no_new: u32,
+    },
+    /// A context line is to be removed.
+    ContextDeletion(ContextDeletion),
+    /// A deletion line is to be added.
+    DeletionAddition(DeletionAddition),
+    /// A deletion line in a diff, i.e. there were no changes to the line.
+    DeletionContext {
+        line: Line,
+        line_no_old: u32,
+        line_no_new: u32,
+    },
+    /// A deletion line is to be removed.
+    DeletionDeletion(DeletionDeletion),
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for DiffModification {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeMap as _;
+
+        match self {
+            Self::AdditionAddition(v) => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("line", &v.line)?;
+                map.serialize_entry("lineNo", &v.line_no)?;
+                map.serialize_entry("type", "addition_addition")?;
+                map.end()
+            },
+            Self::AdditionContext {
+                line,
+                line_no_old,
+                line_no_new,
+            } => {
+                let mut map = serializer.serialize_map(Some(4))?;
+                map.serialize_entry("line", line)?;
+                map.serialize_entry("lineNoOld", line_no_old)?;
+                map.serialize_entry("lineNoNew", line_no_new)?;
+                map.serialize_entry("type", "addition_context")?;
+                map.end()
+            },
+            Self::AdditionDeletion(v) => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("line", &v.line)?;
+                map.serialize_entry("lineNo", &v.line_no)?;
+                map.serialize_entry("type", "addition_deletion")?;
+                map.end()
+            },
+            Self::ContextAddition(v) => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("line", &v.line)?;
+                map.serialize_entry("lineNo", &v.line_no)?;
+                map.serialize_entry("type", "context_addition")?;
+                map.end()
+            },
+            Self::ContextContext {
+                line,
+                line_no_old,
+                line_no_new,
+            } => {
+                let mut map = serializer.serialize_map(Some(4))?;
+                map.serialize_entry("line", line)?;
+                map.serialize_entry("lineNoOld", line_no_old)?;
+                map.serialize_entry("lineNoNew", line_no_new)?;
+                map.serialize_entry("type", "context_context")?;
+                map.end()
+            },
+            Self::ContextDeletion(v) => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("line", &v.line)?;
+                map.serialize_entry("lineNo", &v.line_no)?;
+                map.serialize_entry("type", "context_deletion")?;
+                map.end()
+            },
+            Self::DeletionAddition(v) => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("line", &v.line)?;
+                map.serialize_entry("lineNo", &v.line_no)?;
+                map.serialize_entry("type", "deletion_addition")?;
+                map.end()
+            },
+            Self::DeletionContext {
+                line,
+                line_no_old,
+                line_no_new,
+            } => {
+                let mut map = serializer.serialize_map(Some(4))?;
+                map.serialize_entry("line", line)?;
+                map.serialize_entry("lineNoOld", line_no_old)?;
+                map.serialize_entry("lineNoNew", line_no_new)?;
+                map.serialize_entry("type", "deletion_context")?;
+                map.end()
+            },
+            Self::DeletionDeletion(v) => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("line", &v.line)?;
+                map.serialize_entry("lineNo", &v.line_no)?;
+                map.serialize_entry("type", "deletion_deletion")?;
+                map.end()
+            },
+        }
+    }
+}
+
+impl DiffModification {
+    pub fn addition_addition(line: Line, line_no: u32) -> Self {
+        Self::AdditionAddition(AdditionAddition { line, line_no })
+    }
+
+    pub fn addition_deletion(line: Line, line_no: u32) -> Self {
+        Self::AdditionDeletion(AdditionDeletion { line, line_no })
+    }
+
+    pub fn context_addition(line: Line, line_no: u32) -> Self {
+        Self::ContextAddition(ContextAddition { line, line_no })
+    }
+
+    pub fn deletion_addition(line: Line, line_no: u32) -> Self {
+        Self::DeletionAddition(DeletionAddition { line, line_no })
+    }
+
+    pub fn deletion_deletion(line: Line, line_no: u32) -> Self {
+        Self::DeletionDeletion(DeletionDeletion { line, line_no })
+    }
+
+    pub fn context_deletion(line: Line, line_no: u32) -> Self {
+        Self::ContextDeletion(ContextDeletion { line, line_no })
+    }
+}
+
+/// An addition of a [`Line`] addition at the `line_no`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdditionAddition {
+    pub line: Line,
+    pub line_no: u32,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for AdditionAddition {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct as _;
+
+        let mut s = serializer.serialize_struct("Addition", 3)?;
+        s.serialize_field("line", &self.line)?;
+        s.serialize_field("lineNo", &self.line_no)?;
+        s.serialize_field("type", "addition_addition")?;
+        s.end()
+    }
+}
+
+/// A deletion of a [`Line`] addition at the `line_no`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdditionDeletion {
+    pub line: Line,
+    pub line_no: u32,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for AdditionDeletion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct as _;
+
+        let mut s = serializer.serialize_struct("AdditionDeletion", 3)?;
+        s.serialize_field("line", &self.line)?;
+        s.serialize_field("lineNo", &self.line_no)?;
+        s.serialize_field("type", "addition_deletion")?;
+        s.end()
+    }
+}
+
+/// An addition of a [`Line`] context at the `line_no`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ContextAddition {
+    pub line: Line,
+    pub line_no: u32,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for ContextAddition {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct as _;
+
+        let mut s = serializer.serialize_struct("ContextAddition", 3)?;
+        s.serialize_field("line", &self.line)?;
+        s.serialize_field("lineNo", &self.line_no)?;
+        s.serialize_field("type", "context_addition")?;
+        s.end()
+    }
+}
+
+/// An addition of a [`Line`] deletion at the `line_no`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeletionAddition {
+    pub line: Line,
+    pub line_no: u32,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for DeletionAddition {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct as _;
+
+        let mut s = serializer.serialize_struct("DeletionAddition", 3)?;
+        s.serialize_field("line", &self.line)?;
+        s.serialize_field("lineNo", &self.line_no)?;
+        s.serialize_field("type", "deletion_addition")?;
+        s.end()
+    }
+}
+
+/// A deletion of a [`Line`] deletion at the `line_no`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeletionDeletion {
+    pub line: Line,
+    pub line_no: u32,
+}
+#[cfg(feature = "serde")]
+impl Serialize for DeletionDeletion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct as _;
+
+        let mut s = serializer.serialize_struct("DeletionDeletion", 3)?;
+        s.serialize_field("line", &self.line)?;
+        s.serialize_field("lineNo", &self.line_no)?;
+        s.serialize_field("type", "deletion_deletion")?;
+        s.end()
+    }
+}
+
+/// A deletion of a [`Line`] of context at the `line_no`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ContextDeletion {
+    pub line: Line,
+    pub line_no: u32,
+}
+#[cfg(feature = "serde")]
+impl Serialize for ContextDeletion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeStruct as _;
+
+        let mut s = serializer.serialize_struct("ContextDeletion", 3)?;
+        s.serialize_field("line", &self.line)?;
+        s.serialize_field("lineNo", &self.line_no)?;
+        s.serialize_field("type", "context_deletion")?;
+        s.end()
     }
 }
 
