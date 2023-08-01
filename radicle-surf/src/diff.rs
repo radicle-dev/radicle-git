@@ -450,10 +450,10 @@ impl Serialize for Line {
 /// information.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Modification {
-    /// A lines is an addition in a file.
+    /// A line is an addition in a file.
     Addition(Addition),
 
-    /// A lines is a deletion in a file.
+    /// A line is a deletion in a file.
     Deletion(Deletion),
 
     /// A contextual line in a file, i.e. there were no changes to the line.
