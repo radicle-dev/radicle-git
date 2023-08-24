@@ -97,17 +97,40 @@ impl Diff {
         &self.stats
     }
 
-    fn insert_modified(&mut self, path: PathBuf, diff: DiffContent, old: DiffFile, new: DiffFile) {
+    fn update_stats(&mut self, diff: &DiffContent) {
+        self.stats.files_changed += 1;
+        if let DiffContent::Plain { hunks, .. } = diff {
+            for h in hunks.iter() {
+                for l in &h.lines {
+                    match l {
+                        Modification::Addition(_) => self.stats.insertions += 1,
+                        Modification::Deletion(_) => self.stats.deletions += 1,
+                        _ => (),
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn insert_modified(
+        &mut self,
+        path: PathBuf,
+        diff: DiffContent,
+        old: DiffFile,
+        new: DiffFile,
+    ) {
+        self.update_stats(&diff);
         let diff = FileDiff::Modified(Modified {
             path,
             diff,
             old,
             new,
         });
-        self.files.push(diff)
+        self.files.push(diff);
     }
 
-    fn insert_moved(&mut self, old_path: PathBuf, new_path: PathBuf) {
+    pub fn insert_moved(&mut self, old_path: PathBuf, new_path: PathBuf) {
+        self.update_stats(&DiffContent::Empty);
         let diff = FileDiff::Moved(Moved {
             old_path,
             new_path,
@@ -116,7 +139,8 @@ impl Diff {
         self.files.push(diff);
     }
 
-    fn insert_copied(&mut self, old_path: PathBuf, new_path: PathBuf) {
+    pub fn insert_copied(&mut self, old_path: PathBuf, new_path: PathBuf) {
+        self.update_stats(&DiffContent::Empty);
         let diff = FileDiff::Copied(Copied {
             old_path,
             new_path,
@@ -125,12 +149,14 @@ impl Diff {
         self.files.push(diff);
     }
 
-    fn insert_added(&mut self, path: PathBuf, diff: DiffContent, new: DiffFile) {
+    pub fn insert_added(&mut self, path: PathBuf, diff: DiffContent, new: DiffFile) {
+        self.update_stats(&diff);
         let diff = FileDiff::Added(Added { path, diff, new });
         self.files.push(diff);
     }
 
-    fn insert_deleted(&mut self, path: PathBuf, diff: DiffContent, old: DiffFile) {
+    pub fn insert_deleted(&mut self, path: PathBuf, diff: DiffContent, old: DiffFile) {
+        self.update_stats(&diff);
         let diff = FileDiff::Deleted(Deleted { path, diff, old });
         self.files.push(diff);
     }
