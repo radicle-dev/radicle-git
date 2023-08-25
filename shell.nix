@@ -18,5 +18,6 @@ in
         lld
 
         ripgrep
+        rust-analyzer
     ];
   }

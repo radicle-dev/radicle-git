@@ -358,6 +358,10 @@ fn test_diff_serde() -> Result<(), Error> {
     Ok(())
 }
 
+// A possible false positive is being hit here for this clippy
+// warning. Tracking issue:
+// https://github.com/rust-lang/rust-clippy/issues/11402
+#[allow(clippy::needless_raw_string_hashes)]
 #[test]
 fn test_both_missing_eof_newline() {
     let buf = r#"
