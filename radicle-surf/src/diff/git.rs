@@ -229,7 +229,6 @@ impl<'a> TryFrom<git2::Diff<'a>> for Diff {
         use git2::Delta;
 
         let mut diff = Diff::new();
-        diff.stats = git_diff.stats()?.into();
 
         for (idx, delta) in git_diff.deltas().enumerate() {
             match delta.status() {
