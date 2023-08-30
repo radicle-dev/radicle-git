@@ -358,6 +358,211 @@ fn test_diff_serde() -> Result<(), Error> {
     Ok(())
 }
 
+#[test]
+fn test_rename_with_changes() {
+    let buf = r"
+diff --git a/radicle/src/node/tracking/config.rs b/radicle-node/src/service/tracking.rs
+similarity index 96%
+rename from radicle/src/node/tracking/config.rs
+rename to radicle-node/src/service/tracking.rs
+index 3f69208f3..cbc843c82 100644
+--- a/radicle/src/node/tracking/config.rs
++++ b/radicle-node/src/service/tracking.rs
+@@ -5,15 +5,17 @@ use std::ops;
+ use log::error;
+ use thiserror::Error;
+
+-use crate::crypto::PublicKey;
+-use crate::identity::IdentityError;
++use radicle::crypto::PublicKey;
++use radicle::identity::IdentityError;
++use radicle::storage::{Namespaces, ReadRepository as _, ReadStorage};
++
++use crate::prelude::Id;
++use crate::service::NodeId;
++
+ pub use crate::node::tracking::store;
+ pub use crate::node::tracking::store::Config as Store;
+ pub use crate::node::tracking::store::Error;
+ pub use crate::node::tracking::{Alias, Node, Policy, Repo, Scope};
+-use crate::node::NodeId;
+-use crate::prelude::Id;
+-use crate::storage::{Namespaces, ReadRepository as _, ReadStorage};
+
+ #[derive(Debug, Error)]
+ pub enum NamespacesError {
+";
+    let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
+    let diff = Diff::try_from(diff).unwrap();
+    let json = serde_json::json!(
+    {
+        "added": [],
+        "copied": [],
+        "deleted": [],
+        "modified": [],
+        "moved": [
+            {
+                "diff": {
+                    "eof": "noneMissing",
+                    "hunks": [
+                        {
+                            "header": "@@ -5,15 +5,17 @@ use std::ops;\n",
+                            "lines": [
+                                {
+                                    "line": "use log::error;\n",
+                                    "lineNoNew": 5,
+                                    "lineNoOld": 5,
+                                    "type": "context",
+                                },
+                                {
+                                    "line": "use thiserror::Error;\n",
+                                    "lineNoNew": 6,
+                                    "lineNoOld": 6,
+                                    "type": "context",
+                                },
+                                {
+                                    "line": "\n",
+                                    "lineNoNew": 7,
+                                    "lineNoOld": 7,
+                                    "type": "context",
+                                },
+                                {
+                                    "line": "use crate::crypto::PublicKey;\n",
+                                    "lineNo": 8,
+                                    "type": "deletion",
+                                },
+                                {
+                                    "line": "use crate::identity::IdentityError;\n",
+                                    "lineNo": 9,
+                                    "type": "deletion",
+                                },
+                                {
+                                    "line": "use radicle::crypto::PublicKey;\n",
+                                    "lineNo": 8,
+                                    "type": "addition",
+                                },
+                                {
+                                    "line": "use radicle::identity::IdentityError;\n",
+                                    "lineNo": 9,
+                                    "type": "addition",
+                                },
+                                {
+                                    "line": "use radicle::storage::{Namespaces, ReadRepository as _, ReadStorage};\n",
+                                    "lineNo": 10,
+                                    "type": "addition",
+                                },
+                                {
+                                    "line": "\n",
+                                    "lineNo": 11,
+                                    "type": "addition",
+                                },
+                                {
+                                    "line": "use crate::prelude::Id;\n",
+                                    "lineNo": 12,
+                                    "type": "addition",
+                                },
+                                {
+                                    "line": "use crate::service::NodeId;\n",
+                                    "lineNo": 13,
+                                    "type": "addition",
+                                },
+                                {
+                                    "line": "\n",
+                                    "lineNo": 14,
+                                    "type": "addition",
+                                },
+                                {
+                                    "line": "pub use crate::node::tracking::store;\n",
+                                    "lineNoNew": 15,
+                                    "lineNoOld": 10,
+                                    "type": "context",
+                                },
+                                {
+                                    "line": "pub use crate::node::tracking::store::Config as Store;\n",
+                                    "lineNoNew": 16,
+                                    "lineNoOld": 11,
+                                    "type": "context",
+                                },
+                                {
+                                    "line": "pub use crate::node::tracking::store::Error;\n",
+                                    "lineNoNew": 17,
+                                    "lineNoOld": 12,
+                                    "type": "context",
+                                },
+                                {
+                                    "line": "pub use crate::node::tracking::{Alias, Node, Policy, Repo, Scope};\n",
+                                    "lineNoNew": 18,
+                                    "lineNoOld": 13,
+                                    "type": "context",
+                                },
+                                {
+                                    "line": "use crate::node::NodeId;\n",
+                                    "lineNo": 14,
+                                    "type": "deletion",
+                                },
+                                {
+                                    "line": "use crate::prelude::Id;\n",
+                                    "lineNo": 15,
+                                    "type": "deletion",
+                                },
+                                {
+                                    "line": "use crate::storage::{Namespaces, ReadRepository as _, ReadStorage};\n",
+                                    "lineNo": 16,
+                                    "type": "deletion",
+                                },
+                                {
+                                    "line": "\n",
+                                    "lineNoNew": 19,
+                                    "lineNoOld": 17,
+                                    "type": "context",
+                                },
+                                {
+                                    "line": "#[derive(Debug, Error)]\n",
+                                    "lineNoNew": 20,
+                                    "lineNoOld": 18,
+                                    "type": "context",
+                                },
+                                {
+                                    "line": "pub enum NamespacesError {\n",
+                                    "lineNoNew": 21,
+                                    "lineNoOld": 19,
+                                    "type": "context",
+                                },
+                            ],
+                            "new": {
+                                "end": 22,
+                                "start": 5,
+                            },
+                            "old": {
+                                "end": 20,
+                                "start": 5,
+                            },
+                        },
+                    ],
+                    "type": "plain",
+                },
+                "new": {
+                    "mode": "blob",
+                    "oid": "cbc843c820000000000000000000000000000000",
+                },
+                "newPath": "radicle-node/src/service/tracking.rs",
+                "old": {
+                    "mode": "blob",
+                    "oid": "3f69208f30000000000000000000000000000000",
+                },
+                "oldPath": "radicle/src/node/tracking/config.rs",
+            },
+        ],
+        "stats": {
+            "deletions": 0,
+            "filesChanged": 1,
+            "insertions": 0,
+        },
+    });
+
+    assert_eq!(serde_json::to_value(diff).unwrap(), json);
+}
+
 // A possible false positive is being hit here for this clippy
 // warning. Tracking issue:
 // https://github.com/rust-lang/rust-clippy/issues/11402
