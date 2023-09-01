@@ -129,12 +129,21 @@ impl Diff {
         self.files.push(diff);
     }
 
-    pub fn insert_moved(&mut self, old_path: PathBuf, new_path: PathBuf) {
+    pub fn insert_moved(
+        &mut self,
+        old_path: PathBuf,
+        new_path: PathBuf,
+        old: DiffFile,
+        new: DiffFile,
+        content: DiffContent,
+    ) {
         self.update_stats(&DiffContent::Empty);
         let diff = FileDiff::Moved(Moved {
             old_path,
             new_path,
-            diff: DiffContent::Empty,
+            old,
+            new,
+            diff: content,
         });
         self.files.push(diff);
     }
@@ -187,8 +196,10 @@ pub struct Deleted {
 pub struct Moved {
     /// The old path to this file, relative to the repository root.
     pub old_path: PathBuf,
+    pub old: DiffFile,
     /// The new path to this file, relative to the repository root.
     pub new_path: PathBuf,
+    pub new: DiffFile,
     pub diff: DiffContent,
 }
 
@@ -198,12 +209,20 @@ impl Serialize for Moved {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("Moved", 2)?;
-        state.serialize_field("oldPath", &self.old_path)?;
-        state.serialize_field("newPath", &self.new_path)?;
-        // `DiffContent` is not serialized yet for `Moved`, only
-        // to keep the serialization same as before.
-        state.end()
+        if self.old == self.new {
+            let mut state = serializer.serialize_struct("Moved", 2)?;
+            state.serialize_field("oldPath", &self.old_path)?;
+            state.serialize_field("newPath", &self.new_path)?;
+            state.end()
+        } else {
+            let mut state = serializer.serialize_struct("Moved", 5)?;
+            state.serialize_field("oldPath", &self.old_path)?;
+            state.serialize_field("newPath", &self.new_path)?;
+            state.serialize_field("old", &self.old)?;
+            state.serialize_field("new", &self.new)?;
+            state.serialize_field("diff", &self.diff)?;
+            state.end()
+        }
     }
 }
 
