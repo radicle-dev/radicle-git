@@ -236,7 +236,7 @@ impl<'a> TryFrom<git2::Diff<'a>> for Diff {
                 Delta::Deleted => deleted(&mut diff, &git_diff, idx, &delta)?,
                 Delta::Modified => modified(&mut diff, &git_diff, idx, &delta)?,
                 Delta::Renamed => renamed(&mut diff, &git_diff, idx, &delta)?,
-                Delta::Copied => copied(&mut diff, &delta)?,
+                Delta::Copied => copied(&mut diff, &git_diff, idx, &delta)?,
                 status => {
                     return Err(error::Diff::DeltaUnhandled(status));
                 },
@@ -353,16 +353,32 @@ fn renamed(
     Ok(())
 }
 
-fn copied(diff: &mut Diff, delta: &git2::DiffDelta<'_>) -> Result<(), error::Diff> {
-    let old = delta
+fn copied(
+    diff: &mut Diff,
+    git_diff: &git2::Diff<'_>,
+    idx: usize,
+    delta: &git2::DiffDelta<'_>,
+) -> Result<(), error::Diff> {
+    let old_path = delta
         .old_file()
         .path()
-        .ok_or(error::Diff::PathUnavailable)?;
-    let new = delta
+        .ok_or(error::Diff::PathUnavailable)?
+        .to_path_buf();
+    let new_path = delta
         .new_file()
         .path()
-        .ok_or(error::Diff::PathUnavailable)?;
+        .ok_or(error::Diff::PathUnavailable)?
+        .to_path_buf();
+    let patch = git2::Patch::from_diff(git_diff, idx)?;
+    let old = DiffFile::try_from(delta.old_file())?;
+    let new = DiffFile::try_from(delta.new_file())?;
 
-    diff.insert_copied(old.to_path_buf(), new.to_path_buf());
+    if let Some(patch) = patch {
+        diff.insert_copied(old_path, new_path, old, new, DiffContent::try_from(patch)?);
+    } else if delta.new_file().is_binary() {
+        diff.insert_copied(old_path, new_path, old, new, DiffContent::Binary);
+    } else {
+        diff.insert_copied(old_path, new_path, old, new, DiffContent::Empty);
+    }
     Ok(())
 }
