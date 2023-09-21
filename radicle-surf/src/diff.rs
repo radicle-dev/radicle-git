@@ -148,12 +148,21 @@ impl Diff {
         self.files.push(diff);
     }
 
-    pub fn insert_copied(&mut self, old_path: PathBuf, new_path: PathBuf) {
+    pub fn insert_copied(
+        &mut self,
+        old_path: PathBuf,
+        new_path: PathBuf,
+        old: DiffFile,
+        new: DiffFile,
+        content: DiffContent,
+    ) {
         self.update_stats(&DiffContent::Empty);
         let diff = FileDiff::Copied(Copied {
             old_path,
             new_path,
-            diff: DiffContent::Empty,
+            old,
+            new,
+            diff: content,
         });
         self.files.push(diff);
     }
@@ -213,6 +222,7 @@ impl Serialize for Moved {
             let mut state = serializer.serialize_struct("Moved", 2)?;
             state.serialize_field("oldPath", &self.old_path)?;
             state.serialize_field("newPath", &self.new_path)?;
+            state.serialize_field("current", &self.new)?;
             state.end()
         } else {
             let mut state = serializer.serialize_struct("Moved", 5)?;
@@ -234,6 +244,8 @@ pub struct Copied {
     pub old_path: PathBuf,
     /// The new path to this file, relative to the repository root.
     pub new_path: PathBuf,
+    pub old: DiffFile,
+    pub new: DiffFile,
     pub diff: DiffContent,
 }
 

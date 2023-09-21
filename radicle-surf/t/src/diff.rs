@@ -299,14 +299,28 @@ fn test_diff_serde() -> Result<(), Error> {
             },
         }],
         "moved": [{
+            "current": {
+                "mode": "blob",
+                "oid": "1570277532948712fea9029d100a4208f9e34241",
+            },
             "oldPath": "text/emoji.txt",
             "newPath": "emoji.txt",
         }],
         "copied": [{
             "diff": {
-                "type": "empty",
+                "eof": "noneMissing",
+                "hunks": [],
+                "type": "plain",
+            },
+            "new": {
+                "mode": "blob",
+                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
             },
             "newPath": "file_operations/copied.md",
+            "old": {
+                "mode": "blob",
+                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
+            },
             "oldPath": "README.md",
         }],
         "modified": [{
