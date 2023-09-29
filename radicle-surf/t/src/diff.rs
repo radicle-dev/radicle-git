@@ -9,6 +9,7 @@ use radicle_surf::{
         EofNewLine,
         FileDiff,
         FileMode,
+        FileStats,
         Hunk,
         Line,
         Modification,
@@ -48,6 +49,10 @@ fn test_initial_diff() -> Result<(), Error> {
                 new: 1..2,
             }]
             .into(),
+            stats: FileStats {
+                additions: 1,
+                deletions: 0,
+            },
             eof: EofNewLine::default(),
         },
         new: DiffFile {
@@ -99,6 +104,10 @@ fn test_diff_file() -> Result<(), Error> {
                 new: 1..3,
             }]
             .into(),
+            stats: FileStats {
+                additions: 2,
+                deletions: 1
+            },
             eof: EofNewLine::default(),
         },
         old: DiffFile {
@@ -137,6 +146,10 @@ fn test_diff() -> Result<(), Error> {
                 new: 1..3,
             }]
             .into(),
+            stats: FileStats {
+                additions: 2,
+                deletions: 1
+            },
             eof: EofNewLine::default(),
         },
         old: DiffFile {
@@ -238,6 +251,10 @@ fn test_diff_serde() -> Result<(), Error> {
                     "old": { "start": 0, "end": 0 },
                     "new": { "start": 1, "end": 3 },
                 }],
+                "stats": {
+                    "additions": 2,
+                    "deletions": 0,
+                },
                 "eof": "noneMissing",
             },
             "new": {
@@ -295,6 +312,10 @@ fn test_diff_serde() -> Result<(), Error> {
                     "old": { "start": 1, "end": 8 },
                     "new": { "start": 0, "end": 0 },
                 }],
+                "stats": {
+                    "additions": 0,
+                    "deletions": 7,
+                },
                 "eof": "noneMissing",
             },
         }],
@@ -310,6 +331,10 @@ fn test_diff_serde() -> Result<(), Error> {
             "diff": {
                 "eof": "noneMissing",
                 "hunks": [],
+                "stats": {
+                    "additions": 0,
+                    "deletions": 0,
+                },
                 "type": "plain",
             },
             "new": {
@@ -350,6 +375,10 @@ fn test_diff_serde() -> Result<(), Error> {
                     "old": { "start": 1, "end": 3 },
                     "new": { "start": 1, "end": 3 },
                 }],
+                "stats": {
+                    "additions": 2,
+                    "deletions": 2
+                },
                 "eof": "noneMissing",
             },
             "new": {
@@ -553,6 +582,10 @@ index 3f69208f3..cbc843c82 100644
                             },
                         },
                     ],
+                    "stats": {
+                        "additions": 7,
+                        "deletions": 5
+                    },
                     "type": "plain",
                 },
                 "new": {

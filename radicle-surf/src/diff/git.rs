@@ -23,6 +23,7 @@ use super::{
     DiffFile,
     EofNewLine,
     FileMode,
+    FileStats,
     Hunk,
     Hunks,
     Line,
@@ -152,6 +153,8 @@ impl TryFrom<git2::Patch<'_>> for DiffContent {
         let mut hunks = Vec::new();
         let mut old_missing_eof = false;
         let mut new_missing_eof = false;
+        let mut additions = 0;
+        let mut deletions = 0;
 
         for h in 0..patch.num_hunks() {
             let (hunk, hunk_lines) = patch.hunk(h)?;
@@ -166,11 +169,19 @@ impl TryFrom<git2::Patch<'_>> for DiffContent {
                         old_missing_eof = true;
                         continue;
                     },
+                    git2::DiffLineType::Addition => {
+                        additions += 1;
+                    },
+                    git2::DiffLineType::Deletion => {
+                        deletions += 1;
+                    },
                     git2::DiffLineType::AddEOFNL => {
+                        additions += 1;
                         old_missing_eof = true;
                         continue;
                     },
                     git2::DiffLineType::DeleteEOFNL => {
+                        deletions += 1;
                         new_missing_eof = true;
                         continue;
                     },
@@ -194,6 +205,10 @@ impl TryFrom<git2::Patch<'_>> for DiffContent {
         };
         Ok(DiffContent::Plain {
             hunks: Hunks(hunks),
+            stats: FileStats {
+                additions,
+                deletions,
+            },
             eof,
         })
     }
