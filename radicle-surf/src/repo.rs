@@ -496,6 +496,16 @@ impl Repository {
         }
     }
 
+    /// Create a diff with the difference between two tree objects.
+    ///
+    /// Defines some options and flags that are passed to git2.
+    ///
+    /// Note:
+    /// libgit2 optimizes around not loading the content when there's no content
+    /// callbacks configured. Be aware that binaries aren't detected as
+    /// expected.
+    ///
+    /// Reference: <https://github.com/libgit2/libgit2/issues/6637>
     fn diff_commits(
         &self,
         path: Option<&Path>,
