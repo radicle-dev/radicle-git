@@ -288,6 +288,7 @@ pub enum DiffContent {
     #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
     Plain {
         hunks: Hunks<Modification>,
+        stats: FileStats,
         eof: EofNewLine,
     },
     Empty,
@@ -296,8 +297,16 @@ pub enum DiffContent {
 impl DiffContent {
     pub fn eof(&self) -> Option<EofNewLine> {
         match self {
-            Self::Plain { hunks: _, eof } => Some(eof.clone()),
+            Self::Plain { eof, .. } => Some(eof.clone()),
             _ => None,
+        }
+    }
+
+    pub fn stats(&self) -> Option<&FileStats> {
+        match &self {
+            DiffContent::Plain { stats, .. } => Some(stats),
+            DiffContent::Empty => None,
+            DiffContent::Binary => None,
         }
     }
 }
@@ -371,11 +380,11 @@ impl Serialize for FileDiff {
         match &self {
             FileDiff::Added(x) => {
                 state.serialize_field("path", &x.path)?;
-                state.serialize_field("diff", &x.diff)?
+                state.serialize_field("diff", &x.diff)?;
             },
             FileDiff::Deleted(x) => {
                 state.serialize_field("path", &x.path)?;
-                state.serialize_field("diff", &x.diff)?
+                state.serialize_field("diff", &x.diff)?;
             },
             FileDiff::Modified(x) => {
                 state.serialize_field("path", &x.path)?;
@@ -383,11 +392,11 @@ impl Serialize for FileDiff {
             },
             FileDiff::Moved(x) => {
                 state.serialize_field("oldPath", &x.old_path)?;
-                state.serialize_field("newPath", &x.new_path)?
+                state.serialize_field("newPath", &x.new_path)?;
             },
             FileDiff::Copied(x) => {
                 state.serialize_field("oldPath", &x.old_path)?;
-                state.serialize_field("newPath", &x.new_path)?
+                state.serialize_field("newPath", &x.new_path)?;
             },
         }
         state.end()
@@ -409,6 +418,16 @@ impl Serialize for Diff {
         state.serialize_field("stats", &self.stats())?;
         state.end()
     }
+}
+
+/// Statistics describing a particular [`FileDiff`].
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct FileStats {
+    /// Get the total number of additions in a [`FileDiff`].
+    pub additions: usize,
+    /// Get the total number of deletions in a [`FileDiff`].
+    pub deletions: usize,
 }
 
 /// Statistics describing a particular [`Diff`].
