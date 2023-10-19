@@ -8,24 +8,24 @@ let
   # TODO: remove once cargo-nextest is available in nixpkgs stable
   cargo-nextest = (pkgs.callPackage ./nix/cargo-nextest/default.nix { });
 in
-  with pkgs;
-  mkShell {
-    name = "build";
-    buildInputs = [
-        # cargo tooling
-        cargo-deny
-        cargo-nextest
-        cargo-watch
-        pkgs.rust-bin.nightly."2022-07-01".rustfmt
+with pkgs;
+mkShell {
+  name = "build";
+  buildInputs = [
+    # cargo tooling
+    cargo-deny
+    cargo-nextest
+    cargo-watch
+    pkgs.rust-bin.nightly."2022-07-01".rustfmt
 
-        # hard dependencies
-        cmake
-        openssl
-        pkgconfig
-        rust-overlay
+    # hard dependencies
+    cmake
+    openssl
+    pkgconfig
+    rust-overlay
 
-        # testing utilities
-        gettext # for `envsubst`
-        socat
-    ];
-  }
+    # testing utilities
+    gettext # for `envsubst`
+    socat
+  ];
+}

@@ -22,8 +22,6 @@ rustPlatform.buildRustPackage rec {
   buildInputs = [
     openssl
     libiconv
-  ] ++ lib.optionals stdenv.isDarwin [
-    Security
   ];
 
   doCheck = false;

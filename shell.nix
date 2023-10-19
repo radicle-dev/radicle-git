@@ -8,16 +8,16 @@ let
   rust-overlay = stable.override {
     extensions = [ "rust-src" "rust-analysis" ];
   };
-  devault = (pkgs.callPackage ./default.nix {});
+  devault = (pkgs.callPackage ./default.nix { });
 in
-  with pkgs;
-  mkShell {
-    name = "development";
-    buildInputs = devault.buildInputs ++ [
-        clang
-        lld
+with pkgs;
+mkShell {
+  name = "development";
+  buildInputs = devault.buildInputs ++ [
+    clang
+    lld
 
-        ripgrep
-        rust-analyzer
-    ];
-  }
+    ripgrep
+    rust-analyzer
+  ];
+}
