@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use radicle_git_ext::ref_format::refname;
-use radicle_surf::{Branch, Glob, Repository};
+use radicle_surf::{Branch, Glob, Oid, Repository};
 use serde_json::json;
 
 const GIT_PLATINUM: &str = "../data/git-platinum";
@@ -173,6 +173,32 @@ fn repo_blob() {
     })
     .to_string();
     assert_eq!(json_ref, json_owned);
+}
+
+#[test]
+fn repo_blob_at() {
+    let repo = Repository::open(GIT_PLATINUM).unwrap();
+    let oid = Oid::try_from("b84992d24be67536837f5ab45a943f1b3f501878").unwrap();
+
+    // Retrieve the blob using its oid.
+    let blob = repo
+        .blob_at("27acd68c7504755aa11023300890bb85bbd69d45", oid)
+        .unwrap();
+
+    // Verify the blob oid.
+    let blob_oid = blob.object_id();
+    assert_eq!(blob_oid, oid);
+
+    // Verify the commit that created the blob.
+    let blob_commit = blob.commit();
+    assert_eq!(
+        blob_commit.id.to_string(),
+        "e24124b7538658220b5aaf3b6ef53758f0a106dc"
+    );
+
+    // Verify the blob content ("memory.rs").
+    assert!(!blob.is_binary());
+    assert_eq!(blob.size(), 6253);
 }
 
 #[test]
