@@ -284,8 +284,14 @@ impl Repository {
         Ok(Tree::new(dir.id(), entries, last_commit))
     }
 
+    /// Returns a [`Blob`] for an `oid`.
+    pub fn blob(&self, oid: Oid) -> Result<Blob<BlobRef<'a>>, Error> {
+        let git2_blob = self.find_blob(oid)?;
+        Ok(Blob::<BlobRef<'a>>::new(file.id(), git2_blob, last_commit))
+    }
+
     /// Returns a [`Blob`] for `path` in `commit`.
-    pub fn blob<'a, C: ToCommit, P: AsRef<Path>>(
+    pub fn blob_at<'a, C: ToCommit, P: AsRef<Path>>(
         &'a self,
         commit: C,
         path: &P,
