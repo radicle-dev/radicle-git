@@ -95,7 +95,13 @@ impl<'a> Blob<BlobRef<'a>> {
 
 /// Represents a blob with borrowed content bytes.
 pub struct BlobRef<'a> {
-    inner: git2::Blob<'a>,
+    pub(crate) inner: git2::Blob<'a>,
+}
+
+impl<'a> BlobRef<'a> {
+    pub fn id(&self) -> Oid {
+        self.inner.id().into()
+    }
 }
 
 impl AsRef<[u8]> for BlobRef<'_> {
@@ -135,6 +141,29 @@ where
             },
         };
         state.serialize_field("lastCommit", &self.commit)?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'a> Serialize for BlobRef<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        const FIELDS: usize = 3;
+        let mut state = serializer.serialize_struct("BlobRef", FIELDS)?;
+        state.serialize_field("id", &self.id())?;
+        state.serialize_field("binary", &self.inner.is_binary())?;
+
+        let bytes = self.as_ref();
+        match std::str::from_utf8(bytes) {
+            Ok(s) => state.serialize_field("content", s)?,
+            Err(_) => {
+                let encoded = base64::encode(bytes);
+                state.serialize_field("content", &encoded)?
+            },
+        };
         state.end()
     }
 }

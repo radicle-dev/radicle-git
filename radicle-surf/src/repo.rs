@@ -301,6 +301,12 @@ impl Repository {
         Ok(Blob::<BlobRef<'a>>::new(file.id(), git2_blob, last_commit))
     }
 
+    pub fn blob_ref(&self, oid: Oid) -> Result<BlobRef<'_>, Error> {
+        Ok(BlobRef {
+            inner: self.find_blob(oid)?,
+        })
+    }
+
     /// Returns the last commit, if exists, for a `path` in the history of
     /// `rev`.
     pub fn last_commit<P, C>(&self, path: &P, rev: C) -> Result<Option<Commit>, Error>
