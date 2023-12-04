@@ -2,7 +2,7 @@
 name = "radicle-surf"
 description = "A code surfing library for Git repositories"
 readme = "README.md"
-version = "0.17.1"
+version = "0.18.0"
 authors = ["The Radicle Team <dev@radicle.xyz>"]
 edition = "2021"
 homepage = "https://github.com/radicle-dev/radicle-git/blob/main/radicle-surf/README.md"
@@ -34,12 +34,12 @@ nonempty = "0.5"
 thiserror = "1.0"
 
 [dependencies.git2]
-version = "0.17.0"
+version = "0.18.1"
 default-features = false
 features = ["vendored-libgit2"]
 
 [dependencies.radicle-git-ext]
-version = "0.6.0"
+version = "0.7.0"
 path = "../radicle-git-ext"
 features = ["serde"]
 

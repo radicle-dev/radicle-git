@@ -1,6 +1,6 @@
 [package]
 name = "radicle-git-ext"
-version = "0.6.0"
+version = "0.7.0"
 authors = [
   "Alexis Sellier <alexis@radicle.xyz>",
   "Kim Altintop <kim@eagain.st>",
@@ -26,7 +26,7 @@ percent-encoding = "2"
 thiserror = "1"
 
 [dependencies.git2]
-version = "0.17.0"
+version = "0.18.1"
 default-features = false
 features = ["vendored-libgit2"]
 

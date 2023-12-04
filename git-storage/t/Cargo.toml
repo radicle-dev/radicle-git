@@ -21,7 +21,7 @@ proptest = "1"
 path = ".."
 
 [dependencies.git2]
-version = "0.17.0"
+version = "0.18.1"
 default-features = false
 features = ["vendored-libgit2"]
 
