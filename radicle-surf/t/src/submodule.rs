@@ -1,10 +1,17 @@
-#[cfg(not(feature = "gh-actions"))]
 #[test]
-// An issue with submodules, see: https://github.com/radicle-dev/radicle-surf/issues/54
-fn test_submodule_failure() {
+fn test_submodule() {
     use radicle_git_ext::ref_format::refname;
-    use radicle_surf::{Branch, Repository};
+    use radicle_surf::{fs, Branch, Repository};
 
     let repo = Repository::discover(".").unwrap();
-    repo.root_dir(Branch::local(refname!("main"))).unwrap();
+    let dir = repo
+        .root_dir(Branch::local(refname!("surf/submodule-support")))
+        .unwrap();
+    let platinum = dir
+        .find_entry(
+            &std::path::Path::new("radicle-surf/data/git-platinum"),
+            &repo,
+        )
+        .unwrap();
+    assert!(matches!(platinum, fs::Entry::Submodule(_)));
 }

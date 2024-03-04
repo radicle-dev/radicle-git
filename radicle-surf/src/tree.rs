@@ -26,6 +26,7 @@ use serde::{
     ser::{SerializeStruct as _, Serializer},
     Serialize,
 };
+use url::Url;
 
 use crate::{fs, Commit};
 
@@ -108,10 +109,11 @@ impl Serialize for Tree {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EntryKind {
     Tree(Oid),
     Blob(Oid),
+    Submodule { id: Oid, url: Option<Url> },
 }
 
 impl PartialOrd for EntryKind {
@@ -123,9 +125,14 @@ impl PartialOrd for EntryKind {
 impl Ord for EntryKind {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
+            (EntryKind::Submodule { .. }, EntryKind::Submodule { .. }) => Ordering::Equal,
+            (EntryKind::Submodule { .. }, EntryKind::Tree(_)) => Ordering::Equal,
+            (EntryKind::Tree(_), EntryKind::Submodule { .. }) => Ordering::Equal,
             (EntryKind::Tree(_), EntryKind::Tree(_)) => Ordering::Equal,
             (EntryKind::Tree(_), EntryKind::Blob(_)) => Ordering::Less,
             (EntryKind::Blob(_), EntryKind::Tree(_)) => Ordering::Greater,
+            (EntryKind::Submodule { .. }, EntryKind::Blob(_)) => Ordering::Less,
+            (EntryKind::Blob(_), EntryKind::Submodule { .. }) => Ordering::Greater,
             (EntryKind::Blob(_), EntryKind::Blob(_)) => Ordering::Equal,
         }
     }
@@ -177,6 +184,7 @@ impl Entry {
         match self.entry {
             EntryKind::Blob(id) => id,
             EntryKind::Tree(id) => id,
+            EntryKind::Submodule { id, .. } => id,
         }
     }
 }
@@ -209,6 +217,10 @@ impl From<fs::Entry> for EntryKind {
         match entry {
             fs::Entry::File(f) => EntryKind::Blob(f.id()),
             fs::Entry::Directory(d) => EntryKind::Tree(d.id()),
+            fs::Entry::Submodule(u) => EntryKind::Submodule {
+                id: u.id(),
+                url: u.url().clone(),
+            },
         }
     }
 }
@@ -241,7 +253,7 @@ impl Serialize for Entry {
     where
         S: Serializer,
     {
-        const FIELDS: usize = 4;
+        const FIELDS: usize = 5;
         let mut state = serializer.serialize_struct("TreeEntry", FIELDS)?;
         state.serialize_field("name", &self.name)?;
         state.serialize_field(
@@ -249,8 +261,12 @@ impl Serialize for Entry {
             match self.entry {
                 EntryKind::Blob(_) => "blob",
                 EntryKind::Tree(_) => "tree",
+                EntryKind::Submodule { .. } => "submodule",
             },
         )?;
+        if let EntryKind::Submodule { url: Some(url), .. } = &self.entry {
+            state.serialize_field("url", url)?;
+        };
         state.serialize_field("oid", &self.object_id())?;
         state.serialize_field("lastCommit", &self.commit)?;
         state.end()

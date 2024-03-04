@@ -440,6 +440,10 @@ impl Repository {
 // Private API, ONLY add `pub(crate) fn` or `fn` in here. //
 ////////////////////////////////////////////////////////////
 impl Repository {
+    pub(crate) fn find_submodule(&self, name: &str) -> Result<git2::Submodule, git2::Error> {
+        self.inner.find_submodule(name)
+    }
+
     pub(crate) fn find_blob(&self, oid: Oid) -> Result<git2::Blob<'_>, git2::Error> {
         self.inner.find_blob(oid.into())
     }
