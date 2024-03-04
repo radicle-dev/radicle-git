@@ -31,6 +31,7 @@ fn iterate_root_dir_recursive() {
                 match entry {
                     fs::Entry::File(_) => Ok((count + 1, indent_level)),
                     fs::Entry::Directory(_) => Ok((count + 1, indent_level + 1)),
+                    fs::Entry::Submodule(_) => Ok((count + 1, indent_level)),
                 }
             },
         )

@@ -1,0 +1,3 @@
+[submodule "git-platinum"]
+	path = radicle-surf/data/git-platinum
+	url = https://github.com/radicle-dev/git-platinum.git

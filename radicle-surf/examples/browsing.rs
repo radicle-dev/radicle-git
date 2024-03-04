@@ -55,6 +55,7 @@ fn print_directory(d: &Directory, repo: &Repository, indent_level: usize) {
         match entry {
             fs::Entry::File(f) => println!("    {}{}", &indent, f.name()),
             fs::Entry::Directory(d) => print_directory(&d, repo, indent_level + 1),
+            fs::Entry::Submodule(s) => println!("    {}{}", &indent, s.name()),
         }
     }
 }

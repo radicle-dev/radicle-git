@@ -30,6 +30,7 @@ use std::{
 use git2::Blob;
 use radicle_git_ext::{is_not_found_err, Oid};
 use radicle_std_ext::result::ResultExt as _;
+use url::Url;
 
 use crate::{Repository, Revision};
 
@@ -52,12 +53,31 @@ pub mod error {
         Utf8Error,
         #[error("the path {0} not found")]
         PathNotFound(PathBuf),
+        #[error(transparent)]
+        Submodule(#[from] Submodule),
     }
 
     #[derive(Debug, Error, PartialEq)]
     pub enum File {
         #[error(transparent)]
         Git(#[from] git2::Error),
+    }
+
+    #[derive(Debug, Error, PartialEq)]
+    pub enum Submodule {
+        #[error("URL is invalid utf-8 for submodule '{name}': {err}")]
+        Utf8 {
+            name: String,
+            #[source]
+            err: std::str::Utf8Error,
+        },
+        #[error("failed to parse URL '{url}' for submodule '{name}': {err}")]
+        ParseUrl {
+            name: String,
+            url: String,
+            #[source]
+            err: url::ParseError,
+        },
     }
 }
 
@@ -198,6 +218,8 @@ pub enum Entry {
     File(File),
     /// A sub-directory of a [`Directory`].
     Directory(Directory),
+    /// An entry points to a submodule.
+    Submodule(Submodule),
 }
 
 impl PartialOrd for Entry {
@@ -211,19 +233,25 @@ impl Ord for Entry {
         match (self, other) {
             (Entry::File(x), Entry::File(y)) => x.name().cmp(y.name()),
             (Entry::File(_), Entry::Directory(_)) => Ordering::Less,
+            (Entry::File(_), Entry::Submodule(_)) => Ordering::Less,
             (Entry::Directory(_), Entry::File(_)) => Ordering::Greater,
+            (Entry::Submodule(_), Entry::File(_)) => Ordering::Less,
             (Entry::Directory(x), Entry::Directory(y)) => x.name().cmp(y.name()),
+            (Entry::Directory(x), Entry::Submodule(y)) => x.name().cmp(y.name()),
+            (Entry::Submodule(x), Entry::Directory(y)) => x.name().cmp(y.name()),
+            (Entry::Submodule(x), Entry::Submodule(y)) => x.name().cmp(y.name()),
         }
     }
 }
 
 impl Entry {
-    /// Get a label for the `Entriess`, either the name of the [`File`]
-    /// or the name of the [`Directory`].
+    /// Get a label for the `Entriess`, either the name of the [`File`],
+    /// the name of the [`Directory`], or the name of the [`Submodule`].
     pub fn name(&self) -> &String {
         match self {
             Entry::File(file) => &file.name,
             Entry::Directory(directory) => directory.name(),
+            Entry::Submodule(submodule) => submodule.name(),
         }
     }
 
@@ -231,6 +259,7 @@ impl Entry {
         match self {
             Entry::File(file) => file.path(),
             Entry::Directory(directory) => directory.path(),
+            Entry::Submodule(submodule) => submodule.path(),
         }
     }
 
@@ -238,6 +267,7 @@ impl Entry {
         match self {
             Entry::File(file) => file.location(),
             Entry::Directory(directory) => directory.location(),
+            Entry::Submodule(submodule) => submodule.location(),
         }
     }
 
@@ -254,6 +284,7 @@ impl Entry {
     pub(crate) fn from_entry(
         entry: &git2::TreeEntry,
         path: PathBuf,
+        repo: &Repository,
     ) -> Result<Self, error::Directory> {
         let name = entry.name().ok_or(error::Directory::Utf8Error)?.to_string();
         let id = entry.id().into();
@@ -261,6 +292,12 @@ impl Entry {
         match entry.kind() {
             Some(git2::ObjectType::Tree) => Ok(Self::Directory(Directory::new(name, path, id))),
             Some(git2::ObjectType::Blob) => Ok(Self::File(File::new(name, path, id))),
+            Some(git2::ObjectType::Commit) => {
+                let submodule = (!repo.is_bare())
+                    .then(|| repo.find_submodule(&name))
+                    .transpose()?;
+                Ok(Self::Submodule(Submodule::new(name, path, submodule, id)?))
+            },
             _ => Err(error::Directory::InvalidType(path, "tree or blob")),
         }
     }
@@ -354,7 +391,7 @@ impl Directory {
         // Walks only the first level of entries. And `_entry_path` is always
         // empty for the first level.
         tree.walk(git2::TreeWalkMode::PreOrder, |_entry_path, entry| {
-            match Entry::from_entry(entry, path.clone()) {
+            match Entry::from_entry(entry, path.clone(), repo) {
                 Ok(entry) => match entry {
                     Entry::File(_) => {
                         entries.insert(entry.name().clone(), entry);
@@ -364,6 +401,10 @@ impl Directory {
                         entries.insert(entry.name().clone(), entry);
                         // Skip nested directories
                         git2::TreeWalkResult::Skip
+                    },
+                    Entry::Submodule(_) => {
+                        entries.insert(entry.name().clone(), entry);
+                        git2::TreeWalkResult::Ok
                     },
                 },
                 Err(err) => {
@@ -397,7 +438,7 @@ impl Directory {
             .ok_or_else(|| error::Directory::InvalidPath(path.to_path_buf()))?;
         let root_path = self.path().join(parent);
 
-        Entry::from_entry(&entry, root_path)
+        Entry::from_entry(&entry, root_path, repo)
     }
 
     /// Find the `Oid`, for a [`File`], found at `path`, if it exists.
@@ -447,6 +488,7 @@ impl Directory {
         self.traverse(repo, 0, &mut |size, entry| match entry {
             Entry::File(file) => Ok(size + file.content(repo)?.size()),
             Entry::Directory(dir) => Ok(size + dir.size(repo)?),
+            Entry::Submodule(_) => Ok(size),
         })
     }
 
@@ -479,6 +521,7 @@ impl Directory {
                     let acc = directory.traverse(repo, acc, f)?;
                     f(acc, entry)
                 },
+                Entry::Submodule(_) => f(acc, entry),
             })
     }
 }
@@ -488,6 +531,93 @@ impl Revision for Directory {
 
     fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
         Ok(self.id)
+    }
+}
+
+/// A representation of a Git [submodule] when encountered in a Git
+/// repository.
+///
+/// [submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Submodule {
+    name: String,
+    prefix: PathBuf,
+    id: Oid,
+    url: Option<Url>,
+}
+
+impl Submodule {
+    /// Construct a new `Submodule`.
+    ///
+    /// The `path` must be the prefix location of the directory, and
+    /// so should not end in `name`.
+    ///
+    /// The `id` is the commit pointer that Git provides when listing
+    /// a submodule.
+    pub fn new(
+        name: String,
+        prefix: PathBuf,
+        submodule: Option<git2::Submodule>,
+        id: Oid,
+    ) -> Result<Self, error::Submodule> {
+        let url = submodule
+            .and_then(|module| {
+                module
+                    .opt_url_bytes()
+                    .map(|bs| std::str::from_utf8(bs).map(|url| url.to_string()))
+            })
+            .transpose()
+            .map_err(|err| error::Submodule::Utf8 {
+                name: name.clone(),
+                err,
+            })?;
+        let url = url
+            .map(|url| {
+                Url::parse(&url).map_err(|err| error::Submodule::ParseUrl {
+                    name: name.clone(),
+                    url,
+                    err,
+                })
+            })
+            .transpose()?;
+        Ok(Self {
+            name,
+            prefix,
+            id,
+            url,
+        })
+    }
+
+    /// The name of this `Submodule`.
+    pub fn name(&self) -> &String {
+        &self.name
+    }
+
+    /// Return the [`Path`] where this `Submodule` is located, relative to the
+    /// git repository root.
+    pub fn location(&self) -> &Path {
+        &self.prefix
+    }
+
+    /// Return the exact path for this `Submodule`, including the
+    /// `name` of the submodule itself.
+    ///
+    /// The path is relative to the git repository root.
+    pub fn path(&self) -> PathBuf {
+        self.prefix.join(escaped_name(&self.name))
+    }
+
+    /// The object identifier of this `Submodule`.
+    ///
+    /// Note that this does not exist in the parent `Repository`. A
+    /// new `Repository` should be opened for the submodule.
+    pub fn id(&self) -> Oid {
+        self.id
+    }
+
+    /// The URL for the submodule, if it is defined.
+    pub fn url(&self) -> &Option<Url> {
+        &self.url
     }
 }
 

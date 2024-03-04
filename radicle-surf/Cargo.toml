@@ -26,6 +26,7 @@ doctest = false
 # to ignore the test on CI.
 gh-actions = []
 minicbor = ["radicle-git-ext/minicbor"]
+serde = ["dep:serde", "url/serde"]
 
 [dependencies]
 base64 = "0.13"
@@ -51,6 +52,9 @@ path = "../radicle-std-ext"
 version = "1"
 features = ["serde_derive"]
 optional = true
+
+[dependencies.url]
+version = "2.5"
 
 [build-dependencies]
 anyhow = "1.0"
