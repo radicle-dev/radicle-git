@@ -129,7 +129,7 @@ fn test_diff() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
     let oid = "80bacafba303bf0cdf6142921f430ff265f25095";
     let commit = repo.commit(oid).unwrap();
-    let parent_oid = commit.parents.get(0).unwrap();
+    let parent_oid = commit.parents.first().unwrap();
     let diff = repo.diff(*parent_oid, oid)?;
 
     let expected_files = vec![FileDiff::Modified(Modified {

@@ -5,10 +5,10 @@
         "homepage": "https://github.com/nmattia/niv",
         "owner": "nmattia",
         "repo": "niv",
-        "rev": "723f0eeb969a730db3c30f977c2b66b9dce9fe4a",
-        "sha256": "0016l7230gd2kdh0g2w573r9a2krqb7x4ifcjhhsn4h1bwap7qr0",
+        "rev": "d67c25f29716fd2087e71352783fcce194303a9a",
+        "sha256": "1813r42sz4pmv1syn38s281lmg2l7h779q4r33nn5azm7wy45yrh",
         "type": "tarball",
-        "url": "https://github.com/nmattia/niv/archive/723f0eeb969a730db3c30f977c2b66b9dce9fe4a.tar.gz",
+        "url": "https://github.com/nmattia/niv/archive/d67c25f29716fd2087e71352783fcce194303a9a.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
@@ -29,10 +29,10 @@
         "homepage": "",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "7c94410d52d4e8bd72803fc1fe6c51fe179edaf5",
-        "sha256": "1m4awxwvmwmv61fpl9jwfg2ka241hwl37rqffw6lpqb8rj3safff",
+        "rev": "e86c0fb5d3a22a5f30d7f64ecad88643fe26449d",
+        "sha256": "138pmz1ypw5j34bywfaffxkffsgfmd0s6889bdc69356cp11zvlm",
         "type": "tarball",
-        "url": "https://github.com/oxalica/rust-overlay/archive/7c94410d52d4e8bd72803fc1fe6c51fe179edaf5.tar.gz",
+        "url": "https://github.com/oxalica/rust-overlay/archive/e86c0fb5d3a22a5f30d7f64ecad88643fe26449d.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
