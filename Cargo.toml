@@ -7,3 +7,4 @@ members = [
   "test",
 ]
 resolver = "2"
+package.version = "0.18.0"

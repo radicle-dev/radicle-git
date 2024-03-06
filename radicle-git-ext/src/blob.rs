@@ -83,13 +83,13 @@ impl<'a> Blob<'a> {
                         git.find_reference(&name).or_matches(is_not_found_err, || {
                             Err(Error::NotFound(NotFound::NoSuchBranch(name.into_owned())))
                         })
-                    },
+                    }
 
                     Branch::Ref(reference) => Ok(reference),
                 }?;
                 let tree = reference.peel_to_tree()?;
                 blob(git, tree, path)
-            },
+            }
 
             Self::Init { branch, path } => {
                 let start = match branch {
@@ -100,7 +100,7 @@ impl<'a> Blob<'a> {
                             (_, Some(sym)) => Ok(revwalk::Start::Ref(sym.to_string())),
                             (_, _) => Err(Error::NotFound(NotFound::NoRefTarget)),
                         }
-                    },
+                    }
                 }?;
 
                 let revwalk = revwalk::FirstParent::new(git, start)?.reverse()?;
@@ -112,9 +112,9 @@ impl<'a> Blob<'a> {
                         let oid = oid?;
                         let tree = git.find_commit(oid)?.tree()?;
                         blob(git, tree, path)
-                    },
+                    }
                 }
-            },
+            }
 
             Self::At { object, path } => {
                 let tree = git
@@ -124,7 +124,7 @@ impl<'a> Blob<'a> {
                     })
                     .and_then(|obj| Ok(obj.peel_to_tree()?))?;
                 blob(git, tree, path)
-            },
+            }
         }
     }
 }

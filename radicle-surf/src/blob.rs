@@ -138,7 +138,7 @@ where
             Err(_) => {
                 let encoded = base64::encode(bytes);
                 state.serialize_field("content", &encoded)?
-            },
+            }
         };
         state.serialize_field("lastCommit", &self.commit)?;
         state.end()
@@ -162,7 +162,7 @@ impl<'a> Serialize for BlobRef<'a> {
             Err(_) => {
                 let encoded = base64::encode(bytes);
                 state.serialize_field("content", &encoded)?
-            },
+            }
         };
         state.end()
     }

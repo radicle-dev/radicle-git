@@ -124,17 +124,8 @@
 #[cfg(feature = "percent-encoding")]
 pub use git_ref_format_core::PercentEncode;
 pub use git_ref_format_core::{
-    check_ref_format,
-    lit,
-    name::component,
-    Component,
-    DuplicateGlob,
-    Error,
-    Namespaced,
-    Options,
-    Qualified,
-    RefStr,
-    RefString,
+    check_ref_format, lit, name::component, Component, DuplicateGlob, Error, Namespaced, Options,
+    Qualified, RefStr, RefString,
 };
 
 pub mod name {

@@ -101,6 +101,6 @@ pub fn ref_format(opts: Options, s: &str) -> Result<(), Error> {
             } else {
                 Ok(())
             }
-        },
+        }
     }
 }

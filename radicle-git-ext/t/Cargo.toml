@@ -32,5 +32,5 @@ features = ["vendored-libgit2"]
 path = ".."
 features = ["serde", "minicbor"]
 
-[dev-dependencies.test-helpers]
+[dependencies.test-helpers]
 path = "../../test/test-helpers"

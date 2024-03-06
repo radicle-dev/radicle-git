@@ -7,8 +7,7 @@ mod directory {
     use radicle_git_ext::ref_format::refname;
     use radicle_surf::{
         fs::{self, Entry},
-        Branch,
-        Repository,
+        Branch, Repository,
     };
     use std::path::Path;
 

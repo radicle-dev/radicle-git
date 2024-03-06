@@ -36,7 +36,7 @@ fn main() {
         None => {
             print_usage();
             return;
-        },
+        }
     };
     let repo = Repository::discover(repo_path).unwrap();
     let now = Instant::now();

@@ -24,11 +24,7 @@ use std::{
 use git_ext::ref_format::{
     self,
     refspec::{NamespacedPattern, PatternString, QualifiedPattern},
-    Component,
-    Namespaced,
-    Qualified,
-    RefStr,
-    RefString,
+    Component, Namespaced, Qualified, RefStr, RefString,
 };
 use nonempty::NonEmpty;
 use thiserror::Error;

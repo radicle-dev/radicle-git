@@ -10,12 +10,9 @@ use std::{
 };
 
 use crate::{
-    lit,
-    name,
+    lit, name,
     refspec::{PatternStr, QualifiedPattern},
-    Component,
-    RefStr,
-    RefString,
+    Component, RefStr, RefString,
 };
 
 /// A fully-qualified refname.

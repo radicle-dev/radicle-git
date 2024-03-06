@@ -26,6 +26,7 @@ use git_ext::{
     ref_format::{refspec::QualifiedPattern, Qualified, RefStr, RefString},
     Oid,
 };
+use url::Url;
 
 use crate::{
     blob::{Blob, BlobRef},
@@ -33,17 +34,7 @@ use crate::{
     fs::{Directory, File, FileContent},
     refs::{BranchNames, Branches, Categories, Namespaces, TagNames, Tags},
     tree::{Entry, Tree},
-    Branch,
-    Commit,
-    Error,
-    Glob,
-    History,
-    Namespace,
-    Revision,
-    Signature,
-    Stats,
-    Tag,
-    ToCommit,
+    Branch, Commit, Error, Glob, History, Namespace, Revision, Signature, Stats, Tag, ToCommit,
 };
 
 /// Enumeration of errors that can occur in repo operations.
@@ -405,7 +396,7 @@ impl Repository {
                 } else {
                     Err(error.into())
                 }
-            },
+            }
             Ok(sig) => Ok(Some(Signature::from(sig.0))),
         }
     }
@@ -433,6 +424,18 @@ impl Repository {
         }
 
         Ok(contained_branches)
+    }
+}
+
+/// Experimental API
+impl Repository {
+    pub fn submodule(
+        &self,
+        url: Url,
+        path: &Path,
+        use_gitlink: bool,
+    ) -> Result<git2::Submodule, git2::Error> {
+        self.inner.submodule(url.as_str(), path, use_gitlink)
     }
 }
 

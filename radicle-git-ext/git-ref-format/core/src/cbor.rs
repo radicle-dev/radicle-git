@@ -8,18 +8,12 @@ use std::convert::TryFrom;
 use minicbor::{
     decode,
     encode::{self, Write},
-    Decode,
-    Decoder,
-    Encode,
-    Encoder,
+    Decode, Decoder, Encode, Encoder,
 };
 
 use crate::{
     refspec::{PatternStr, PatternString},
-    Namespaced,
-    Qualified,
-    RefStr,
-    RefString,
+    Namespaced, Qualified, RefStr, RefString,
 };
 
 impl<'de: 'a, 'a> Decode<'de> for &'a RefStr {

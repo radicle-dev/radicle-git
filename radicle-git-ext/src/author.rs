@@ -122,7 +122,7 @@ impl FromStr for Author {
                 let hours = tz_offset / 100;
                 let minutes = tz_offset % 100;
                 hours * 60 + minutes
-            },
+            }
         };
         let time = match components.next_back() {
             None => return Err(ParseError::Missing("time")),

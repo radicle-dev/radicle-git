@@ -182,7 +182,7 @@ impl PatternString {
             Some(idx) => {
                 self.0.truncate(idx);
                 true
-            },
+            }
         }
     }
 }

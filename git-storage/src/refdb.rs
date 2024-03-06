@@ -60,7 +60,7 @@ impl<'a> TryFrom<git2::Reference<'a>> for Reference {
                     .ok_or(ParseReference::InvalidUtf8)
                     .and_then(|name| RefString::try_from(name).map_err(ParseReference::from))?;
                 name.into()
-            },
+            }
             Some(oid) => oid.into(),
         };
 

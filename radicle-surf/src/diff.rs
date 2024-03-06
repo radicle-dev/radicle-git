@@ -381,23 +381,23 @@ impl Serialize for FileDiff {
             FileDiff::Added(x) => {
                 state.serialize_field("path", &x.path)?;
                 state.serialize_field("diff", &x.diff)?;
-            },
+            }
             FileDiff::Deleted(x) => {
                 state.serialize_field("path", &x.path)?;
                 state.serialize_field("diff", &x.diff)?;
-            },
+            }
             FileDiff::Modified(x) => {
                 state.serialize_field("path", &x.path)?;
                 state.serialize_field("diff", &x.diff)?;
-            },
+            }
             FileDiff::Moved(x) => {
                 state.serialize_field("oldPath", &x.old_path)?;
                 state.serialize_field("newPath", &x.new_path)?;
-            },
+            }
             FileDiff::Copied(x) => {
                 state.serialize_field("oldPath", &x.old_path)?;
                 state.serialize_field("newPath", &x.new_path)?;
-            },
+            }
         }
         state.end()
     }
@@ -555,14 +555,14 @@ impl Serialize for Modification {
                 map.serialize_entry("lineNo", &addition.line_no)?;
                 map.serialize_entry("type", "addition")?;
                 map.end()
-            },
+            }
             Modification::Deletion(deletion) => {
                 let mut map = serializer.serialize_map(Some(3))?;
                 map.serialize_entry("line", &deletion.line)?;
                 map.serialize_entry("lineNo", &deletion.line_no)?;
                 map.serialize_entry("type", "deletion")?;
                 map.end()
-            },
+            }
             Modification::Context {
                 line,
                 line_no_old,
@@ -574,7 +574,7 @@ impl Serialize for Modification {
                 map.serialize_entry("lineNoNew", line_no_new)?;
                 map.serialize_entry("type", "context")?;
                 map.end()
-            },
+            }
         }
     }
 }

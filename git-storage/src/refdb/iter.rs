@@ -37,7 +37,7 @@ impl<'a, G: glob::Pattern + Debug> Iterator for ReferencesGlob<'a, G> {
                 Ok(reference) => match reference.name() {
                     Some(name) if self.glob.matches(name) => {
                         return Some(Reference::try_from(reference).map_err(error::Iter::from))
-                    },
+                    }
                     _ => continue,
                 },
 
