@@ -2,15 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use radicle_git_ext::ref_format::{
-    component,
-    name,
-    qualified,
-    refname,
-    refspec,
-    Error,
-    Qualified,
-    RefStr,
-    RefString,
+    component, name, qualified, refname, refspec, Error, Qualified, RefStr, RefString,
 };
 
 #[test]

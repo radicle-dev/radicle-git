@@ -44,7 +44,7 @@ impl<'a> Iterator for Tags<'a> {
                             res.map_err(error::Tag::from)
                                 .and_then(|r| Tag::try_from(&r).map_err(error::Tag::from)),
                         );
-                    },
+                    }
                     None => self.current += 1,
                 },
                 None => break,
@@ -67,7 +67,7 @@ impl<'a> Iterator for TagNames<'a> {
                                 .map(|name| lit::refs_tags(name).into())
                                 .map_err(error::Tag::from)
                         }))
-                    },
+                    }
                     None => self.inner.current += 1,
                 },
                 None => break,
@@ -111,7 +111,7 @@ impl<'a> Iterator for Branches<'a> {
                             res.map_err(error::Branch::from)
                                 .and_then(|r| Branch::try_from(&r).map_err(error::Branch::from)),
                         )
-                    },
+                    }
                     None => self.current += 1,
                 },
                 None => break,
@@ -134,7 +134,7 @@ impl<'a> Iterator for BranchNames<'a> {
                                 .map(|branch| branch.refname().into_owned())
                                 .map_err(error::Branch::from)
                         }))
-                    },
+                    }
                     None => self.inner.current += 1,
                 },
                 None => break,
@@ -194,7 +194,7 @@ impl<'a> Iterator for Categories<'a> {
                             let (_refs, category, c, cs) = name.non_empty_components();
                             Ok((category.to_ref_string(), refstr_join(c, cs)))
                         }));
-                    },
+                    }
                     None => self.current += 1,
                 },
                 None => break,

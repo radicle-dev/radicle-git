@@ -55,14 +55,14 @@ impl Edit {
                 } else {
                     Ok(())
                 }
-            },
+            }
             Self::MustNotExist => {
                 if given.is_some() {
                     Err(DoesExist)
                 } else {
                     Ok(())
                 }
-            },
+            }
             Self::MustExistAndMatch(expected) => match given {
                 Some(given) if &given == expected => Ok(()),
                 Some(given) => Err(DoesNotMatch {
@@ -118,7 +118,7 @@ impl Remove {
                 } else {
                     Ok(())
                 }
-            },
+            }
             Self::MustExistAndMatch(expected) => match given {
                 Some(given) if &given == expected => Ok(()),
                 Some(given) => Err(DoesNotMatch {

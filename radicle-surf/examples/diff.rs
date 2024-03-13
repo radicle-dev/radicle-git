@@ -42,7 +42,7 @@ fn get_options_or_exit() -> Options {
         Err(message) => {
             println!("{message}");
             std::process::exit(1);
-        },
+        }
     }
 }
 
@@ -52,7 +52,7 @@ fn init_repository_or_exit(path_to_repo: &str) -> Repository {
         Err(e) => {
             println!("Failed to create repository: {e:?}");
             std::process::exit(1);
-        },
+        }
     }
 }
 

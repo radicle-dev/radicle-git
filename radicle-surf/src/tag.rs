@@ -136,7 +136,7 @@ impl TryFrom<&git2::Reference<'_>> for Tag {
                     id: commit.id().into(),
                     name,
                 })
-            },
+            }
             Err(err) => Err(err.into()),
         }
     }

@@ -33,17 +33,7 @@ use crate::{
     fs::{Directory, File, FileContent},
     refs::{BranchNames, Branches, Categories, Namespaces, TagNames, Tags},
     tree::{Entry, Tree},
-    Branch,
-    Commit,
-    Error,
-    Glob,
-    History,
-    Namespace,
-    Revision,
-    Signature,
-    Stats,
-    Tag,
-    ToCommit,
+    Branch, Commit, Error, Glob, History, Namespace, Revision, Signature, Stats, Tag, ToCommit,
 };
 
 /// Enumeration of errors that can occur in repo operations.
@@ -405,7 +395,7 @@ impl Repository {
                 } else {
                     Err(error.into())
                 }
-            },
+            }
             Ok(sig) => Ok(Some(Signature::from(sig.0))),
         }
     }

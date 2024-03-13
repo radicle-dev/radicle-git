@@ -38,11 +38,11 @@ pub fn refname(input: TokenStream) -> TokenStream {
                 }
             };
             TokenStream::from(expand)
-        },
+        }
 
         Err(e) => {
             abort!(lit.span(), "invalid refname literal: {}", e);
-        },
+        }
     }
 }
 
@@ -75,20 +75,20 @@ pub fn qualified(input: TokenStream) -> TokenStream {
                     };
 
                     TokenStream::from(expand)
-                },
+                }
 
                 None => {
                     abort!(
                         lit.span(),
                         "refname is not of the form 'refs/<category>/<name>'"
                     );
-                },
+                }
             }
-        },
+        }
 
         Err(e) => {
             abort!(lit.span(), "invalid refname literal: {}", e);
-        },
+        }
     }
 }
 
@@ -121,17 +121,17 @@ pub fn component(input: TokenStream) -> TokenStream {
                     };
 
                     TokenStream::from(expand)
-                },
+                }
 
                 None => {
                     abort!(lit.span(), "component contains a '/'");
-                },
+                }
             }
-        },
+        }
 
         Err(e) => {
             abort!(lit.span(), "invalid refname literal: {}", e);
-        },
+        }
     }
 }
 
@@ -159,10 +159,10 @@ pub fn pattern(input: TokenStream) -> TokenStream {
                 }
             };
             TokenStream::from(expand)
-        },
+        }
 
         Err(e) => {
             abort!(lit.span(), "invalid refspec pattern literal: {}", e);
-        },
+        }
     }
 }

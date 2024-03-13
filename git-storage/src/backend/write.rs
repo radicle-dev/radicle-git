@@ -16,12 +16,9 @@ use git_ext::{
 use crate::{
     odb,
     refdb::{
-        self,
-        resolve,
+        self, resolve,
         write::{previous, Applied, Policy, SymrefTarget, Update, Updated},
-        Read as _,
-        Reference,
-        Target,
+        Read as _, Reference, Target,
     },
     signature::UserInfo,
 };
@@ -67,7 +64,7 @@ impl Write {
                         .external_template(false),
                 )?;
                 Ok(backend)
-            },
+            }
             Ok(repo) => Ok(repo),
             Err(e) => Err(e),
         }?;
@@ -225,7 +222,7 @@ impl<'a> Transaction<'a> {
                 } else {
                     None
                 }
-            },
+            }
             None => None,
         };
 
@@ -289,7 +286,7 @@ impl<'a> Transaction<'a> {
             Some(src) => match src.target {
                 Target::Direct { .. } if matches!(type_change, Policy::Abort) => {
                     Err(error::Update::TypeChange(name.into()))
-                },
+                }
                 Target::Direct { .. } if matches!(type_change, Policy::Reject) => {
                     Ok(Either::Left(Update::Symbolic {
                         name,
@@ -298,7 +295,7 @@ impl<'a> Transaction<'a> {
                         previous,
                         reflog,
                     }))
-                },
+                }
                 _ => {
                     let dst = self.refdb.find_reference(&target.name)?;
                     match dst {
@@ -309,14 +306,14 @@ impl<'a> Transaction<'a> {
                                 Ok(Either::Right(
                                     self.symbolic_edit(name, target, prev, &reflog, is_ff)?,
                                 ))
-                            },
+                            }
                             Target::Symbolic { .. } => Err(error::Update::TargetSymbolic(dst.name)),
                         },
                         None => Ok(Either::Right(
                             self.symbolic_edit(name, target, prev, &reflog, true)?,
                         )),
                     }
-                },
+                }
             },
             None => Ok(Either::Right(
                 self.symbolic_edit(name, target, prev, &reflog, true)?,
@@ -355,7 +352,7 @@ impl<'a> Transaction<'a> {
             match given {
                 None => {
                     panic!("BUG: the previous value for a reference to be removed was not given, but its existence SHOULD be guarded")
-                },
+                }
                 Some(previous) => Ok(Either::Right(self.remove_edit(name, previous)?)),
             }
         }

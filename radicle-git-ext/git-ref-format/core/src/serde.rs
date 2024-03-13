@@ -9,10 +9,7 @@ use ::serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
     refspec::{PatternStr, PatternString},
-    Namespaced,
-    Qualified,
-    RefStr,
-    RefString,
+    Namespaced, Qualified, RefStr, RefString,
 };
 
 impl<'de: 'a, 'a> Deserialize<'de> for &'a RefStr {

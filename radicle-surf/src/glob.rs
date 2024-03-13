@@ -18,12 +18,9 @@
 use std::marker::PhantomData;
 
 use git_ext::ref_format::{
-    self,
-    refname,
+    self, refname,
     refspec::{self, PatternString, QualifiedPattern},
-    Qualified,
-    RefStr,
-    RefString,
+    Qualified, RefStr, RefString,
 };
 use thiserror::Error;
 

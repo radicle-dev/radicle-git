@@ -297,7 +297,7 @@ impl Entry {
                     .then(|| repo.find_submodule(&name))
                     .transpose()?;
                 Ok(Self::Submodule(Submodule::new(name, path, submodule, id)?))
-            },
+            }
             _ => Err(error::Directory::InvalidType(path, "tree or blob")),
         }
     }
@@ -396,21 +396,21 @@ impl Directory {
                     Entry::File(_) => {
                         entries.insert(entry.name().clone(), entry);
                         git2::TreeWalkResult::Ok
-                    },
+                    }
                     Entry::Directory(_) => {
                         entries.insert(entry.name().clone(), entry);
                         // Skip nested directories
                         git2::TreeWalkResult::Skip
-                    },
+                    }
                     Entry::Submodule(_) => {
                         entries.insert(entry.name().clone(), entry);
                         git2::TreeWalkResult::Ok
-                    },
+                    }
                 },
                 Err(err) => {
                     error = Some(err);
                     git2::TreeWalkResult::Abort
-                },
+                }
             }
         })?;
 
@@ -520,7 +520,7 @@ impl Directory {
                 Entry::Directory(directory) => {
                     let acc = directory.traverse(repo, acc, f)?;
                     f(acc, entry)
-                },
+                }
                 Entry::Submodule(_) => f(acc, entry),
             })
     }

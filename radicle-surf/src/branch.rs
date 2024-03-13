@@ -134,7 +134,7 @@ impl Local {
                         name: name.as_ref().to_ref_string(),
                     }
                 }
-            },
+            }
         }
     }
 

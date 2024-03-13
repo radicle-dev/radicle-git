@@ -18,16 +18,7 @@
 use std::convert::TryFrom;
 
 use super::{
-    Diff,
-    DiffContent,
-    DiffFile,
-    EofNewLine,
-    FileMode,
-    FileStats,
-    Hunk,
-    Hunks,
-    Line,
-    Modification,
+    Diff, DiffContent, DiffFile, EofNewLine, FileMode, FileStats, Hunk, Hunks, Line, Modification,
     Stats,
 };
 
@@ -168,24 +159,24 @@ impl TryFrom<git2::Patch<'_>> for DiffContent {
                         new_missing_eof = true;
                         old_missing_eof = true;
                         continue;
-                    },
+                    }
                     git2::DiffLineType::Addition => {
                         additions += 1;
-                    },
+                    }
                     git2::DiffLineType::Deletion => {
                         deletions += 1;
-                    },
+                    }
                     git2::DiffLineType::AddEOFNL => {
                         additions += 1;
                         old_missing_eof = true;
                         continue;
-                    },
+                    }
                     git2::DiffLineType::DeleteEOFNL => {
                         deletions += 1;
                         new_missing_eof = true;
                         continue;
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 }
                 let line = Modification::try_from(line)?;
                 lines.push(line);
@@ -254,7 +245,7 @@ impl<'a> TryFrom<git2::Diff<'a>> for Diff {
                 Delta::Copied => copied(&mut diff, &git_diff, idx, &delta)?,
                 status => {
                     return Err(error::Diff::DeltaUnhandled(status));
-                },
+                }
             }
         }
 

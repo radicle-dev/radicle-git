@@ -2,23 +2,10 @@ use pretty_assertions::assert_eq;
 use radicle_git_ext::{ref_format::refname, Oid};
 use radicle_surf::{
     diff::{
-        Added,
-        Diff,
-        DiffContent,
-        DiffFile,
-        EofNewLine,
-        FileDiff,
-        FileMode,
-        FileStats,
-        Hunk,
-        Line,
-        Modification,
-        Modified,
-        Stats,
+        Added, Diff, DiffContent, DiffFile, EofNewLine, FileDiff, FileMode, FileStats, Hunk, Line,
+        Modification, Modified, Stats,
     },
-    Branch,
-    Error,
-    Repository,
+    Branch, Error, Repository,
 };
 use std::{path::Path, str::FromStr};
 

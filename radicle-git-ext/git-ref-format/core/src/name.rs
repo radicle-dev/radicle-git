@@ -14,8 +14,7 @@ use std::{
 use crate::{
     check,
     refspec::{PatternStr, PatternString},
-    Namespaced,
-    Qualified,
+    Namespaced, Qualified,
 };
 
 mod iter;
@@ -285,7 +284,7 @@ impl RefString {
             Some(idx) => {
                 self.0.truncate(idx);
                 true
-            },
+            }
         }
     }
 
