@@ -1,10 +1,13 @@
 use std::{io, str::FromStr as _, string::ToString as _};
 
+use proptest::proptest;
 use radicle_git_ext::{
     author::{self, Author},
     commit::{headers::Headers, trailers::OwnedTrailer, Commit},
 };
-use test_helpers::tempdir::WithTmpDir;
+use test_helpers::tempdir::{self, WithTmpDir};
+
+use crate::gen;
 
 const NO_TRAILER: &str = "\
 tree 50d6ef440728217febf9e35716d8b0296608d7f8
@@ -152,27 +155,23 @@ fn test_conversion() {
     assert_eq!(Commit::from_str(UNSIGNED).unwrap().to_string(), UNSIGNED);
 }
 
-#[test]
-fn valid_commits() {
-    let radicle_git = format!(
-        "file://{}",
-        git2::Repository::discover(".").unwrap().path().display()
-    );
-    let repo = WithTmpDir::new(|path| {
-        let repo = git2::Repository::clone(&radicle_git, path)
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
-        Ok::<_, io::Error>(repo)
-    })
-    .unwrap();
+proptest! {
+    #[test]
+    fn valid_commits(commits in proptest::collection::vec(gen::commit::commit(), 5..20)) {
+        let repo = tempdir::WithTmpDir::new(|path| {
+            git2::Repository::init(path).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+        }).unwrap();
+        let commits = gen::commit::write_commits(&repo, commits).unwrap();
+        repo.reference("refs/heads/master", *commits.last().unwrap(), true, "").unwrap();
 
-    let mut walk = repo.revwalk().unwrap();
-    walk.push_head().unwrap();
+        let mut walk = repo.revwalk().unwrap();
+        walk.push_head().unwrap();
 
-    // take the first 20 commits and make sure we can parse them
-    for oid in walk.take(20) {
-        let oid = oid.unwrap();
-        let commit = Commit::read(&repo, oid);
-        assert!(commit.is_ok(), "Oid: {oid}, Error: {commit:?}")
+        for oid in walk.take(20) {
+            let oid = oid.unwrap();
+            let commit = Commit::read(&repo, oid);
+            assert!(commit.is_ok(), "Oid: {oid}, Error: {commit:?}");
+        }
     }
 }
 
@@ -182,6 +181,7 @@ fn write_valid_commit() {
         git2::Repository::init(path).map_err(|err| io::Error::new(io::ErrorKind::Other, err))
     })
     .unwrap();
+
     let author = Author {
         name: "Terry".to_owned(),
         email: "terry.pratchett@proton.mail".to_owned(),

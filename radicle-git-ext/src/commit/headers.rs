@@ -10,6 +10,7 @@ const BEGIN_PGP: &str = "-----BEGIN PGP SIGNATURE-----\n";
 pub struct Headers(pub(super) Vec<(String, String)>);
 
 /// A `gpgsig` signature stored in a [`crate::commit::Commit`].
+#[derive(Debug)]
 pub enum Signature<'a> {
     /// A PGP signature, i.e. starts with `-----BEGIN PGP SIGNATURE-----`.
     Pgp(Cow<'a, str>),

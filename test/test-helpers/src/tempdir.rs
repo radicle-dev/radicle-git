@@ -11,6 +11,7 @@ use std::{
 
 use tempfile::{tempdir, TempDir};
 
+#[derive(Debug)]
 pub struct WithTmpDir<A> {
     _tmp: TempDir,
     inner: A,

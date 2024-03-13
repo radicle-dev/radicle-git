@@ -12,3 +12,6 @@ mod commit;
 
 #[cfg(any(test, feature = "test"))]
 pub mod git_ref_format;
+
+#[cfg(any(test, feature = "test"))]
+pub mod repository;

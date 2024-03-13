@@ -33,6 +33,7 @@ base64 = "0.13"
 log = "0.4"
 nonempty = "0.5"
 thiserror = "1.0"
+url = "2.5"
 
 [dependencies.git2]
 version = "0.18.1"
@@ -52,9 +53,6 @@ path = "../radicle-std-ext"
 version = "1"
 features = ["serde_derive"]
 optional = true
-
-[dependencies.url]
-version = "2.5"
 
 [build-dependencies]
 anyhow = "1.0"

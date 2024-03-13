@@ -26,47 +26,9 @@ use trailers::{OwnedTrailer, Trailer, Trailers};
 
 use crate::author::Author;
 
-/// A git commit in its object description form, i.e. the output of
-/// `git cat-file` for a commit object.
-#[derive(Debug)]
-pub struct Commit {
-    tree: Oid,
-    parents: Vec<Oid>,
-    author: Author,
-    committer: Author,
-    headers: Headers,
-    message: String,
-    trailers: Vec<OwnedTrailer>,
-}
+pub type Commit = CommitData<Oid, Oid>;
 
 impl Commit {
-    pub fn new<P, I, T>(
-        tree: Oid,
-        parents: P,
-        author: Author,
-        committer: Author,
-        headers: Headers,
-        message: String,
-        trailers: I,
-    ) -> Self
-    where
-        P: IntoIterator<Item = Oid>,
-        I: IntoIterator<Item = T>,
-        OwnedTrailer: From<T>,
-    {
-        let trailers = trailers.into_iter().map(OwnedTrailer::from).collect();
-        let parents = parents.into_iter().collect();
-        Self {
-            tree,
-            parents,
-            author,
-            committer,
-            headers,
-            message,
-            trailers,
-        }
-    }
-
     /// Read the [`Commit`] from the `repo` that is expected to be found at
     /// `oid`.
     pub fn read(repo: &git2::Repository, oid: Oid) -> Result<Self, error::Read> {
@@ -83,14 +45,68 @@ impl Commit {
         Ok(odb.write(ObjectType::Commit, self.to_string().as_bytes())?)
     }
 
-    /// The tree [`Oid`] this commit points to.
-    pub fn tree(&self) -> Oid {
-        self.tree
+    fn verify_for_write(&self, odb: &git2::Odb) -> Result<(), error::Write> {
+        for parent in &self.parents {
+            verify_object(odb, parent, ObjectType::Commit)?;
+        }
+        verify_object(odb, &self.tree, ObjectType::Tree)?;
+
+        Ok(())
+    }
+}
+
+/// A git commit in its object description form, i.e. the output of
+/// `git cat-file` for a commit object.
+#[derive(Debug)]
+pub struct CommitData<Tree, Parent> {
+    tree: Tree,
+    parents: Vec<Parent>,
+    author: Author,
+    committer: Author,
+    headers: Headers,
+    message: String,
+    trailers: Vec<OwnedTrailer>,
+}
+
+impl<Tree, Parent> CommitData<Tree, Parent> {
+    pub fn new<P, I, T>(
+        tree: Tree,
+        parents: P,
+        author: Author,
+        committer: Author,
+        headers: Headers,
+        message: String,
+        trailers: I,
+    ) -> Self
+    where
+        P: IntoIterator<Item = Parent>,
+        I: IntoIterator<Item = T>,
+        OwnedTrailer: From<T>,
+    {
+        let trailers = trailers.into_iter().map(OwnedTrailer::from).collect();
+        let parents = parents.into_iter().collect();
+        Self {
+            tree,
+            parents,
+            author,
+            committer,
+            headers,
+            message,
+            trailers,
+        }
     }
 
-    /// The parent [`Oid`]s of this commit.
-    pub fn parents(&self) -> impl Iterator<Item = Oid> + '_ {
-        self.parents.iter().copied()
+    /// The tree this commit points to.
+    pub fn tree(&self) -> &Tree {
+        &self.tree
+    }
+
+    /// The parents of this commit.
+    pub fn parents(&self) -> impl Iterator<Item = Parent> + '_
+    where
+        Parent: Clone,
+    {
+        self.parents.iter().cloned()
     }
 
     /// The author of this commit, i.e. the header corresponding to `author`.
@@ -136,13 +152,49 @@ impl Commit {
         self.trailers.iter()
     }
 
-    fn verify_for_write(&self, odb: &git2::Odb) -> Result<(), error::Write> {
-        for parent in &self.parents {
-            verify_object(odb, parent, ObjectType::Commit)?;
-        }
-        verify_object(odb, &self.tree, ObjectType::Tree)?;
+    /// Convert the `CommitData::tree` into a value of type `U`. The
+    /// conversion function `f` can be fallible.
+    ///
+    /// For example, `map_tree` can be used to turn raw tree data into
+    /// an `Oid` by writing it to a repository.
+    pub fn map_tree<U, E, F>(self, f: F) -> Result<CommitData<U, Parent>, E>
+    where
+        F: FnOnce(Tree) -> Result<U, E>,
+    {
+        Ok(CommitData {
+            tree: f(self.tree)?,
+            parents: self.parents,
+            author: self.author,
+            committer: self.committer,
+            headers: self.headers,
+            message: self.message,
+            trailers: self.trailers,
+        })
+    }
 
-        Ok(())
+    /// Convert the `CommitData::parents` into a vector containing
+    /// values of type `U`. The conversion function `f` can be
+    /// fallible.
+    ///
+    /// For example, `map_parents` can be used to resolve the `Oid`s
+    /// to their respective `git2::Commit`s.
+    pub fn map_parents<U, E, F>(self, f: F) -> Result<CommitData<Tree, U>, E>
+    where
+        F: FnMut(Parent) -> Result<U, E>,
+    {
+        Ok(CommitData {
+            tree: self.tree,
+            parents: self
+                .parents
+                .into_iter()
+                .map(f)
+                .collect::<Result<Vec<_>, _>>()?,
+            author: self.author,
+            committer: self.committer,
+            headers: self.headers,
+            message: self.message,
+            trailers: self.trailers,
+        })
     }
 }
 
