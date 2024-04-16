@@ -36,6 +36,7 @@ pub mod git;
 /// A [`Diff`] can be retrieved by the following functions:
 ///    * [`crate::Repository::diff`]
 ///    * [`crate::Repository::diff_commit`]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Diff {
     files: Vec<FileDiff>,
@@ -350,6 +351,11 @@ pub struct DiffFile {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(Serialize),
+    serde(tag = "state", rename_all = "camelCase")
+)]
 pub enum FileDiff {
     Added(Added),
     Deleted(Deleted),
@@ -367,56 +373,6 @@ impl FileDiff {
             FileDiff::Moved(x) => x.new_path.as_path(),
             FileDiff::Copied(x) => x.new_path.as_path(),
         }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for FileDiff {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("FileDiff", 7)?;
-        match &self {
-            FileDiff::Added(x) => {
-                state.serialize_field("path", &x.path)?;
-                state.serialize_field("diff", &x.diff)?;
-            }
-            FileDiff::Deleted(x) => {
-                state.serialize_field("path", &x.path)?;
-                state.serialize_field("diff", &x.diff)?;
-            }
-            FileDiff::Modified(x) => {
-                state.serialize_field("path", &x.path)?;
-                state.serialize_field("diff", &x.diff)?;
-            }
-            FileDiff::Moved(x) => {
-                state.serialize_field("oldPath", &x.old_path)?;
-                state.serialize_field("newPath", &x.new_path)?;
-            }
-            FileDiff::Copied(x) => {
-                state.serialize_field("oldPath", &x.old_path)?;
-                state.serialize_field("newPath", &x.new_path)?;
-            }
-        }
-        state.end()
-    }
-}
-
-#[cfg(feature = "serde")]
-impl Serialize for Diff {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("Diff", 6)?;
-        state.serialize_field("added", &self.added().collect::<Vec<_>>())?;
-        state.serialize_field("deleted", &self.deleted().collect::<Vec<_>>())?;
-        state.serialize_field("moved", &self.moved().collect::<Vec<_>>())?;
-        state.serialize_field("copied", &self.copied().collect::<Vec<_>>())?;
-        state.serialize_field("modified", &self.modified().collect::<Vec<_>>())?;
-        state.serialize_field("stats", &self.stats())?;
-        state.end()
     }
 }
 

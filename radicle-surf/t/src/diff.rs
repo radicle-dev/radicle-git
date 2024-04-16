@@ -219,7 +219,7 @@ fn test_diff_serde() -> Result<(), Error> {
     let diff = repo.diff(rev_from, rev_to)?;
 
     let json = serde_json::json!({
-        "added": [{
+        "files": [{
             "path": "LICENSE",
             "diff": {
                 "type": "plain",
@@ -248,9 +248,85 @@ fn test_diff_serde() -> Result<(), Error> {
                 "mode": "blob",
                 "oid": "02f70f56ec62396ceaf38804c37e169e875ab291",
             },
-        }],
-        "deleted": [{
+            "state": "added"
+        },
+        {
+            "path": "README.md",
+            "diff": {
+                "type": "plain",
+                "hunks": [{
+                    "header": "@@ -1,2 +1,2 @@\n",
+                    "lines": [
+                        { "lineNo": 1,
+                          "line": "This repository is a data source for the Upstream front-end tests and the\n",
+                          "type": "deletion"
+                        },
+                        { "lineNo": 2,
+                          "line": "[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n",
+                          "type": "deletion"
+                        },
+                        { "lineNo": 1,
+                          "line": "This repository is a data source for the upstream front-end tests and the\n",
+                          "type": "addition"
+                        },
+                        { "lineNo": 2,
+                          "line": "[`radicle-surf`](https://github.com/radicle-dev/radicle-surf) unit tests.\n",
+                          "type": "addition"
+                        },
+                    ],
+                    "old": { "start": 1, "end": 3 },
+                    "new": { "start": 1, "end": 3 },
+                }],
+                "stats": {
+                    "additions": 2,
+                    "deletions": 2
+                },
+                "eof": "noneMissing",
+            },
+            "new": {
+                "mode": "blob",
+                "oid": "b033ecf407a44922b28c942c696922a7d7daf06e",
+            },
+            "old": {
+                "mode": "blob",
+                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
+            },
+            "state": "modified",
+        },
+        {
+            "current": {
+                "mode": "blob",
+                "oid": "1570277532948712fea9029d100a4208f9e34241",
+            },
+            "oldPath": "text/emoji.txt",
+            "newPath": "emoji.txt",
+            "state": "moved"
+        },
+        {
+            "diff": {
+                "eof": "noneMissing",
+                "hunks": [],
+                "stats": {
+                    "additions": 0,
+                    "deletions": 0,
+                },
+                "type": "plain",
+            },
+            "new": {
+                "mode": "blob",
+                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
+            },
+            "newPath": "file_operations/copied.md",
+            "old": {
+                "mode": "blob",
+                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
+            },
+            "oldPath": "README.md",
+            "state": "copied"
+        },
+        {
             "path": "text/arrows.txt",
+            "state": "deleted",
             "old": {
                 "mode": "blob",
                 "oid": "95418c04010a3cc758fb3a37f9918465f147566f",
@@ -306,77 +382,6 @@ fn test_diff_serde() -> Result<(), Error> {
                 "eof": "noneMissing",
             },
         }],
-        "moved": [{
-            "current": {
-                "mode": "blob",
-                "oid": "1570277532948712fea9029d100a4208f9e34241",
-            },
-            "oldPath": "text/emoji.txt",
-            "newPath": "emoji.txt",
-        }],
-        "copied": [{
-            "diff": {
-                "eof": "noneMissing",
-                "hunks": [],
-                "stats": {
-                    "additions": 0,
-                    "deletions": 0,
-                },
-                "type": "plain",
-            },
-            "new": {
-                "mode": "blob",
-                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
-            },
-            "newPath": "file_operations/copied.md",
-            "old": {
-                "mode": "blob",
-                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
-            },
-            "oldPath": "README.md",
-        }],
-        "modified": [{
-            "path": "README.md",
-            "diff": {
-                "type": "plain",
-                "hunks": [{
-                    "header": "@@ -1,2 +1,2 @@\n",
-                    "lines": [
-                        { "lineNo": 1,
-                          "line": "This repository is a data source for the Upstream front-end tests and the\n",
-                          "type": "deletion"
-                        },
-                        { "lineNo": 2,
-                          "line": "[`radicle-surf`](https://github.com/radicle-dev/git-platinum) unit tests.\n",
-                          "type": "deletion"
-                        },
-                        { "lineNo": 1,
-                          "line": "This repository is a data source for the upstream front-end tests and the\n",
-                          "type": "addition"
-                        },
-                        { "lineNo": 2,
-                          "line": "[`radicle-surf`](https://github.com/radicle-dev/radicle-surf) unit tests.\n",
-                          "type": "addition"
-                        },
-                    ],
-                    "old": { "start": 1, "end": 3 },
-                    "new": { "start": 1, "end": 3 },
-                }],
-                "stats": {
-                    "additions": 2,
-                    "deletions": 2
-                },
-                "eof": "noneMissing",
-            },
-            "new": {
-                "mode": "blob",
-                "oid": "b033ecf407a44922b28c942c696922a7d7daf06e",
-            },
-            "old": {
-                "mode": "blob",
-                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
-            },
-        }],
         "stats": {
             "deletions": 9,
             "filesChanged": 5,
@@ -426,11 +431,7 @@ index 3f69208f3..cbc843c82 100644
     let diff = Diff::try_from(diff).unwrap();
     let json = serde_json::json!(
     {
-        "added": [],
-        "copied": [],
-        "deleted": [],
-        "modified": [],
-        "moved": [
+        "files": [
             {
                 "diff": {
                     "eof": "noneMissing",
@@ -585,6 +586,7 @@ index 3f69208f3..cbc843c82 100644
                     "oid": "3f69208f30000000000000000000000000000000",
                 },
                 "oldPath": "radicle/src/node/tracking/config.rs",
+                "state": "moved"
             },
         ],
         "stats": {
