@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -eoux pipefail
 
-cargo +nightly fmt -- --check
+cargo fmt -- --check
