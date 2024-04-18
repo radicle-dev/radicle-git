@@ -522,8 +522,7 @@ impl Repository {
         let mut opts = git2::DiffOptions::new();
         if let Some(path) = path {
             opts.pathspec(path.to_string_lossy().to_string());
-            // We're skipping the binary pass because we won't be inspecting deltas.
-            opts.skip_binary_check(true);
+            opts.skip_binary_check(false);
         }
 
         let mut diff =

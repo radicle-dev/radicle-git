@@ -236,6 +236,10 @@ impl<'a> TryFrom<git2::Diff<'a>> for Diff {
 
         let mut diff = Diff::new();
 
+        // This allows libgit2 to run the binary detection.
+        // Reference: <https://github.com/libgit2/libgit2/issues/6637>
+        git_diff.foreach(&mut |_, _| true, None, None, None)?;
+
         for (idx, delta) in git_diff.deltas().enumerate() {
             match delta.status() {
                 Delta::Added => created(&mut diff, &git_diff, idx, &delta)?,
@@ -268,10 +272,10 @@ fn created(
     let new = DiffFile::try_from(diff_file)?;
 
     let patch = git2::Patch::from_diff(git_diff, idx)?;
-    if let Some(patch) = patch {
-        diff.insert_added(path, DiffContent::try_from(patch)?, new);
-    } else if is_binary {
+    if is_binary {
         diff.insert_added(path, DiffContent::Binary, new);
+    } else if let Some(patch) = patch {
+        diff.insert_added(path, DiffContent::try_from(patch)?, new);
     } else {
         return Err(error::Diff::PatchUnavailable(path));
     }
@@ -293,10 +297,10 @@ fn deleted(
     let patch = git2::Patch::from_diff(git_diff, idx)?;
     let old = DiffFile::try_from(diff_file)?;
 
-    if let Some(patch) = patch {
-        diff.insert_deleted(path, DiffContent::try_from(patch)?, old);
-    } else if is_binary {
+    if is_binary {
         diff.insert_deleted(path, DiffContent::Binary, old);
+    } else if let Some(patch) = patch {
+        diff.insert_deleted(path, DiffContent::try_from(patch)?, old);
     } else {
         return Err(error::Diff::PatchUnavailable(path));
     }
@@ -318,11 +322,11 @@ fn modified(
     let old = DiffFile::try_from(delta.old_file())?;
     let new = DiffFile::try_from(delta.new_file())?;
 
-    if let Some(patch) = patch {
-        diff.insert_modified(path, DiffContent::try_from(patch)?, old, new);
-        Ok(())
-    } else if diff_file.is_binary() {
+    if diff_file.is_binary() {
         diff.insert_modified(path, DiffContent::Binary, old, new);
+        Ok(())
+    } else if let Some(patch) = patch {
+        diff.insert_modified(path, DiffContent::try_from(patch)?, old, new);
         Ok(())
     } else {
         Err(error::Diff::PatchUnavailable(path))
@@ -349,10 +353,10 @@ fn renamed(
     let old = DiffFile::try_from(delta.old_file())?;
     let new = DiffFile::try_from(delta.new_file())?;
 
-    if let Some(patch) = patch {
-        diff.insert_moved(old_path, new_path, old, new, DiffContent::try_from(patch)?);
-    } else if delta.new_file().is_binary() {
+    if delta.new_file().is_binary() {
         diff.insert_moved(old_path, new_path, old, new, DiffContent::Binary);
+    } else if let Some(patch) = patch {
+        diff.insert_moved(old_path, new_path, old, new, DiffContent::try_from(patch)?);
     } else {
         diff.insert_moved(old_path, new_path, old, new, DiffContent::Empty);
     }
@@ -379,10 +383,10 @@ fn copied(
     let old = DiffFile::try_from(delta.old_file())?;
     let new = DiffFile::try_from(delta.new_file())?;
 
-    if let Some(patch) = patch {
-        diff.insert_copied(old_path, new_path, old, new, DiffContent::try_from(patch)?);
-    } else if delta.new_file().is_binary() {
+    if delta.new_file().is_binary() {
         diff.insert_copied(old_path, new_path, old, new, DiffContent::Binary);
+    } else if let Some(patch) = patch {
+        diff.insert_copied(old_path, new_path, old, new, DiffContent::try_from(patch)?);
     } else {
         diff.insert_copied(old_path, new_path, old, new, DiffContent::Empty);
     }
