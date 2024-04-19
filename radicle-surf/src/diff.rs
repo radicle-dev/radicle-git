@@ -377,7 +377,7 @@ pub struct DiffFile {
 #[cfg_attr(
     feature = "serde",
     derive(Serialize),
-    serde(tag = "state", rename_all = "camelCase")
+    serde(tag = "status", rename_all = "camelCase")
 )]
 pub enum FileDiff {
     Added(Added),

@@ -248,7 +248,7 @@ fn test_diff_serde() -> Result<(), Error> {
                 "mode": "blob",
                 "oid": "02f70f56ec62396ceaf38804c37e169e875ab291",
             },
-            "state": "added"
+            "status": "added"
         },
         {
             "path": "README.md",
@@ -291,7 +291,7 @@ fn test_diff_serde() -> Result<(), Error> {
                 "mode": "blob",
                 "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
             },
-            "state": "modified",
+            "status": "modified",
         },
         {
             "current": {
@@ -300,7 +300,7 @@ fn test_diff_serde() -> Result<(), Error> {
             },
             "oldPath": "text/emoji.txt",
             "newPath": "emoji.txt",
-            "state": "moved"
+            "status": "moved"
         },
         {
             "current": {
@@ -309,11 +309,11 @@ fn test_diff_serde() -> Result<(), Error> {
             },
             "newPath": "file_operations/copied.md",
             "oldPath": "README.md",
-            "state": "copied"
+            "status": "copied"
         },
         {
             "path": "text/arrows.txt",
-            "state": "deleted",
+            "status": "deleted",
             "old": {
                 "mode": "blob",
                 "oid": "95418c04010a3cc758fb3a37f9918465f147566f",
@@ -573,7 +573,7 @@ index 3f69208f3..cbc843c82 100644
                     "oid": "3f69208f30000000000000000000000000000000",
                 },
                 "oldPath": "radicle/src/node/tracking/config.rs",
-                "state": "moved"
+                "status": "moved"
             },
         ],
         "stats": {
