@@ -220,7 +220,7 @@ impl Serialize for Moved {
         S: Serializer,
     {
         if self.old == self.new {
-            let mut state = serializer.serialize_struct("Moved", 2)?;
+            let mut state = serializer.serialize_struct("Moved", 3)?;
             state.serialize_field("oldPath", &self.old_path)?;
             state.serialize_field("newPath", &self.new_path)?;
             state.serialize_field("current", &self.new)?;
@@ -238,7 +238,6 @@ impl Serialize for Moved {
 }
 
 /// A file that was copied within a [`Diff`].
-#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Copied {
     /// The old path to this file, relative to the repository root.
@@ -248,6 +247,30 @@ pub struct Copied {
     pub old: DiffFile,
     pub new: DiffFile,
     pub diff: DiffContent,
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for Copied {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if self.old == self.new {
+            let mut state = serializer.serialize_struct("Copied", 3)?;
+            state.serialize_field("oldPath", &self.old_path)?;
+            state.serialize_field("newPath", &self.new_path)?;
+            state.serialize_field("current", &self.new)?;
+            state.end()
+        } else {
+            let mut state = serializer.serialize_struct("Copied", 5)?;
+            state.serialize_field("oldPath", &self.old_path)?;
+            state.serialize_field("newPath", &self.new_path)?;
+            state.serialize_field("old", &self.old)?;
+            state.serialize_field("new", &self.new)?;
+            state.serialize_field("diff", &self.diff)?;
+            state.end()
+        }
+    }
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]

@@ -303,24 +303,11 @@ fn test_diff_serde() -> Result<(), Error> {
             "state": "moved"
         },
         {
-            "diff": {
-                "eof": "noneMissing",
-                "hunks": [],
-                "stats": {
-                    "additions": 0,
-                    "deletions": 0,
-                },
-                "type": "plain",
-            },
-            "new": {
+            "current": {
                 "mode": "blob",
                 "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
             },
             "newPath": "file_operations/copied.md",
-            "old": {
-                "mode": "blob",
-                "oid": "5e07534cd74a6a9b2ccd2729b181c4ef26173a5e",
-            },
             "oldPath": "README.md",
             "state": "copied"
         },
