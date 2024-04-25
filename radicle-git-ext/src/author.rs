@@ -43,6 +43,38 @@ impl Time {
     pub fn offset(&self) -> i32 {
         self.offset
     }
+
+    fn from_components<'a>(cs: &mut impl Iterator<Item = &'a str>) -> Result<Self, ParseError> {
+        let offset = match cs.next() {
+            None => Err(ParseError::Missing("offset")),
+            Some(offset) => Self::parse_offset(offset).map_err(ParseError::Offset),
+        }?;
+        let time = match cs.next() {
+            None => return Err(ParseError::Missing("time")),
+            Some(time) => time.parse::<i64>().map_err(ParseError::Time)?,
+        };
+        Ok(Self::new(time, offset))
+    }
+
+    fn parse_offset(offset: &str) -> Result<i32, ParseIntError> {
+        // The offset is in the form of timezone offset,
+        // e.g. +0200, -0100.  This needs to be converted into
+        // minutes. The first two digits in the offset are the
+        // number of hours in the offset, while the latter two
+        // digits are the number of minutes in the offset.
+        let tz_offset = offset.parse::<i32>()?;
+        let hours = tz_offset / 100;
+        let minutes = tz_offset % 100;
+        Ok(hours * 60 + minutes)
+    }
+}
+
+impl FromStr for Time {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_components(&mut s.split(' ').rev())
+    }
 }
 
 impl From<Time> for git2::Time {
@@ -101,41 +133,26 @@ pub enum ParseError {
     Offset(#[source] ParseIntError),
     #[error("time was incorrect format while parsing person signature")]
     Time(#[source] ParseIntError),
-    #[error("time offset is expected to be '+'/'-' for a person siganture")]
-    UnknownOffset,
 }
 
 impl FromStr for Author {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut components = s.split(' ');
-        let offset = match components.next_back() {
-            None => return Err(ParseError::Missing("offset")),
-            Some(offset) => {
-                // The offset is in the form of timezone offset,
-                // e.g. +0200, -0100.  This needs to be converted into
-                // minutes. The first two digits in the offset are the
-                // number of hours in the offset, while the latter two
-                // digits are the number of minutes in the offset.
-                let tz_offset = offset.parse::<i32>().map_err(ParseError::Offset)?;
-                let hours = tz_offset / 100;
-                let minutes = tz_offset % 100;
-                hours * 60 + minutes
-            }
-        };
-        let time = match components.next_back() {
-            None => return Err(ParseError::Missing("time")),
-            Some(time) => time.parse::<i64>().map_err(ParseError::Time)?,
-        };
-        let time = Time::new(time, offset);
-
+        // Splitting the string in 4 subcomponents is expected to give back the
+        // following iterator entries: timezone offset, time, email, and name
+        let mut components = s.rsplitn(4, ' ');
+        let time = Time::from_components(&mut components)?;
         let email = components
-            .next_back()
+            .next()
             .ok_or(ParseError::Missing("email"))?
             .trim_matches(|c| c == '<' || c == '>')
             .to_owned();
-        let name = components.collect::<Vec<_>>().join(" ");
-        Ok(Self { name, email, time })
+        let name = components.next().ok_or(ParseError::Missing("name"))?;
+        Ok(Self {
+            name: name.to_owned(),
+            email: email.to_owned(),
+            time,
+        })
     }
 }
