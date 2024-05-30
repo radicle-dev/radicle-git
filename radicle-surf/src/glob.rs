@@ -66,7 +66,7 @@ impl<T> Glob<T> {
 }
 
 impl Glob<Namespace> {
-    /// Creates the `Glob` that mathces all `refs/namespaces`.
+    /// Creates the `Glob` that matches all `refs/namespaces`.
     pub fn all_namespaces() -> Self {
         Self::namespaces(refspec::pattern!("*"))
     }
@@ -165,7 +165,7 @@ impl Extend<PatternString> for Glob<Tag> {
 }
 
 impl Glob<Local> {
-    /// Creates the `Glob` that mathces all `refs/heads`.
+    /// Creates the `Glob` that matches all `refs/heads`.
     pub fn all_heads() -> Self {
         Self::heads(refspec::pattern!("*"))
     }
@@ -239,7 +239,7 @@ impl From<Glob<Local>> for Glob<Branch> {
 }
 
 impl Glob<Remote> {
-    /// Creates the `Glob` that mathces all `refs/remotes`.
+    /// Creates the `Glob` that matches all `refs/remotes`.
     pub fn all_remotes() -> Self {
         Self::remotes(refspec::pattern!("*"))
     }
