@@ -630,44 +630,42 @@ index f89e4c0..7c56eb7 100644
     );
 }
 
-// TODO(xphoniex): uncomment once libgit2 has fixed the bug
-//#[test]
-//fn test_old_missing_eof_newline() {
-//    let buf = r#"
-//diff --git a/.env b/.env
-//index f89e4c0..7c56eb7 100644
-//--- a/.env
-//+++ b/.env
-//@@ -1 +1 @@
-//-hello=123
-//\ No newline at end of file
-//+hello=1234
-//"#;
-//    let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
-//    let diff = Diff::try_from(diff).unwrap();
-//    assert_eq!(
-//        diff.modified().next().unwrap().diff.eof(),
-//        Some(EofNewLine::OldMissing)
-//    );
-//}
+#[test]
+fn test_old_missing_eof_newline() {
+    let buf = r#"
+diff --git a/.env b/.env
+index f89e4c0..7c56eb7 100644
+--- a/.env
++++ b/.env
+@@ -1 +1 @@
+-hello=123
+\ No newline at end of file
++hello=1234
+"#;
+    let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
+    let diff = Diff::try_from(diff).unwrap();
+    assert_eq!(
+        diff.modified().next().unwrap().diff.eof(),
+        Some(EofNewLine::OldMissing)
+    );
+}
 
-// TODO(xphoniex): uncomment once libgit2 has fixed the bug
-//#[test]
-//fn test_new_missing_eof_newline() {
-//    let buf = r#"
-//diff --git a/.env b/.env
-//index f89e4c0..7c56eb7 100644
-//--- a/.env
-//+++ b/.env
-//@@ -1 +1 @@
-//-hello=123
-//+hello=1234
-//\ No newline at end of file
-//"#;
-//    let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
-//    let diff = Diff::try_from(diff).unwrap();
-//    assert_eq!(
-//        diff.modified().next().unwrap().diff.eof(),
-//        Some(EofNewLine::NewMissing)
-//    );
-//}
+#[test]
+fn test_new_missing_eof_newline() {
+    let buf = r#"
+diff --git a/.env b/.env
+index f89e4c0..7c56eb7 100644
+--- a/.env
++++ b/.env
+@@ -1 +1 @@
+-hello=123
++hello=1234
+\ No newline at end of file
+"#;
+    let diff = git2::Diff::from_buffer(buf.as_bytes()).unwrap();
+    let diff = Diff::try_from(diff).unwrap();
+    assert_eq!(
+        diff.modified().next().unwrap().diff.eof(),
+        Some(EofNewLine::NewMissing)
+    );
+}

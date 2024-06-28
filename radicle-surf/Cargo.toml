@@ -36,7 +36,7 @@ thiserror = "1.0"
 url = "2.5"
 
 [dependencies.git2]
-version = "0.18.1"
+version = "0.19"
 default-features = false
 features = ["vendored-libgit2"]
 
