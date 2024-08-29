@@ -43,11 +43,8 @@ unlicensed = "deny"
 allow = [
     "Apache-2.0",
     "BlueOak-1.0.0",
-    "BSD-2-Clause",
-    "CC0-1.0",
     "GPL-3.0",
     "MIT",
-    "Unicode-DFS-2016",
     "Unlicense",
 ]
 # List of explictly disallowed licenses
@@ -126,12 +123,6 @@ confidence-threshold = 0.8
 # Allow 1 or more licenses on a per-crate basis, so that particular licenses
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
-    # Technically, the `ring` crate is "ISC AND MIT AND OpenSSL", but the rust
-    # code is ISC (mostly). The OpenSSL license is not compatible with GPLv3.
-    # For the sake of sanity, we will need to either get rid of TLS, or
-    # re-license.
-    { allow = ["ISC", "MIT", "OpenSSL"], name = "ring" },
-
     # The Unicode-DFS--2016 license is necessary for unicode-ident because they
     # use data from the unicode tables to generate the tables which are
     # included in the application. We do not distribute those data files so

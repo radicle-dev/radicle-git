@@ -29,9 +29,9 @@ minicbor = ["radicle-git-ext/minicbor"]
 serde = ["dep:serde", "url/serde"]
 
 [dependencies]
-base64 = "0.13"
+base64 = "0.21"
 log = "0.4"
-nonempty = "0.5"
+nonempty = "0.9"
 thiserror = "1.0"
 url = "2.5"
 

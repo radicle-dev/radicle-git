@@ -20,6 +20,7 @@
 
 use std::ops::Deref;
 
+use base64::Engine;
 use radicle_git_ext::Oid;
 #[cfg(feature = "serde")]
 use serde::{
@@ -136,7 +137,7 @@ where
         match std::str::from_utf8(bytes) {
             Ok(s) => state.serialize_field("content", s)?,
             Err(_) => {
-                let encoded = base64::encode(bytes);
+                let encoded = base64::prelude::BASE64_STANDARD.encode(bytes);
                 state.serialize_field("content", &encoded)?
             }
         };
@@ -160,7 +161,7 @@ impl<'a> Serialize for BlobRef<'a> {
         match std::str::from_utf8(bytes) {
             Ok(s) => state.serialize_field("content", s)?,
             Err(_) => {
-                let encoded = base64::encode(bytes);
+                let encoded = base64::prelude::BASE64_STANDARD.encode(bytes);
                 state.serialize_field("content", &encoded)?
             }
         };

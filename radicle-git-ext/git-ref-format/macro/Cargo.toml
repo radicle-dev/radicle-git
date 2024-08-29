@@ -15,7 +15,7 @@ test = false
 [dependencies]
 proc-macro-error = "1.0.4"
 quote = "1"
-syn = "1"
+syn = "2"
 
 [dependencies.git-ref-format-core]
 version = "0.3.0"

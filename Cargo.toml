@@ -1,10 +1,12 @@
 [workspace]
 members = [
-  "git-storage",
   "radicle-git-ext",
   "radicle-std-ext",
   "radicle-surf",
   "test",
+]
+exclude = [
+  "git-storage",
 ]
 resolver = "2"
 package.version = "0.18.0"
