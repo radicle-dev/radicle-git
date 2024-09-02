@@ -13,7 +13,7 @@ use std::{
 
 use thiserror::Error;
 
-use crate::{check, lit, RefStr, RefString};
+use crate::{check, lit, Namespaced, Qualified, RefStr, RefString};
 
 mod iter;
 pub use iter::{component, Component, Components, Iter};
@@ -430,6 +430,20 @@ impl AsRef<Self> for QualifiedPattern<'_> {
     }
 }
 
+impl Display for QualifiedPattern<'_> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<'a> From<Qualified<'a>> for QualifiedPattern<'a> {
+    #[inline]
+    fn from(q: Qualified<'a>) -> Self {
+        Self(Cow::Owned(q.into_refstring().into()))
+    }
+}
+
 impl<'a> From<QualifiedPattern<'a>> for Cow<'a, PatternStr> {
     #[inline]
     fn from(q: QualifiedPattern<'a>) -> Self {
@@ -531,6 +545,13 @@ impl Borrow<PatternStr> for NamespacedPattern<'_> {
     #[inline]
     fn borrow(&self) -> &PatternStr {
         PatternStr::from_str(self.0.as_str())
+    }
+}
+
+impl<'a> From<Namespaced<'a>> for NamespacedPattern<'a> {
+    #[inline]
+    fn from(ns: Namespaced<'a>) -> Self {
+        NamespacedPattern(Cow::Owned(ns.to_ref_string().into()))
     }
 }
 

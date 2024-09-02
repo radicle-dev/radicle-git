@@ -166,3 +166,35 @@ pub fn pattern(input: TokenStream) -> TokenStream {
         }
     }
 }
+
+/// Create a [`git_ref_format_core::refspec::QualifiedPattern`] from a string
+/// literal.
+///
+/// The string is validated at compile time, and an unsafe conversion is
+/// emitted.
+#[proc_macro_error]
+#[proc_macro]
+pub fn qualified_pattern(input: TokenStream) -> TokenStream {
+    let lit = parse_macro_input!(input as LitStr);
+    let val = lit.value();
+
+    let parsed: Result<&PatternStr, Error> = val.as_str().try_into();
+    match parsed {
+        Ok(safe) => {
+            let safe: &str = safe.as_str();
+            let expand = quote! {
+                unsafe {
+                    use ::std::mem::transmute;
+                    use ::radicle_git_ext::ref_format::refspec::QualifiedPattern;
+
+                    transmute::<_, QualifiedPattern>(#safe.to_owned())
+                }
+            };
+            TokenStream::from(expand)
+        }
+
+        Err(e) => {
+            abort!(lit.span(), "invalid refspec pattern literal: {}", e);
+        }
+    }
+}

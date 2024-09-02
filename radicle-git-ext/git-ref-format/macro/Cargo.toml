@@ -1,6 +1,6 @@
 [package]
 name = "git-ref-format-macro"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Kim Altintop <kim@eagain.st>"]
 edition = "2018"
 license = "GPL-3.0-or-later"
@@ -18,5 +18,5 @@ quote = "1"
 syn = "2"
 
 [dependencies.git-ref-format-core]
-version = "0.3.0"
+version = "0.3.1"
 path = "../core"
