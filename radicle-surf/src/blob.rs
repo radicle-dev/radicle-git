@@ -20,8 +20,8 @@
 
 use std::ops::Deref;
 
-use base64::Engine;
 use radicle_git_ext::Oid;
+
 #[cfg(feature = "serde")]
 use serde::{
     ser::{SerializeStruct as _, Serializer},
@@ -128,6 +128,8 @@ where
     where
         S: Serializer,
     {
+        use base64::Engine as _;
+
         const FIELDS: usize = 4;
         let mut state = serializer.serialize_struct("Blob", FIELDS)?;
         state.serialize_field("id", &self.id)?;
@@ -152,6 +154,8 @@ impl<'a> Serialize for BlobRef<'a> {
     where
         S: Serializer,
     {
+        use base64::Engine as _;
+
         const FIELDS: usize = 3;
         let mut state = serializer.serialize_struct("BlobRef", FIELDS)?;
         state.serialize_field("id", &self.id())?;
