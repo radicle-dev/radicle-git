@@ -6,16 +6,8 @@
 db-path = "~/cargo/advisory-db"
 # The url of the advisory database to use
 db-urls = [ "https://github.com/rustsec/advisory-db" ]
-# The lint level for security vulnerabilities
-vulnerability = "deny"
-# The lint level for unmaintained crates
-unmaintained = "warn"
 # The lint level for crates that have been yanked from their source registry
 yanked = "warn"
-# The lint level for crates with security notices. Note that as of
-# 2019-12-17 there are no security notice advisories in
-# https://github.com/rustsec/advisory-db
-notice = "warn"
 # A list of advisory IDs to ignore. Note that ignored advisories will still
 # output a note when they are encountered.
 ignore = [
@@ -35,8 +27,6 @@ ignore = [
 # More documentation for the licenses section can be found here:
 # https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html
 [licenses]
-# The lint level for crates which do not have a detectable license
-unlicensed = "deny"
 # List of explictly allowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
 # [possible values: any SPDX 3.7 short identifier (+ optional exception)].
@@ -45,76 +35,9 @@ allow = [
     "BlueOak-1.0.0",
     "GPL-3.0",
     "MIT",
+    "Unicode-3.0",
     "Unlicense",
 ]
-# List of explictly disallowed licenses
-# See https://spdx.org/licenses/ for list of possible licenses
-# [possible values: any SPDX 3.7 short identifier (+ optional exception)].
-deny = [
-    # As per https://www.gnu.org/licenses/license-list.html#GPLIncompatibleLicenses
-    "AGPL-1.0",
-# fails to parse:
-#   "AFL-1.0",
-#   "AFL-1.2",
-#   "AFL-2.0",
-#   "AFL-2.1",
-#   "AFL-3.0",
-    "Apache-1.0",
-    "Apache-1.1",
-    "APSL-2.0",
-    "BitTorrent-1.0",
-    "BitTorrent-1.1",
-    "BSD-4-Clause",
-    "CECILL-B",
-    "CECILL-C",
-    "CDDL-1.0",
-    "CDDL-1.1",
-    "CNRI-Python",
-    "CPAL-1.0",
-    "CPL-1.0",
-    "Condor-1.1",
-    "EPL-1.0",
-    "EPL-2.0",
-    "EUPL-1.1",
-    "EUPL-1.2",
-    "gnuplot",
-    "IPL-1.0",
-    "LPPL-1.3a",
-    "LPPL-1.2",
-    "LPL-1.02",
-    "MS-PL",
-    "MS-RL",
-    "MPL-1.1",
-    "NOSL",
-    "NPL-1.0",
-    "NPL-1.1",
-    "Nokia",
-    "OpenSSL",
-    "PHP-3.01",
-    "QPL-1.0",
-    "RPSL-1.0",
-    "SISSL",
-    "SPL-1.0",
-    "xinetd",
-    "YPL-1.1",
-    "Zend-2.0",
-    "Zimbra-1.3",
-    "ZPL-1.1"
-]
-# Lint level for licenses considered copyleft
-copyleft = "allow"
-# Blanket approval or denial for OSI-approved or FSF Free/Libre licenses
-# * both - The license will be approved if it is both OSI-approved *AND* FSF
-# * either - The license will be approved if it is either OSI-approved *OR* FSF
-# * osi-only - The license will be approved if is OSI-approved *AND NOT* FSF
-# * fsf-only - The license will be approved if is FSF *AND NOT* OSI-approved
-# * neither - This predicate is ignored and the default lint level is used
-allow-osi-fsf-free = "both"
-# Lint level used when no other predicates are matched
-# 1. License isn't in the allow or deny lists
-# 2. License isn't copyleft
-# 3. License isn't OSI/FSF, or allow-osi-fsf-free = "neither"
-default = "deny"
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
 # canonical license text of a valid SPDX license file.
@@ -165,21 +88,6 @@ highlight = "all"
 # List of crates that are allowed. Use with care!
 allow = [
     #{ name = "ansi_term", version = "=0.11.0" },
-]
-# List of crates to deny
-deny = [
-    # Each entry the name of a crate and a version range. If version is
-    # not specified, all versions will be matched.
-    #{ name = "ansi_term", version = "=0.11.0" },
-    { name = "openssl-probe" },
-    { name = "openssl-sys" },
-
-    # Pinned crypto libs
-    # See radicle-keystore @ 00f8fb6135f8e4cd097a48e6f0700e08ce4abb04
-    { name = "chacha20poly1305", version = "> 0.9.0" },
-    { name = "ed25519-zebra", version = "> 3.0.0" },
-    { name = "curve25519-dalek", version = "> 3.2.1" },
-    { name = "scrypt", version = "> 0.8.0" },
 ]
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [

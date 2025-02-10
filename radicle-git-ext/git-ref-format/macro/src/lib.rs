@@ -4,12 +4,12 @@
 // Linking Exception. For full terms see the included LICENSE file.
 
 #[macro_use]
-extern crate proc_macro_error;
+extern crate proc_macro_error2;
 
 use std::convert::TryInto;
 
 use proc_macro::TokenStream;
-use proc_macro_error::abort;
+use proc_macro_error2::abort;
 use quote::quote;
 use syn::{parse_macro_input, LitStr};
 
