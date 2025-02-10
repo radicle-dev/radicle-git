@@ -34,7 +34,7 @@ impl<'a> Iterator for Components<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Components<'a> {
+impl DoubleEndedIterator for Components<'_> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.inner
@@ -83,7 +83,7 @@ impl<'a> Component<'a> {
     }
 }
 
-impl<'a> Deref for Component<'a> {
+impl Deref for Component<'_> {
     type Target = RefStr;
 
     #[inline]

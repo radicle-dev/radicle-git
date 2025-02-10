@@ -35,7 +35,7 @@ mod serde_impls {
         {
             struct OidVisitor;
 
-            impl<'de> Visitor<'de> for OidVisitor {
+            impl Visitor<'_> for OidVisitor {
                 type Value = Oid;
 
                 fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {

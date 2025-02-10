@@ -19,7 +19,7 @@ use super::GIT_PLATINUM;
 #[test]
 fn _master() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
-    let mut history = repo.history(&Branch::remote(component!("origin"), refname!("master")))?;
+    let mut history = repo.history(Branch::remote(component!("origin"), refname!("master")))?;
 
     let commit1 = Oid::from_str("3873745c8f6ffb45c990eb23b491d4b4b6182f95")?;
     assert!(

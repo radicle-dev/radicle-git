@@ -99,7 +99,7 @@ pub struct BlobRef<'a> {
     pub(crate) inner: git2::Blob<'a>,
 }
 
-impl<'a> BlobRef<'a> {
+impl BlobRef<'_> {
     pub fn id(&self) -> Oid {
         self.inner.id().into()
     }
@@ -149,7 +149,7 @@ where
 }
 
 #[cfg(feature = "serde")]
-impl<'a> Serialize for BlobRef<'a> {
+impl Serialize for BlobRef<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

@@ -99,7 +99,7 @@ pub mod error {
     }
 }
 
-impl<'a> TryFrom<git2::DiffFile<'a>> for DiffFile {
+impl TryFrom<git2::DiffFile<'_>> for DiffFile {
     type Error = error::FileMode;
 
     fn try_from(value: git2::DiffFile) -> Result<Self, Self::Error> {
@@ -205,7 +205,7 @@ impl TryFrom<git2::Patch<'_>> for DiffContent {
     }
 }
 
-impl<'a> TryFrom<git2::DiffLine<'a>> for Modification {
+impl TryFrom<git2::DiffLine<'_>> for Modification {
     type Error = error::Modification;
 
     fn try_from(line: git2::DiffLine) -> Result<Self, Self::Error> {
@@ -228,7 +228,7 @@ impl From<git2::DiffStats> for Stats {
     }
 }
 
-impl<'a> TryFrom<git2::Diff<'a>> for Diff {
+impl TryFrom<git2::Diff<'_>> for Diff {
     type Error = error::Diff;
 
     fn try_from(git_diff: git2::Diff) -> Result<Diff, Self::Error> {

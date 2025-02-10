@@ -47,7 +47,7 @@ impl<'a> From<&'a str> for Branch<'a> {
     }
 }
 
-impl<'a> From<String> for Branch<'a> {
+impl From<String> for Branch<'_> {
     fn from(s: String) -> Self {
         Self::Name(Cow::Owned(s))
     }

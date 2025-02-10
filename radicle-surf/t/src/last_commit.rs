@@ -101,7 +101,7 @@ fn root() {
         .map(|commit| commit.id);
 
     let expected_oid = repo
-        .history(&Branch::local(refname!("master")))
+        .history(Branch::local(refname!("master")))
         .unwrap()
         .head()
         .id;
@@ -112,7 +112,7 @@ fn root() {
 fn binary_file() {
     let repo = Repository::open(GIT_PLATINUM)
         .expect("Could not retrieve ./data/git-platinum as git repository");
-    let history = repo.history(&Branch::local(refname!("dev"))).unwrap();
+    let history = repo.history(Branch::local(refname!("dev"))).unwrap();
     let file_commit = history.by_path(&"bin/cat").next();
     assert!(file_commit.is_some());
     println!("file commit: {:?}", &file_commit);

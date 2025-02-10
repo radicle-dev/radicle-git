@@ -213,7 +213,7 @@ impl AsRef<bstr::BStr> for RefStr {
     }
 }
 
-impl<'a> AsRef<RefStr> for &'a RefStr {
+impl AsRef<RefStr> for &RefStr {
     #[inline]
     fn as_ref(&self) -> &RefStr {
         self

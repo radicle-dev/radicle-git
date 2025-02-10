@@ -14,10 +14,8 @@
 pub mod headers;
 pub mod trailers;
 
-use std::{
-    fmt::Write as _,
-    str::{self, FromStr},
-};
+use core::fmt;
+use std::str::{self, FromStr};
 
 use git2::{ObjectType, Oid};
 
@@ -139,7 +137,7 @@ impl<Tree, Parent> CommitData<Tree, Parent> {
     }
 
     /// Iterate over the [`Headers`] values that match the provided `name`.
-    pub fn values<'a>(&'a self, name: &'a str) -> impl Iterator<Item = &'a str> + '_ {
+    pub fn values<'a>(&'a self, name: &'a str) -> impl Iterator<Item = &'a str> + 'a {
         self.headers.values(name)
     }
 
@@ -367,32 +365,28 @@ impl FromStr for Commit {
     }
 }
 
-impl ToString for Commit {
-    fn to_string(&self) -> String {
-        let mut buf = String::new();
-
-        writeln!(buf, "tree {}", self.tree).ok();
-
+impl fmt::Display for Commit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "tree {}", self.tree)?;
         for parent in self.parents() {
-            writeln!(buf, "parent {parent}").ok();
+            writeln!(f, "parent {parent}")?;
         }
-
-        writeln!(buf, "author {}", self.author).ok();
-        writeln!(buf, "committer {}", self.committer).ok();
+        writeln!(f, "author {}", self.author)?;
+        writeln!(f, "committer {}", self.committer)?;
 
         for (name, value) in self.headers.iter() {
-            writeln!(buf, "{name} {}", value.replace('\n', "\n ")).ok();
+            writeln!(f, "{name} {}", value.replace('\n', "\n "))?;
         }
-        writeln!(buf).ok();
-        write!(buf, "{}", self.message.trim()).ok();
-        writeln!(buf).ok();
+        writeln!(f)?;
+        write!(f, "{}", self.message.trim())?;
+        writeln!(f)?;
 
         if !self.trailers.is_empty() {
-            writeln!(buf).ok();
+            writeln!(f)?;
         }
         for trailer in self.trailers.iter() {
-            writeln!(buf, "{}", Trailer::from(trailer).display(": ")).ok();
+            writeln!(f, "{}", Trailer::from(trailer).display(": "))?;
         }
-        buf
+        Ok(())
     }
 }

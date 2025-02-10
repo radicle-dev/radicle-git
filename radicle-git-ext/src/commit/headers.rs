@@ -1,3 +1,4 @@
+use core::fmt;
 use std::borrow::Cow;
 
 const BEGIN_SSH: &str = "-----BEGIN SSH SIGNATURE-----\n";
@@ -30,16 +31,16 @@ impl<'a> Signature<'a> {
     }
 }
 
-pub struct UnknownScheme;
-
-impl<'a> ToString for Signature<'a> {
-    fn to_string(&self) -> String {
+impl fmt::Display for Signature<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Signature::Pgp(pgp) => pgp.to_string(),
-            Signature::Ssh(ssh) => ssh.to_string(),
+            Signature::Pgp(pgp) => f.write_str(pgp.as_ref()),
+            Signature::Ssh(ssh) => f.write_str(ssh.as_ref()),
         }
     }
 }
+
+pub struct UnknownScheme;
 
 impl Headers {
     pub fn new() -> Self {
@@ -50,7 +51,7 @@ impl Headers {
         self.0.iter().map(|(k, v)| (k.as_str(), v.as_str()))
     }
 
-    pub fn values<'a>(&'a self, name: &'a str) -> impl Iterator<Item = &'a str> + '_ {
+    pub fn values<'a>(&'a self, name: &'a str) -> impl Iterator<Item = &'a str> + 'a {
         self.iter()
             .filter_map(move |(k, v)| (k == name).then_some(v))
     }

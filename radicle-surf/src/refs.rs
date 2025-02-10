@@ -32,7 +32,7 @@ impl<'a> Tags<'a> {
     }
 }
 
-impl<'a> Iterator for Tags<'a> {
+impl Iterator for Tags<'_> {
     type Item = Result<Tag, error::Tag>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -54,7 +54,7 @@ impl<'a> Iterator for Tags<'a> {
     }
 }
 
-impl<'a> Iterator for TagNames<'a> {
+impl Iterator for TagNames<'_> {
     type Item = Result<Qualified<'static>, error::Tag>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -99,7 +99,7 @@ impl<'a> Branches<'a> {
     }
 }
 
-impl<'a> Iterator for Branches<'a> {
+impl Iterator for Branches<'_> {
     type Item = Result<Branch, error::Branch>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -121,7 +121,7 @@ impl<'a> Iterator for Branches<'a> {
     }
 }
 
-impl<'a> Iterator for BranchNames<'a> {
+impl Iterator for BranchNames<'_> {
     type Item = Result<Qualified<'static>, error::Branch>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -177,7 +177,7 @@ impl<'a> Categories<'a> {
     }
 }
 
-impl<'a> Iterator for Categories<'a> {
+impl Iterator for Categories<'_> {
     type Item = Result<(RefString, RefString), error::Category>;
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -58,7 +58,7 @@ fn browse_repo_lazily() {
 #[test]
 fn test_file_history() {
     let repo = Repository::open(GIT_PLATINUM).unwrap();
-    let history = repo.history(&Branch::local(refname!("dev"))).unwrap();
+    let history = repo.history(Branch::local(refname!("dev"))).unwrap();
     let path = Path::new("README.md");
     let mut file_history = history.by_path(&path);
     let commit = file_history.next().unwrap().unwrap();

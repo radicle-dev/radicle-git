@@ -113,7 +113,7 @@ impl std::fmt::Debug for Author {
     }
 }
 
-impl<'repo> TryFrom<git2::Signature<'repo>> for Author {
+impl TryFrom<git2::Signature<'_>> for Author {
     type Error = str::Utf8Error;
 
     fn try_from(signature: git2::Signature) -> Result<Self, Self::Error> {
@@ -182,7 +182,7 @@ impl Serialize for Commit {
     }
 }
 
-impl<'repo> TryFrom<git2::Commit<'repo>> for Commit {
+impl TryFrom<git2::Commit<'_>> for Commit {
     type Error = Error;
 
     fn try_from(commit: git2::Commit) -> Result<Self, Self::Error> {

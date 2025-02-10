@@ -74,7 +74,7 @@ impl<'a> History<'a> {
     }
 }
 
-impl<'a> Iterator for History<'a> {
+impl Iterator for History<'_> {
     type Item = Result<Commit, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -108,7 +108,7 @@ impl<'a> Iterator for History<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for History<'a> {
+impl std::fmt::Debug for History<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "History of {}", self.head.id)
     }

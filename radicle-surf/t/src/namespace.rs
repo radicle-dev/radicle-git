@@ -7,9 +7,9 @@ use super::GIT_PLATINUM;
 #[test]
 fn switch_to_banana() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
-    let history_master = repo.history(&Branch::local(refname!("master")))?;
+    let history_master = repo.history(Branch::local(refname!("master")))?;
     repo.switch_namespace(&refname!("golden"))?;
-    let history_banana = repo.history(&Branch::local(refname!("banana")))?;
+    let history_banana = repo.history(Branch::local(refname!("banana")))?;
 
     assert_ne!(history_master.head(), history_banana.head());
 
@@ -19,14 +19,14 @@ fn switch_to_banana() -> Result<(), Error> {
 #[test]
 fn me_namespace() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
-    let history = repo.history(&Branch::local(refname!("master")))?;
+    let history = repo.history(Branch::local(refname!("master")))?;
 
     assert_eq!(repo.which_namespace().unwrap(), None);
 
     repo.switch_namespace(&refname!("me"))?;
     assert_eq!(repo.which_namespace().unwrap(), Some("me".parse()?));
 
-    let history_feature = repo.history(&Branch::local(refname!("feature/#1194")))?;
+    let history_feature = repo.history(Branch::local(refname!("feature/#1194")))?;
     assert_eq!(history.head(), history_feature.head());
 
     let expected_branches: Vec<Branch> = vec![Branch::local(refname!("feature/#1194"))];
@@ -54,7 +54,7 @@ fn me_namespace() -> Result<(), Error> {
 #[test]
 fn golden_namespace() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
-    let history = repo.history(&Branch::local(refname!("master")))?;
+    let history = repo.history(Branch::local(refname!("master")))?;
 
     assert_eq!(repo.which_namespace().unwrap(), None);
 
@@ -62,7 +62,7 @@ fn golden_namespace() -> Result<(), Error> {
 
     assert_eq!(repo.which_namespace().unwrap(), Some("golden".parse()?));
 
-    let golden_history = repo.history(&Branch::local(refname!("master")))?;
+    let golden_history = repo.history(Branch::local(refname!("master")))?;
     assert_eq!(history.head(), golden_history.head());
 
     let expected_branches: Vec<Branch> = vec![
@@ -97,7 +97,7 @@ fn golden_namespace() -> Result<(), Error> {
 #[test]
 fn silver_namespace() -> Result<(), Error> {
     let repo = Repository::open(GIT_PLATINUM)?;
-    let history = repo.history(&Branch::local(refname!("master")))?;
+    let history = repo.history(Branch::local(refname!("master")))?;
 
     assert_eq!(repo.which_namespace().unwrap(), None);
 
@@ -106,7 +106,7 @@ fn silver_namespace() -> Result<(), Error> {
         repo.which_namespace().unwrap(),
         Some("golden/silver".parse()?)
     );
-    let silver_history = repo.history(&Branch::local(refname!("master")))?;
+    let silver_history = repo.history(Branch::local(refname!("master")))?;
     assert_ne!(history.head(), silver_history.head());
 
     let expected_branches: Vec<Branch> = vec![Branch::local(refname!("master"))];

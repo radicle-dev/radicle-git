@@ -24,7 +24,7 @@ impl<'de: 'a, 'a> Decode<'de> for &'a RefStr {
     }
 }
 
-impl<'a> Encode for &'a RefStr {
+impl Encode for &RefStr {
     #[inline]
     fn encode<W: Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         e.str(self.as_str())?;
@@ -54,7 +54,7 @@ impl<'de: 'a, 'a> Decode<'de> for &'a PatternStr {
     }
 }
 
-impl<'a> Encode for &'a PatternStr {
+impl Encode for &PatternStr {
     #[inline]
     fn encode<W: Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         e.str(self.as_str())?;
@@ -86,7 +86,7 @@ impl<'de: 'a, 'a> Decode<'de> for Qualified<'a> {
     }
 }
 
-impl<'a> Encode for Qualified<'a> {
+impl Encode for Qualified<'_> {
     #[inline]
     fn encode<W: Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         self.as_str().encode(e)
@@ -103,7 +103,7 @@ impl<'de: 'a, 'a> Decode<'de> for Namespaced<'a> {
     }
 }
 
-impl<'a> Encode for Namespaced<'a> {
+impl Encode for Namespaced<'_> {
     #[inline]
     fn encode<W: Write>(&self, e: &mut Encoder<W>) -> Result<(), encode::Error<W::Error>> {
         self.as_str().encode(e)

@@ -23,7 +23,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for &'a RefStr {
     }
 }
 
-impl<'a> Serialize for &'a RefStr {
+impl Serialize for &RefStr {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -65,7 +65,7 @@ impl<'de: 'a, 'a> Deserialize<'de> for &'a PatternStr {
     }
 }
 
-impl<'a> Serialize for &'a PatternStr {
+impl Serialize for &PatternStr {
     #[inline]
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
