@@ -19,6 +19,7 @@
 //! See git [doc](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects) for more details.
 
 use std::cmp::Ordering;
+use std::path::PathBuf;
 
 use radicle_git_ext::Oid;
 #[cfg(feature = "serde")]
@@ -28,7 +29,7 @@ use serde::{
 };
 use url::Url;
 
-use crate::{fs, Commit};
+use crate::{fs, Commit, Error, Repository};
 
 /// Represents a tree object as in git. It is essentially the content of
 /// one directory. Note that multiple directories can have the same content,
@@ -41,16 +42,27 @@ pub struct Tree {
     entries: Vec<Entry>,
     /// The commit object that created this tree object.
     commit: Commit,
+    /// The root path this tree was constructed from.
+    root: PathBuf,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum LastCommitError {
+    #[error(transparent)]
+    Repo(#[from] Error),
+    #[error("could not get the last commit for this entry")]
+    Missing,
 }
 
 impl Tree {
     /// Creates a new tree, ensuring the `entries` are sorted.
-    pub(crate) fn new(id: Oid, mut entries: Vec<Entry>, commit: Commit) -> Self {
+    pub(crate) fn new(id: Oid, mut entries: Vec<Entry>, commit: Commit, root: PathBuf) -> Self {
         entries.sort();
         Self {
             id,
             entries,
             commit,
+            root,
         }
     }
 
@@ -58,9 +70,15 @@ impl Tree {
         self.id
     }
 
-    /// Returns the commit that created this tree.
+    /// Returns the commit for which this [`Tree`] was constructed from.
     pub fn commit(&self) -> &Commit {
         &self.commit
+    }
+
+    /// Returns the commit that last touched this [`Tree`].
+    pub fn last_commit(&self, repo: &Repository) -> Result<Commit, LastCommitError> {
+        repo.last_commit(&self.root, self.commit().clone())?
+            .ok_or(LastCommitError::Missing)
     }
 
     /// Returns the entries of the tree.
@@ -79,7 +97,8 @@ impl Serialize for Tree {
     ///     { <entry_1> },
     ///     { <entry_2> },
     ///   ],
-    ///   "lastCommit": {
+    ///   "root": "src/foo",
+    ///   "commit": {
     ///     "author": {
     ///       "email": "foobar@gmail.com",
     ///       "name": "Foo Bar"
@@ -104,7 +123,8 @@ impl Serialize for Tree {
         let mut state = serializer.serialize_struct("Tree", FIELDS)?;
         state.serialize_field("oid", &self.id)?;
         state.serialize_field("entries", &self.entries)?;
-        state.serialize_field("lastCommit", &self.commit)?;
+        state.serialize_field("commit", &self.commit)?;
+        state.serialize_field("root", &self.root)?;
         state.end()
     }
 }
@@ -150,22 +170,28 @@ impl Ord for EntryKind {
 pub struct Entry {
     name: String,
     entry: EntryKind,
-
-    /// The commit object that created this entry object.
+    path: PathBuf,
+    /// The commit from which this entry was constructed from.
     commit: Commit,
 }
 
 impl Entry {
-    pub(crate) fn new(name: String, entry: EntryKind, commit: Commit) -> Self {
+    pub(crate) fn new(name: String, path: PathBuf, entry: EntryKind, commit: Commit) -> Self {
         Self {
             name,
             entry,
+            path,
             commit,
         }
     }
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// The full path to this entry from the root of the Git repository
+    pub fn path(&self) -> &PathBuf {
+        &self.path
     }
 
     pub fn entry(&self) -> &EntryKind {
@@ -186,6 +212,12 @@ impl Entry {
             EntryKind::Tree(id) => id,
             EntryKind::Submodule { id, .. } => id,
         }
+    }
+
+    /// Returns the commit that last touched this [`Entry`].
+    pub fn last_commit(&self, repo: &Repository) -> Result<Commit, LastCommitError> {
+        repo.last_commit(&self.path, self.commit.clone())?
+            .ok_or(LastCommitError::Missing)
     }
 }
 
@@ -231,7 +263,7 @@ impl Serialize for Entry {
     /// ```json
     ///  {
     ///     "kind": "blob",
-    ///     "lastCommit": {
+    ///     "commit": {
     ///       "author": {
     ///         "email": "foobar@gmail.com",
     ///         "name": "Foo Bar"
@@ -245,6 +277,7 @@ impl Serialize for Entry {
     ///       "sha1": "2873745c8f6ffb45c990eb23b491d4b4b6182f95",
     ///       "summary": "Add a new sample"
     ///     },
+    ///     "path": "src/foo/Sample.rs",
     ///     "name": "Sample.rs",
     ///     "oid": "6d6240123a8d8ea8a8376610168a0a4bcb96afd0"
     ///   },
@@ -268,7 +301,7 @@ impl Serialize for Entry {
             state.serialize_field("url", url)?;
         };
         state.serialize_field("oid", &self.object_id())?;
-        state.serialize_field("lastCommit", &self.commit)?;
+        state.serialize_field("commit", &self.path)?;
         state.end()
     }
 }

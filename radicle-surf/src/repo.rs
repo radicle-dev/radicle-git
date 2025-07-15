@@ -260,18 +260,17 @@ impl Repository {
             .map(|en| {
                 let name = en.name().to_string();
                 let path = en.path();
-                let commit = self
-                    .last_commit(&path, commit.id)?
-                    .ok_or(error::Repo::PathNotFound(path))?;
-                Ok(Entry::new(name, en.into(), commit))
+                Ok(Entry::new(name, path, en.into(), commit.clone()))
             })
             .collect::<Result<Vec<Entry>, Error>>()?;
         entries.sort();
 
-        let last_commit = self
-            .last_commit(path, commit)?
-            .ok_or_else(|| error::Repo::PathNotFound(path.as_ref().to_path_buf()))?;
-        Ok(Tree::new(dir.id(), entries, last_commit))
+        Ok(Tree::new(
+            dir.id(),
+            entries,
+            commit,
+            path.as_ref().to_path_buf(),
+        ))
     }
 
     /// Returns a [`Blob`] for `path` in `commit`.

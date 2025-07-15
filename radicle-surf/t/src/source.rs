@@ -12,72 +12,61 @@ fn tree_serialization() {
     let tree = repo.tree(refname!("refs/heads/master"), &"src").unwrap();
 
     let expected = json!({
+      "oid": "ed52e9f8dfe1d8b374b2a118c25235349a743dd2",
       "entries": [
         {
-          "kind": "blob",
-          "lastCommit": {
-            "author": {
-              "email": "fintan.halpenny@gmail.com",
-              "name": "Fintan Halpenny",
-              "time": 1578309972
-            },
-            "committer": {
-              "email": "noreply@github.com",
-              "name": "GitHub",
-              "time": 1578309972
-            },
-            "description": "I want to have files under src that have separate commits.\r\nThat way src's latest commit isn't the same as all its files, instead it's the file that was touched last.",
-            "id": "3873745c8f6ffb45c990eb23b491d4b4b6182f95",
-            "message": "Extend the docs (#2)\n\nI want to have files under src that have separate commits.\r\nThat way src's latest commit isn't the same as all its files, instead it's the file that was touched last.",
-            "parents": ["d6880352fc7fda8f521ae9b7357668b17bb5bad5"],
-            "summary": "Extend the docs (#2)"
-          },
           "name": "Eval.hs",
-          "oid": "7d6240123a8d8ea8a8376610168a0a4bcb96afd0"
+          "kind": "blob",
+          "oid": "7d6240123a8d8ea8a8376610168a0a4bcb96afd0",
+          "commit": "src/Eval.hs"
         },
         {
-          "kind": "blob",
-          "lastCommit": {
-            "author": {
-              "email": "rudolfs@osins.org",
-              "name": "Rūdolfs Ošiņš",
-              "time": 1575283266
-            },
-            "committer": {
-              "email": "rudolfs@osins.org",
-              "name": "Rūdolfs Ošiņš",
-              "time": 1575283266
-            },
-            "description": "",
-            "id": "e24124b7538658220b5aaf3b6ef53758f0a106dc",
-            "message": "Move examples to \"src\"\n",
-            "parents": ["19bec071db6474af89c866a1bd0e4b1ff76e2b97"],
-            "summary": "Move examples to \"src\""
-          },
           "name": "memory.rs",
-          "oid": "b84992d24be67536837f5ab45a943f1b3f501878"
+          "kind": "blob",
+          "oid": "b84992d24be67536837f5ab45a943f1b3f501878",
+          "commit": "src/memory.rs"
         }
       ],
-      "lastCommit": {
+      "commit": {
+        "id": "a0dd9122d33dff2a35f564d564db127152c88e02",
         "author": {
-          "email": "rudolfs@osins.org",
           "name": "Rūdolfs Ošiņš",
-          "time": 1582198877
+          "email": "rudolfs@osins.org",
+          "time": 1602778504
         },
         "committer": {
-          "email": "noreply@github.com",
           "name": "GitHub",
-          "time": 1582198877
+          "email": "noreply@github.com",
+          "time": 1602778504
         },
-        "description": "It was a bad idea to have an actual source file which is used by\r\nradicle-upstream in the fixtures repository. It gets in the way of\r\nlinting and editors pick it up as a regular source file by accident.",
-        "id": "a57846bbc8ced6587bf8329fc4bce970eb7b757e",
-        "message": "Remove src/Folder.svelte (#3)\n\nIt was a bad idea to have an actual source file which is used by\r\nradicle-upstream in the fixtures repository. It gets in the way of\r\nlinting and editors pick it up as a regular source file by accident.",
-        "parents": ["3873745c8f6ffb45c990eb23b491d4b4b6182f95"],
-        "summary": "Remove src/Folder.svelte (#3)"
+        "summary": "Add files with special characters in their filenames (#5)",
+        "message": "Add files with special characters in their filenames (#5)\n\n",
+        "description": "",
+        "parents": [
+          "223aaf87d6ea62eef0014857640fd7c8dd0f80b5"
+        ]
       },
-      "oid": "ed52e9f8dfe1d8b374b2a118c25235349a743dd2"
+      "root": "src"
     });
-    assert_eq!(serde_json::to_value(tree).unwrap(), expected)
+
+    assert_eq!(
+        serde_json::to_value(&tree).unwrap(),
+        expected,
+        "Got:\n{}",
+        serde_json::to_string_pretty(&tree).unwrap()
+    )
+}
+
+#[test]
+fn test_tree_last_commit() {
+    let repo = Repository::open(GIT_PLATINUM).unwrap();
+    let tree = repo.tree(refname!("refs/heads/master"), &"src").unwrap();
+    let last_commit = tree.last_commit(&repo).unwrap();
+    assert_ne!(*tree.commit(), last_commit);
+    assert_eq!(
+        last_commit.id.to_string(),
+        "a57846bbc8ced6587bf8329fc4bce970eb7b757e"
+    )
 }
 
 #[test]
@@ -105,7 +94,7 @@ fn repo_tree() {
     let commit_header = tree.commit();
     assert_eq!(
         commit_header.id.to_string(),
-        "e24124b7538658220b5aaf3b6ef53758f0a106dc"
+        "27acd68c7504755aa11023300890bb85bbd69d45"
     );
 
     let tree_oid = tree.object_id();
@@ -126,6 +115,11 @@ fn repo_tree() {
     let commit = entry.commit();
     assert_eq!(
         commit.id.to_string(),
+        "27acd68c7504755aa11023300890bb85bbd69d45"
+    );
+    let last_commit = entry.last_commit(&repo).unwrap();
+    assert_eq!(
+        last_commit.id.to_string(),
         "e24124b7538658220b5aaf3b6ef53758f0a106dc"
     );
 
