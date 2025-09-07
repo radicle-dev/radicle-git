@@ -157,6 +157,17 @@ fn namespaced() {
 }
 
 #[test]
+fn namespaced_head() {
+    assert_eq!(
+        "refs/namespaces/foo/HEAD",
+        refname!("refs/namespaces/foo/HEAD")
+            .to_namespaced()
+            .unwrap()
+            .as_str()
+    )
+}
+
+#[test]
 fn not_namespaced() {
     assert!(name::REFS_HEADS_MAIN.to_namespaced().is_none())
 }

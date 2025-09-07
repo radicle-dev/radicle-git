@@ -267,9 +267,10 @@ impl Display for Qualified<'_> {
 /// A [`Qualified`] ref under a git namespace.
 ///
 /// A ref is namespaced if it starts with "refs/namespaces/", another path
-/// component, and "refs/". Eg.
+/// component, and "refs" or "HEAD". Eg.
 ///
 ///     refs/namespaces/xyz/refs/heads/main
+///     refs/namespaces/xyz/HEAD
 ///
 /// Note that namespaces can be nested, so the result of
 /// [`Namespaced::strip_namespace`] may be convertible to a [`Namespaced`]
@@ -365,7 +366,7 @@ impl<'a> From<&'a RefStr> for Option<Namespaced<'a>> {
     fn from(rs: &'a RefStr) -> Self {
         let mut cs = rs.iter();
         match (cs.next()?, cs.next()?, cs.next()?, cs.next()?) {
-            ("refs", "namespaces", _, "refs") => Some(Namespaced(Cow::from(rs))),
+            ("refs", "namespaces", _, "refs" | "HEAD") => Some(Namespaced(Cow::from(rs))),
 
             _ => None,
         }
