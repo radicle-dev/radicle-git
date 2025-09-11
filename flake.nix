@@ -194,6 +194,7 @@
         packages = [
           pkgs.cargo-deny
           pkgs.cargo-nextest
+          pkgs.cargo-semver-checks
           pkgs.cargo-watch
           pkgs.ripgrep
           pkgs.rust-analyzer
