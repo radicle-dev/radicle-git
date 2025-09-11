@@ -56,5 +56,5 @@ optional = true
 
 [build-dependencies]
 anyhow = "1.0"
-flate2 = "1"
+flate2 = "1.1"
 tar = "0.4"
