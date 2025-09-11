@@ -265,7 +265,7 @@ dependencies = [
 
 [[package]]
 name = "git-ref-format"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "git-ref-format-core",
  "git-ref-format-macro",
@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "git-ref-format-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bstr",
  "minicbor",
@@ -284,7 +284,7 @@ dependencies = [
 
 [[package]]
 name = "git-ref-format-macro"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "git-ref-format-core",
  "proc-macro-error2",
@@ -700,7 +700,7 @@ dependencies = [
 
 [[package]]
 name = "radicle-git-ext"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "git-ref-format",
  "git2",
@@ -730,7 +730,7 @@ version = "0.1.1"
 
 [[package]]
 name = "radicle-surf"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "anyhow",
  "base64",

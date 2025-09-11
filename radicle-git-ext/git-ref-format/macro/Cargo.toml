@@ -1,6 +1,6 @@
 [package]
 name = "git-ref-format-macro"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Kim Altintop <kim@eagain.st>"]
 edition = "2021"
 homepage = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/tree/README.md"
@@ -20,5 +20,5 @@ quote = "1"
 syn = "2"
 
 [dependencies.git-ref-format-core]
-version = "0.4.0"
+version = "0.5.0"
 path = "../core"
