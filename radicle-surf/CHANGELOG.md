@@ -1,3 +1,9 @@
+# CHANGELOG
+
+## Version 0.25.0
+
+* Update to `radicle-git-ext-0.10.0` [6422fd5](https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/commits/6422fd580b1c9c96ba40620197e29d7b9fbe2824)
+
 ## Version 0.9.0
 
 This release consists of a major rewrite of this crate. Its API is overall

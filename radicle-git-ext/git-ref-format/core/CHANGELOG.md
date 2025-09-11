@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Version 0.5.0
+
+* 2025-09-11 Allow `HEAD` in `Namespaced` references [2423755](https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/commits/24237552ec452c892f6a589b2a56c5acfec44ede)
+
 ## Version 0.2.0
 
 * 2022-12-16 Update to rust-1.66 [8d451e3](https://github.com/radicle-dev/radicle-git/commit/8d451e3d9d6c0121b0ed3e4ac6cbf710625e9f9d)
