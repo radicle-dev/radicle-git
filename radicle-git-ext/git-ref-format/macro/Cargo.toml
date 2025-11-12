@@ -5,7 +5,7 @@ authors = ["Kim Altintop <kim@eagain.st>"]
 edition = "2021"
 homepage = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/tree/README.md"
 repository = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt"
-license = "GPL-3.0-or-later"
+license = "MIT OR Apache-2.0"
 description = "Macros for the git-ref-format crate"
 keywords = ["git", "references"]
 

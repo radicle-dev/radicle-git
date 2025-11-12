@@ -25,13 +25,5 @@ If you did not sign-off one or more of your commits then it is not all for not.
 The crowd at `src-d` have a [wonderful guide][fixing-dco] on how to remedy this
 situation.
 
-## License Header
-
-As part of our license, we must include a license header at the top of each
-source file. The template for this header can be found [here][header-template].
-If you are creating a new file in the repository you will have to add this
-header to the file.
-
 [dco]: ./DCO
 [fixing-dco]: https://github.com/src-d/guide/blob/master/developer-community/fix-DCO.md
-[header-template]: ./.license-header

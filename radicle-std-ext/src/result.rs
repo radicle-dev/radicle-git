@@ -1,8 +1,3 @@
-// Copyright © 2019-2020 The Radicle Foundation <hello@radicle.foundation>
-//
-// This file is part of radicle-link, distributed under the GPLv3 with Radicle
-// Linking Exception. For full terms see the included LICENSE file.
-
 pub trait ResultExt<T, E> {
     /// Calls `f` if the result is [`Err`], **and** the predicate `pred` on the
     /// error value returns true. Otherwise returns the [`Ok`] value of
