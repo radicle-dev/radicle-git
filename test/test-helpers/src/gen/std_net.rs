@@ -1,6 +1,3 @@
-// Copyright © 2022 The Radicle Link Contributors
-// SPDX-License-Identifier: GPLv3-or-later
-
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
 use proptest::prelude::*;

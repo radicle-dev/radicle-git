@@ -33,7 +33,6 @@ ignore = [
 allow = [
     "Apache-2.0",
     "BlueOak-1.0.0",
-    "GPL-3.0",
     "MIT",
     "Unicode-3.0",
     "Unlicense",

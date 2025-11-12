@@ -3,11 +3,6 @@
 
 Thanks for wanting to contribute to `radicle-surf`!
 
-# Licensing
-
-We are [GPL-3.0-or-later](./LICENSE) licensed project. To keep in compliance with this we must
-add a [license header](./.license-header) to any new files added. This is checked on each run of CI.
-
 ## Building & Testing 🏗️
 
 We try to make development as seemless as possible so we can get down to the real work. We supply
