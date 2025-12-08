@@ -73,7 +73,7 @@ impl<'a> Qualified<'a> {
         Qualified(self.0.join(other).into())
     }
 
-    pub fn to_pattern<P>(&self, pattern: P) -> QualifiedPattern
+    pub fn to_pattern<P>(&'a self, pattern: P) -> QualifiedPattern<'a>
     where
         P: AsRef<PatternStr>,
     {
@@ -81,7 +81,7 @@ impl<'a> Qualified<'a> {
     }
 
     #[inline]
-    pub fn to_namespaced(&self) -> Option<Namespaced> {
+    pub fn to_namespaced(&'a self) -> Option<Namespaced<'a>> {
         self.0.as_ref().into()
     }
 
@@ -98,7 +98,7 @@ impl<'a> Qualified<'a> {
     }
 
     /// Like [`Self::non_empty_components`], but with string slices.
-    pub fn non_empty_iter(&self) -> (&str, &str, &str, name::Iter) {
+    pub fn non_empty_iter(&'a self) -> (&'a str, &'a str, &'a str, name::Iter<'a>) {
         let mut iter = self.iter();
         (
             iter.next().unwrap(),
@@ -114,7 +114,14 @@ impl<'a> Qualified<'a> {
     /// A qualified ref is guaranteed to have at least three components, which
     /// this method provides a witness of. This is useful eg. for pattern
     /// matching on the prefix.
-    pub fn non_empty_components(&self) -> (Component, Component, Component, name::Components) {
+    pub fn non_empty_components(
+        &'a self,
+    ) -> (
+        Component<'a>,
+        Component<'a>,
+        Component<'a>,
+        name::Components<'a>,
+    ) {
         let mut cs = self.components();
         (
             cs.next().unwrap(),
@@ -287,7 +294,7 @@ impl Display for Qualified<'_> {
 pub struct Namespaced<'a>(Cow<'a, RefStr>);
 
 impl<'a> Namespaced<'a> {
-    pub fn namespace(&self) -> Component {
+    pub fn namespace(&'a self) -> Component<'a> {
         self.components().nth(2).unwrap()
     }
 

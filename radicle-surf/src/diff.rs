@@ -455,7 +455,7 @@ impl Line {
         String::from_utf8(self.0)
     }
 
-    pub fn from_utf8_lossy(&self) -> Cow<str> {
+    pub fn from_utf8_lossy<'a>(&'a self) -> Cow<'a, str> {
         String::from_utf8_lossy(&self.0)
     }
 }

@@ -56,7 +56,7 @@ impl Headers {
             .filter_map(move |(k, v)| (k == name).then_some(v))
     }
 
-    pub fn signatures(&self) -> impl Iterator<Item = Signature> + '_ {
+    pub fn signatures<'a>(&'a self) -> impl Iterator<Item = Signature<'a>> + 'a {
         self.0.iter().filter_map(|(k, v)| {
             if k == "gpgsig" {
                 Signature::from_str(v).ok()

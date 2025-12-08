@@ -130,24 +130,24 @@ impl RefStr {
     }
 
     #[inline]
-    pub fn qualified(&self) -> Option<Qualified> {
+    pub fn qualified<'a>(&'a self) -> Option<Qualified<'a>> {
         Qualified::from_refstr(self)
     }
 
     #[inline]
-    pub fn to_namespaced(&self) -> Option<Namespaced> {
+    pub fn to_namespaced<'a>(&'a self) -> Option<Namespaced<'a>> {
         self.into()
     }
 
-    pub fn iter(&self) -> Iter {
+    pub fn iter<'a>(&'a self) -> Iter<'a> {
         self.0.split('/')
     }
 
-    pub fn components(&self) -> Components {
+    pub fn components<'a>(&'a self) -> Components<'a> {
         Components::from(self)
     }
 
-    pub fn head(&self) -> Component {
+    pub fn head<'a>(&'a self) -> Component<'a> {
         self.components().next().expect("`RefStr` cannot be empty")
     }
 

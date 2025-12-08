@@ -49,7 +49,7 @@ impl Branch {
     /// Give back the fully qualified `Branch` refname,
     /// e.g. `refs/remotes/origin/fix/ref-format`,
     /// `refs/heads/fix/ref-format`.
-    pub fn refname(&self) -> Qualified {
+    pub fn refname<'a>(&'a self) -> Qualified<'a> {
         match self {
             Branch::Local(local) => local.refname(),
             Branch::Remote(remote) => remote.refname(),
@@ -146,7 +146,7 @@ impl Local {
 
     /// Return the fully qualified `Local` refname,
     /// e.g. `refs/heads/fix/ref-format`.
-    pub fn refname(&self) -> Qualified {
+    pub fn refname<'a>(&'a self) -> Qualified<'a> {
         lit::refs_heads(&self.name).into()
     }
 }
@@ -251,7 +251,7 @@ impl Remote {
 
     /// Give back the fully qualified `Remote` refname,
     /// e.g. `refs/remotes/origin/fix/ref-format`.
-    pub fn refname(&self) -> Qualified {
+    pub fn refname<'a>(&'a self) -> Qualified<'a> {
         lit::refs_remotes(self.remote.join(&self.name)).into()
     }
 }

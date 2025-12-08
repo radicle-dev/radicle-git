@@ -106,7 +106,7 @@ pub enum Node<'a> {
     Tree(Tree<'a>),
 }
 
-pub fn blob(slice: &[u8]) -> Node {
+pub fn blob<'a>(slice: &'a [u8]) -> Node<'a> {
     Node::from(slice)
 }
 

@@ -49,22 +49,22 @@ impl PatternStr {
     }
 
     #[inline]
-    pub fn qualified(&self) -> Option<QualifiedPattern> {
+    pub fn qualified<'a>(&'a self) -> Option<QualifiedPattern<'a>> {
         QualifiedPattern::from_patternstr(self)
     }
 
     #[inline]
-    pub fn to_namespaced(&self) -> Option<NamespacedPattern> {
+    pub fn to_namespaced<'a>(&'a self) -> Option<NamespacedPattern<'a>> {
         self.into()
     }
 
     #[inline]
-    pub fn iter(&self) -> Iter {
+    pub fn iter<'a>(&'a self) -> Iter<'a> {
         self.0.split('/')
     }
 
     #[inline]
-    pub fn components(&self) -> Components {
+    pub fn components<'a>(&'a self) -> Components<'a> {
         Components::from(self)
     }
 
@@ -333,7 +333,7 @@ impl<'a> QualifiedPattern<'a> {
     }
 
     #[inline]
-    pub fn to_namespaced(&self) -> Option<NamespacedPattern> {
+    pub fn to_namespaced(&'a self) -> Option<NamespacedPattern<'a>> {
         self.0.as_ref().into()
     }
 
@@ -353,7 +353,7 @@ impl<'a> QualifiedPattern<'a> {
     }
 
     /// Like [`Self::non_empty_components`], but with string slices.
-    pub fn non_empty_iter(&self) -> (&str, &str, &str, Iter) {
+    pub fn non_empty_iter(&'a self) -> (&'a str, &'a str, &'a str, Iter<'a>) {
         let mut iter = self.iter();
         (
             iter.next().unwrap(),
@@ -369,7 +369,9 @@ impl<'a> QualifiedPattern<'a> {
     /// A qualified ref is guaranteed to have at least three components, which
     /// this method provides a witness of. This is useful eg. for pattern
     /// matching on the prefix.
-    pub fn non_empty_components(&self) -> (Component, Component, Component, Components) {
+    pub fn non_empty_components(
+        &'a self,
+    ) -> (Component<'a>, Component<'a>, Component<'a>, Components<'a>) {
         let mut cs = self.components();
         (
             cs.next().unwrap(),
@@ -480,7 +482,7 @@ impl From<QualifiedPattern<'_>> for PatternString {
 pub struct NamespacedPattern<'a>(Cow<'a, PatternStr>);
 
 impl<'a> NamespacedPattern<'a> {
-    pub fn namespace(&self) -> Component {
+    pub fn namespace(&'a self) -> Component<'a> {
         self.components().nth(2).unwrap()
     }
 

@@ -54,7 +54,7 @@ impl Tag {
 
     /// Return the fully qualified `Tag` refname,
     /// e.g. `refs/tags/release/v1`.
-    pub fn refname(&self) -> Qualified {
+    pub fn refname<'a>(&'a self) -> Qualified<'a> {
         lit::refs_tags(self.short_name()).into()
     }
 }

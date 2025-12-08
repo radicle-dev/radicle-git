@@ -87,7 +87,7 @@ impl Repository {
     }
 
     /// Returns an iterator of branches that match `pattern`.
-    pub fn branches<G>(&self, pattern: G) -> Result<Branches, Error>
+    pub fn branches<'a, G>(&'a self, pattern: G) -> Result<Branches<'a>, Error>
     where
         G: Into<Glob<Branch>>,
     {
@@ -102,7 +102,7 @@ impl Repository {
     }
 
     /// Lists branch names with `filter`.
-    pub fn branch_names<G>(&self, filter: G) -> Result<BranchNames, Error>
+    pub fn branch_names<'a, G>(&'a self, filter: G) -> Result<BranchNames<'a>, Error>
     where
         G: Into<Glob<Branch>>,
     {
@@ -110,7 +110,7 @@ impl Repository {
     }
 
     /// Returns an iterator of tags that match `pattern`.
-    pub fn tags(&self, pattern: &Glob<Tag>) -> Result<Tags, Error> {
+    pub fn tags<'a>(&'a self, pattern: &Glob<Tag>) -> Result<Tags<'a>, Error> {
         let mut tags = Tags::default();
         for glob in pattern.globs() {
             let namespaced = self.namespaced_pattern(glob)?;
@@ -121,11 +121,14 @@ impl Repository {
     }
 
     /// Lists tag names in the local RefScope.
-    pub fn tag_names(&self, filter: &Glob<Tag>) -> Result<TagNames, Error> {
+    pub fn tag_names<'a>(&'a self, filter: &Glob<Tag>) -> Result<TagNames<'a>, Error> {
         Ok(self.tags(filter)?.names())
     }
 
-    pub fn categories(&self, pattern: &Glob<Qualified<'_>>) -> Result<Categories, Error> {
+    pub fn categories<'a>(
+        &'a self,
+        pattern: &Glob<Qualified<'_>>,
+    ) -> Result<Categories<'a>, Error> {
         let mut cats = Categories::default();
         for glob in pattern.globs() {
             let namespaced = self.namespaced_pattern(glob)?;
@@ -327,7 +330,7 @@ impl Repository {
     // TODO(finto): I think this can be removed in favour of using
     // `source::Blob::new`
     /// Retrieves the file with `path` in this commit.
-    pub fn get_commit_file<P, R>(&self, rev: &R, path: &P) -> Result<FileContent, Error>
+    pub fn get_commit_file<'a, P, R>(&'a self, rev: &R, path: &P) -> Result<FileContent<'a>, Error>
     where
         P: AsRef<Path>,
         R: Revision,
@@ -383,7 +386,7 @@ impl Repository {
     }
 
     /// Returns the history with the `head` commit.
-    pub fn history<C: ToCommit>(&self, head: C) -> Result<History, Error> {
+    pub fn history<'a, C: ToCommit>(&'a self, head: C) -> Result<History<'a>, Error> {
         History::new(self, head)
     }
 
@@ -416,7 +419,10 @@ impl Repository {
         self.inner.is_bare()
     }
 
-    pub(crate) fn find_submodule(&self, name: &str) -> Result<git2::Submodule, git2::Error> {
+    pub(crate) fn find_submodule<'a>(
+        &'a self,
+        name: &str,
+    ) -> Result<git2::Submodule<'a>, git2::Error> {
         self.inner.find_submodule(name)
     }
 
@@ -492,12 +498,12 @@ impl Repository {
     /// expected.
     ///
     /// Reference: <https://github.com/libgit2/libgit2/issues/6637>
-    fn diff_commits(
-        &self,
+    fn diff_commits<'a>(
+        &'a self,
         path: Option<&Path>,
         from: Option<&git2::Commit>,
         to: &git2::Commit,
-    ) -> Result<git2::Diff, Error> {
+    ) -> Result<git2::Diff<'a>, Error> {
         let new_tree = to.tree()?;
         let old_tree = from.map_or(Ok(None), |c| c.tree().map(Some))?;
 
