@@ -21,7 +21,7 @@ impl Command {
             Self::Build(current)
         } else {
             Self::Publish(PathBuf::from(
-                env::var("OUT_DIR").map_err(|err| io::Error::new(io::ErrorKind::Other, err))?,
+                env::var("OUT_DIR").map_err(io::Error::other)?,
             ))
         })
     }

@@ -159,7 +159,7 @@ proptest! {
     #[test]
     fn valid_commits(commits in proptest::collection::vec(gen::commit::commit(), 5..20)) {
         let repo = tempdir::WithTmpDir::new(|path| {
-            git2::Repository::init(path).map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+            git2::Repository::init(path).map_err(io::Error::other)
         }).unwrap();
         let commits = gen::commit::write_commits(&repo, commits).unwrap();
         repo.reference("refs/heads/master", *commits.last().unwrap(), true, "").unwrap();
@@ -177,10 +177,8 @@ proptest! {
 
 #[test]
 fn write_valid_commit() {
-    let repo = WithTmpDir::new(|path| {
-        git2::Repository::init(path).map_err(|err| io::Error::new(io::ErrorKind::Other, err))
-    })
-    .unwrap();
+    let repo =
+        WithTmpDir::new(|path| git2::Repository::init(path).map_err(io::Error::other)).unwrap();
 
     let author = Author {
         name: "Terry".to_owned(),

@@ -87,5 +87,5 @@ fn io_other<E>(e: E) -> io::Error
 where
     E: std::error::Error + Send + Sync + 'static,
 {
-    io::Error::new(io::ErrorKind::Other, e)
+    io::Error::other(e)
 }

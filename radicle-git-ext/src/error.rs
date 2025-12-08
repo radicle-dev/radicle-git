@@ -13,5 +13,5 @@ pub fn into_git_err<E: Display>(e: E) -> git2::Error {
 }
 
 pub fn into_io_err(e: git2::Error) -> io::Error {
-    io::Error::new(io::ErrorKind::Other, e)
+    io::Error::other(e)
 }
