@@ -1,6 +1,6 @@
 [package]
 name = "git-ref-format-core"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Kim Altintop <kim@eagain.st>"]
 description = "Core types for the git-ref-format crate"
 keywords = ["git", "references"]

@@ -1,6 +1,6 @@
 [package]
 name = "radicle-std-ext"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["The Radicle Team <dev@radicle.xyz>"]
 description = "Monkey patches of std types"
 keywords = ["std", "radicle"]
