@@ -5,12 +5,13 @@ authors = [
   "Kim Altintop <kim@eagain.st>",
   "Fintan Halpenny <fintan.halpenny@gmail.com>",
 ]
-edition = "2021"
-homepage = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/tree/README.md"
-repository = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt"
-license = "MIT OR Apache-2.0"
 description = "Everything you never knew you wanted for handling git ref names."
 keywords = ["git", "references"]
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
 
 [lib]
 doctest = false

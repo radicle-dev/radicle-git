@@ -7,12 +7,13 @@ authors = [
   "Fintan Halpenny <fintan.halpenny@gmail.com",
   "Han Xu <keepsimple@gmail.com>",
 ]
-edition = "2021"
-homepage = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/tree/README.md"
-repository = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt"
-license = "MIT OR Apache-2.0"
 description = "Utilities and extensions to the git2 crate"
 keywords = ["git", "radicle"]
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
 
 [lib]
 doctest = false

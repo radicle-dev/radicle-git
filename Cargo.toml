@@ -6,3 +6,18 @@ members = [
   "test",
 ]
 resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+homepage = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/tree/README.md"
+repository = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt"
+# The MSRV of this crate was found using `cargo-msrv`
+# Even though some crates in this workspace may build fine
+# on a lower version, we set it here and inherit in all
+# crates. This is to simplify maintenance. As of 2025-12-08
+# we do not have the capacity to think about `rust-version`
+# *per crate*. If anyone ever wants to set it to a different
+# value per crate, this is of course possible. We're waiting
+# for the day it makes a difference…
+rust-version = "1.78.0"

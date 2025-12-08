@@ -4,10 +4,11 @@ description = "A code surfing library for Git repositories"
 readme = "README.md"
 version = "0.25.0"
 authors = ["The Radicle Team <dev@radicle.xyz>"]
-edition = "2021"
-homepage = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/tree/radicle-surf/README.md"
-repository = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt"
-license = "MIT OR Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
 
 include = [
     "**/*.rs",

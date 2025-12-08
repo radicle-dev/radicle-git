@@ -2,12 +2,14 @@
 name = "radicle-std-ext"
 version = "0.1.1"
 authors = ["The Radicle Team <dev@radicle.xyz>"]
-edition = "2021"
-homepage = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/tree/README.md"
-repository = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt"
-license = "MIT OR Apache-2.0"
 description = "Monkey patches of std types"
 keywords = ["std", "radicle"]
+homepage.workspace = true
+repository.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
 
 [lib]
 doctest = false

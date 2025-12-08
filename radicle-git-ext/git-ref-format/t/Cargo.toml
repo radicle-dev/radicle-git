@@ -1,8 +1,8 @@
 [package]
 name = "git-ref-format-test"
 version = "0.1.0"
-edition = "2021"
-license = "MIT OR Apache-2.0"
+workspace.edition = true
+workspace.license = true
 
 publish = false
 

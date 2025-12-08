@@ -193,6 +193,7 @@
         # Extra inputs can be added here; cargo and rustc are provided by default.
         packages = [
           pkgs.cargo-deny
+          pkgs.cargo-msrv
           pkgs.cargo-nextest
           pkgs.cargo-semver-checks
           pkgs.cargo-watch
