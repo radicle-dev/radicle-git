@@ -53,7 +53,7 @@ impl Revision for &str {
     type Error = git2::Error;
 
     fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
-        Oid::from_str(self).map(Oid::from)
+        Oid::from_str(self)
     }
 }
 
@@ -78,7 +78,7 @@ impl Revision for String {
     type Error = git2::Error;
 
     fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
-        Oid::from_str(self).map(Oid::from)
+        Oid::from_str(self)
     }
 }
 
