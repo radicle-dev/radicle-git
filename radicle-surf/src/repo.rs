@@ -510,6 +510,7 @@ impl Repository {
         let mut opts = git2::DiffOptions::new();
         if let Some(path) = path {
             opts.pathspec(path.to_string_lossy().to_string());
+            opts.disable_pathspec_match(true);
             opts.skip_binary_check(false);
         }
 

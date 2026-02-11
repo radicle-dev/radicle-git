@@ -114,7 +114,7 @@ impl File {
     ///
     /// The path is relative to the git repository root.
     pub fn path(&self) -> PathBuf {
-        self.prefix.join(escaped_name(&self.name))
+        self.prefix.join(&self.name)
     }
 
     /// Return the [`Path`] where this `File` is located, relative to the
@@ -345,7 +345,7 @@ impl Directory {
     ///
     /// The path is relative to the git repository root.
     pub fn path(&self) -> PathBuf {
-        self.prefix.join(escaped_name(&self.name))
+        self.prefix.join(&self.name)
     }
 
     /// Return the [`Path`] where this `Directory` is located, relative to the
@@ -587,7 +587,7 @@ impl Submodule {
     ///
     /// The path is relative to the git repository root.
     pub fn path(&self) -> PathBuf {
-        self.prefix.join(escaped_name(&self.name))
+        self.prefix.join(&self.name)
     }
 
     /// The object identifier of this `Submodule`.
@@ -602,10 +602,4 @@ impl Submodule {
     pub fn url(&self) -> &Option<Url> {
         &self.url
     }
-}
-
-/// When we need to escape "\" (represented as `\\`) for `PathBuf`
-/// so that it can be processed correctly.
-fn escaped_name(name: &str) -> String {
-    name.replace('\\', r"\\")
 }

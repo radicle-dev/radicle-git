@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [Unreleased]
+
+### Fixed
+
+- `radicle-surf` has learned how to handle directories that use `[]` in their
+  name. This was a limitation in how the `git2` library was used for searching
+  "pathspecs".
+
 ## Version 0.25.0
 
 * Update to `radicle-git-ext-0.10.0` [6422fd5](https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9rUW8phgA3b5yGt/commits/6422fd580b1c9c96ba40620197e29d7b9fbe2824)

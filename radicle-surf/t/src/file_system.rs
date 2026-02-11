@@ -4,7 +4,7 @@ mod directory {
     use radicle_git_ext::ref_format::refname;
     use radicle_surf::{
         fs::{self, Entry},
-        Branch, Repository,
+        Branch, Oid, Repository,
     };
     use std::path::Path;
 
@@ -136,5 +136,67 @@ mod directory {
             last_commit.id.to_string(),
             "a0dd9122d33dff2a35f564d564db127152c88e02"
         );
+    }
+
+    /// Test that directories and files with glob metacharacters in their names
+    /// can be browsed and have their history retrieved correctly.
+    ///
+    /// This is a regression test for a bug where paths containing `[` were
+    /// interpreted as glob patterns by git's pathspec, causing errors.
+    #[test]
+    fn directory_with_bracket_in_name() {
+        let repo = test_helpers::tempdir::WithTmpDir::new(|path| {
+            git2::Repository::init(path).map_err(std::io::Error::other)
+        })
+        .unwrap();
+
+        // Initialize the repo and create test structure:
+        // src/
+        //   [special-dir]/
+        //     file.txt
+        //   normal-file.txt
+        let commit = {
+            let mut tb = repo.treebuilder(None).unwrap();
+            let hello = repo.blob(b"hello world").unwrap();
+            tb.insert("file.txt", hello, git2::FileMode::Blob.into())
+                .unwrap();
+            let inner = tb.write().unwrap();
+            let mut tb = repo.treebuilder(None).unwrap();
+            let normal = repo.blob(b"normal content").unwrap();
+            tb.insert("normal-file.txt", normal, git2::FileMode::Blob.into())
+                .unwrap();
+            tb.insert("[special-dir]", inner, git2::FileMode::Tree.into())
+                .unwrap();
+            let id = tb.write().unwrap();
+            let mut tb = repo.treebuilder(None).unwrap();
+            tb.insert("src", id, git2::FileMode::Tree.into()).unwrap();
+            let tree = tb.write().unwrap();
+            let tree = repo.find_tree(tree).unwrap();
+            let sig = git2::Signature::now("Test", "test@test.com").unwrap();
+            Oid::from(
+                repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+                    .unwrap(),
+            )
+        };
+
+        let repo = Repository::open(repo.path()).unwrap();
+        let branch = Branch::local(refname!("master"));
+        let root = repo.root_dir(&branch).unwrap();
+
+        let src = root.find_directory(&"src", &repo).unwrap();
+        let src_entries: Vec<Entry> = src.entries(&repo).unwrap().collect();
+        assert_eq!(src_entries.len(), 2);
+
+        let special_dir = src.find_directory(&"[special-dir]", &repo).unwrap();
+        assert_eq!(special_dir.name(), "[special-dir]");
+
+        let dir_path = special_dir.path();
+        let dir_last_commit = repo.last_commit(&dir_path, &branch).unwrap();
+        assert_eq!(dir_last_commit.map(|c| c.id), Some(commit));
+
+        let file = special_dir.find_file(&"file.txt", &repo).unwrap();
+        let file_path = file.path();
+        let file_last_commit = repo.last_commit(&file_path, &branch).unwrap();
+        assert_eq!(file_last_commit.map(|c| c.id), Some(commit));
     }
 }

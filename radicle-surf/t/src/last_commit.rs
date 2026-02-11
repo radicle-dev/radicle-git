@@ -78,7 +78,7 @@ fn can_get_last_commit_for_special_filenames() {
     let expected_commit_id = Oid::from_str("a0dd9122d33dff2a35f564d564db127152c88e02").unwrap();
 
     let backslash_commit_id = repo
-        .last_commit(&r"special/faux\\path", oid)
+        .last_commit(&"special/faux\\path", oid)
         .expect("Failed to get last commit")
         .map(|commit| commit.id);
     assert_eq!(backslash_commit_id, Some(expected_commit_id));
