@@ -37,9 +37,7 @@ thiserror = "1.0"
 url = "2.5.4"
 
 [dependencies.git2]
-version = "0.19"
-default-features = false
-features = ["vendored-libgit2"]
+workspace = true
 
 [dependencies.radicle-git-ext]
 version = "0.11.0"

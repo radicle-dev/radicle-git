@@ -21,3 +21,6 @@ repository = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:z6cFWeWpnZNHh9r
 # value per crate, this is of course possible. We're waiting
 # for the day it makes a difference…
 rust-version = "1.78.0"
+
+[workspace.dependencies]
+git2 = { version = "0.20", default-features = false, features = ["vendored-libgit2"] }
