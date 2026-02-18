@@ -2,7 +2,7 @@
 name = "radicle-surf"
 description = "A code surfing library for Git repositories"
 readme = "README.md"
-version = "0.26.0"
+version = "0.27.0"
 authors = ["The Radicle Team <dev@radicle.xyz>"]
 homepage.workspace = true
 repository.workspace = true

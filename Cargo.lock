@@ -730,7 +730,7 @@ version = "0.2.0"
 
 [[package]]
 name = "radicle-surf"
-version = "0.26.0"
+version = "0.27.0"
 dependencies = [
  "anyhow",
  "base64",
