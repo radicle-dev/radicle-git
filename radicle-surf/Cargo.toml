@@ -40,7 +40,7 @@ url = "2.5.4"
 workspace = true
 
 [dependencies.radicle-git-ext]
-version = "0.11.0"
+version = "0.12.0"
 path = "../radicle-git-ext"
 features = ["serde"]
 
