@@ -3,7 +3,6 @@
 use proptest::strategy::Strategy;
 
 pub mod commit;
-pub mod urn;
 
 pub fn alphanumeric() -> impl Strategy<Value = String> {
     "[a-zA-Z0-9_]+"
