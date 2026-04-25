@@ -269,7 +269,10 @@ impl Entry {
         path: PathBuf,
         repo: &Repository,
     ) -> Result<Self, error::Directory> {
-        let name = entry.name().ok_or(error::Directory::Utf8Error)?.to_string();
+        let name = entry
+            .name()
+            .map_err(|_| error::Directory::Utf8Error)?
+            .to_string();
         let id = entry.id().into();
 
         match entry.kind() {

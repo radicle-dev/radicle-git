@@ -12,5 +12,5 @@ pub fn gen_oid(kind: git2::ObjectType) -> impl Strategy<Value = Oid> {
 /// of the type indicated in parameter `kind` or a zeroed `Oid` with
 /// equal probability
 pub fn gen_oid_with_zero(kind: git2::ObjectType) -> impl Strategy<Value = Oid> {
-    prop_oneof![gen_oid(kind), Just(git2::Oid::zero().into()),]
+    prop_oneof![gen_oid(kind), Just(git2::Oid::ZERO_SHA1.into()),]
 }

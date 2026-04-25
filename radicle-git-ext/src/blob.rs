@@ -92,8 +92,9 @@ impl<'a> Blob<'a> {
                     Branch::Ref(reference) => {
                         match (reference.target(), reference.symbolic_target()) {
                             (Some(oid), _) => Ok(revwalk::Start::Oid(oid)),
-                            (_, Some(sym)) => Ok(revwalk::Start::Ref(sym.to_string())),
-                            (_, _) => Err(Error::NotFound(NotFound::NoRefTarget)),
+                            (_, Ok(Some(sym))) => Ok(revwalk::Start::Ref(sym.to_string())),
+                            (_, Ok(None)) => Err(Error::NotFound(NotFound::NoRefTarget)),
+                            (_, Err(err)) => Err(Error::Git(err)),
                         }
                     }
                 }?;

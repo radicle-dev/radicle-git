@@ -276,7 +276,10 @@ impl TryFrom<git2::Buf> for Commit {
     type Error = error::Parse;
 
     fn try_from(value: git2::Buf) -> Result<Self, Self::Error> {
-        value.as_str().ok_or(error::Parse::InvalidFormat)?.parse()
+        value
+            .as_str()
+            .map_err(|_| error::Parse::InvalidFormat)?
+            .parse()
     }
 }
 
