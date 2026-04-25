@@ -409,6 +409,10 @@ impl Repository {
 
         Ok(contained_branches)
     }
+
+    pub fn object_format(&self) -> git2::ObjectFormat {
+        self.inner.object_format()
+    }
 }
 
 ////////////////////////////////////////////////////////////

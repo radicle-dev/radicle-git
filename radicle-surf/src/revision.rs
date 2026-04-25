@@ -1,4 +1,4 @@
-use std::{convert::Infallible, str::FromStr};
+use std::convert::Infallible;
 
 use git_ext::{
     ref_format::{Qualified, RefString},
@@ -52,8 +52,8 @@ impl Revision for Oid {
 impl Revision for &str {
     type Error = git2::Error;
 
-    fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
-        Oid::from_str(self)
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        Oid::from_str_ext(self, repo.object_format())
     }
 }
 
@@ -77,8 +77,8 @@ impl Revision for Tag {
 impl Revision for String {
     type Error = git2::Error;
 
-    fn object_id(&self, _repo: &Repository) -> Result<Oid, Self::Error> {
-        Oid::from_str(self)
+    fn object_id(&self, repo: &Repository) -> Result<Oid, Self::Error> {
+        Oid::from_str_ext(self, repo.object_format())
     }
 }
 

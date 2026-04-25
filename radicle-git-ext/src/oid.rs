@@ -9,6 +9,12 @@ use std::{
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Oid(git2::Oid);
 
+impl Oid {
+    pub fn from_str_ext(s: &str, format: git2::ObjectFormat) -> Result<Self, git2::Error> {
+        Ok(Self(git2::Oid::from_str_ext(s, format)?))
+    }
+}
+
 #[cfg(feature = "serde")]
 mod serde_impls {
     use super::*;

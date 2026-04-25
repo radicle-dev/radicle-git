@@ -291,10 +291,10 @@ impl TryFrom<&[u8]> for Commit {
     }
 }
 
-impl FromStr for Commit {
-    type Err = error::Parse;
+impl Commit {
+    pub fn from_str_ext(buffer: &str, format: git2::ObjectFormat) -> Result<Self, error::Parse> {
+        let from_str_ext = |s: &str| Oid::from_str_ext(s, format);
 
-    fn from_str(buffer: &str) -> Result<Self, Self::Err> {
         let (header, message) = buffer
             .split_once("\n\n")
             .ok_or(error::Parse::InvalidFormat)?;
@@ -303,7 +303,7 @@ impl FromStr for Commit {
         let tree = match lines.next() {
             Some(tree) => tree
                 .strip_prefix("tree ")
-                .map(git2::Oid::from_str)
+                .map(from_str_ext)
                 .transpose()
                 .map_err(|err| error::Parse::InvalidHeader {
                     header: "tree",
@@ -333,7 +333,7 @@ impl FromStr for Commit {
 
             if let Some((name, value)) = line.split_once(' ') {
                 match name {
-                    "parent" => parents.push(git2::Oid::from_str(value).map_err(|err| {
+                    "parent" => parents.push(from_str_ext(value).map_err(|err| {
                         error::Parse::InvalidHeader {
                             header: "parent",
                             err,
@@ -365,6 +365,14 @@ impl FromStr for Commit {
             message,
             trailers,
         })
+    }
+}
+
+impl FromStr for Commit {
+    type Err = error::Parse;
+
+    fn from_str(buffer: &str) -> Result<Self, Self::Err> {
+        Self::from_str_ext(buffer, git2::ObjectFormat::Sha1)
     }
 }
 
