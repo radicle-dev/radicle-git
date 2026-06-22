@@ -1,6 +1,6 @@
 [package]
 name = "git-ref-format"
-version = "0.6.0"
+version = "0.7.0"
 authors = [
   "Kim Altintop <kim@eagain.st>",
   "Fintan Halpenny <fintan.halpenny@gmail.com>",
@@ -29,6 +29,6 @@ version = "0.6.0"
 path = "./core"
 
 [dependencies.git-ref-format-macro]
-version = "0.6.0"
+version = "0.7.0"
 path = "./macro"
 optional = true

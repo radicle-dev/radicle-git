@@ -1,6 +1,6 @@
 [package]
 name = "radicle-git-ext"
-version = "0.12.0"
+version = "0.13.0"
 authors = [
   "Alexis Sellier <alexis@radicle.xyz>",
   "Kim Altintop <kim@eagain.st>",
@@ -32,7 +32,7 @@ thiserror = "1"
 workspace = true
 
 [dependencies.git-ref-format]
-version = "0.6.0"
+version = "0.7.0"
 path = "./git-ref-format"
 features = ["macro", "serde"]
 
