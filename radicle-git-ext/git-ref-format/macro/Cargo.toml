@@ -16,7 +16,7 @@ proc-macro = true
 test = false
 
 [dependencies]
-proc-macro-error2 = "2"
+proc-macro-error3 = "3"
 quote = "1"
 syn = "2"
 
